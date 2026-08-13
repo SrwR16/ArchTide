@@ -75,6 +75,7 @@ ContentPage {
                 checked: Config.options.background.widgets.water_reminder.enable ?? false
                 onCheckedChanged: {
                     Config.options.background.widgets.water_reminder.enable = checked;
+                    WaterReminderService.setEnabled(checked);
                 }
             }
 

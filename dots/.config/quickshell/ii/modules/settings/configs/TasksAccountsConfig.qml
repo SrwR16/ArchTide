@@ -889,8 +889,10 @@ Item {
             checked: Config.options.googleDrive.enabled
             configPage: Qt.resolvedUrl("widgets/GoogleDriveBackupConfig.qml")
             onCheckedChanged: {
-                if (checked !== Config.options.googleDrive.enabled)
+                if (checked !== Config.options.googleDrive.enabled) {
                     Config.options.googleDrive.enabled = checked;
+                    GoogleDriveService.setEnabled(checked);
+                }
             }
         }
     }

@@ -73,4 +73,13 @@ Singleton {
             root._busy = false;
         }
     }
+
+    // Stop any in-flight sampling immediately. The sample timer is bound to
+    // `active || videoPlaying`, so disabling the music-video mode already stops
+    // it; this also kills a frame extraction that is mid-flight.
+    function deactivate() {
+        sampleTimer.stop();
+        samplerProc.running = false;
+        root._busy = false;
+    }
 }

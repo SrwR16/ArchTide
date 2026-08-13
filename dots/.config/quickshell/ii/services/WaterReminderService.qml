@@ -111,8 +111,16 @@ Singleton {
         id: checkTimer
         interval: 60000
         repeat: true
-        running: true
+        running: root.enabled
         onTriggered: root._check()
+    }
+
+    // Called by the settings toggle. The timer itself is bound to `enabled`,
+    // so stopping it needs no wiring here — this only reloads the day counter
+    // so a re-enable mid-session picks up from where it left off.
+    function setEnabled(on) {
+        if (on && Config.ready && Persistent.ready)
+            root._load();
     }
 
     Connections {

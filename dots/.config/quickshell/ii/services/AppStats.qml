@@ -309,6 +309,35 @@ Singleton {
         restartTimer.restart();
     }
 
+    // Called by the Settings toggle. Disabling stops the sampler, the install
+    // probe and the day-file retry loops right away instead of leaving them to
+    // idle until the `enabled` bindings settle; enabling re-probes and relaunches.
+    // The parsed day history is deliberately kept in memory so the overlay can
+    // keep showing it while collection is paused.
+    // sampler.running, todayRetryTimer.running and idleMonitor.enabled are all
+    // bindings on root.enabled, so they must not be stopped manually here — that
+    // would destroy the bindings and break re-enable.
+    function setEnabled(on) {
+        if (on) {
+            root.checkInstall();
+            root.restart();
+        } else {
+            root.deactivate();
+        }
+    }
+
+    function deactivate() {
+        root.running = false;
+        root.lastSample = null;
+        root.restarting = false;
+        root.loadBatch = [];
+        restartTimer.stop();
+        reloadTimer.stop();
+        clearTimer.stop();
+        installProbe.running = false;
+        storageProcess.running = false;
+    }
+
     function handleLine(line) {
         if (!line || line.length === 0) return;
         let msg;

@@ -52,6 +52,7 @@ ContentPage {
                 checked: page.opts.enable
                 onCheckedChanged: {
                     Config.options.appStats.enable = checked;
+                    AppStats.setEnabled(checked);
                 }
 
                 StyledToolTip {

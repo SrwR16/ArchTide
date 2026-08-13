@@ -142,6 +142,37 @@ Singleton {
         root.checkMetered();
     }
 
+    // Called by the Settings toggle. Disabling stops whatever is running right
+    // away instead of leaving the scheduled timer to idle; re-enabling re-runs
+    // the config init so rclone/network checks and a due boot sync resume.
+    // Note: syncTimer.running is a binding on options.enabled, so it must not be
+    // stopped manually here — that would destroy the binding and break re-enable.
+    function setEnabled(on: bool): void {
+        if (on) {
+            root.activate();
+        } else {
+            root.deactivate();
+        }
+    }
+
+    function deactivate(): void {
+        root.cancelSync();
+        networkSyncTimer.stop();
+        root.bootSyncPending = false;
+        root.bootHandled = false;
+        root.checking = false;
+        checkProcess.running = false;
+        meteredProcess.running = false;
+        driveInfoProcess.running = false;
+    }
+
+    function activate(): void {
+        if (!Config.ready)
+            return;
+        root.bootHandled = false;
+        root.initializeAfterConfig();
+    }
+
     function shouldRunBootSync(): bool {
         const lastSyncAt = Date.parse(String(options.lastSyncTime || ""));
         if (options.lastSyncStatus === "running") {
