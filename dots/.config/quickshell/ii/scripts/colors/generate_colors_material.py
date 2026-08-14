@@ -289,7 +289,7 @@ if args.termscheme is not None:
     except KeyError:
         primary_color_argb = hex_to_argb("#ffffff")
     
-for color, val in term_source_colors.items():
+    for color, val in term_source_colors.items():
         if(args.scheme == 'monochrome') :
             term_colors[color] = val
             continue
@@ -302,21 +302,21 @@ for color, val in term_source_colors.items():
             harmonized = boost_chroma_tone(harmonized, 1, 1 + (args.term_fg_boost * (1 if darkmode else -1)))
         term_colors[color] = argb_to_hex(harmonized)
 
-# Define high-contrast semantic mappings to prevent invisible text in light mode
-if darkmode:
-    term_colors['term_bg'] = term_colors['term0']
-    term_colors['term_fg'] = term_colors['term7']
-    term_colors['ansi0'] = term_colors['term0']
-    term_colors['ansi7'] = term_colors['term7']
-    term_colors['ansi8'] = term_colors['term8']
-    term_colors['ansi15'] = term_colors['term15']
-else:
-    term_colors['term_bg'] = term_colors['term0']      # light background
-    term_colors['term_fg'] = term_colors['term7']      # dark foreground
-    term_colors['ansi0'] = term_colors['term7']        # dark black
-    term_colors['ansi7'] = term_colors['term0']        # light white
-    term_colors['ansi8'] = term_colors['term8']        # dark grey
-    term_colors['ansi15'] = term_colors['term0']       # light white
+    # Define high-contrast semantic mappings to prevent invisible text in light mode
+    if darkmode:
+        term_colors['term_bg'] = term_colors['term0']
+        term_colors['term_fg'] = term_colors['term7']
+        term_colors['ansi0'] = term_colors['term0']
+        term_colors['ansi7'] = term_colors['term7']
+        term_colors['ansi8'] = term_colors['term8']
+        term_colors['ansi15'] = term_colors['term15']
+    else:
+        term_colors['term_bg'] = term_colors['term0']      # light background
+        term_colors['term_fg'] = term_colors['term7']      # dark foreground
+        term_colors['ansi0'] = term_colors['term7']        # dark black
+        term_colors['ansi7'] = term_colors['term0']        # light white
+        term_colors['ansi8'] = term_colors['term8']        # dark grey
+        term_colors['ansi15'] = term_colors['term0']       # light white
 
 
 

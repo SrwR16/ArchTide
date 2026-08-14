@@ -22,6 +22,8 @@ Singleton {
     property var gammaByMonitor: ({})
     property bool controllerReady: false
     property bool controllerWanted: true
+    property int controllerRestartAttempts: 0
+    readonly property int controllerRestartLimit: 3
 
     property string from: (Config.options && Config.options.light && Config.options.light.night && Config.options.light.night.from) ? Config.options.light.night.from : "19:00" 
     property string to: (Config.options && Config.options.light && Config.options.light.night && Config.options.light.night.to) ? Config.options.light.night.to : "06:30"
@@ -157,6 +159,7 @@ Singleton {
 
     function startHyprsunset() {
         root.controllerWanted = true;
+        root.controllerRestartAttempts = 0;
         if (!colorControllerProc.running)
             colorControllerProc.running = true;
     }
@@ -172,6 +175,7 @@ Singleton {
                 if (data.trim() !== "READY")
                     return;
                 root.controllerReady = true;
+                root.controllerRestartAttempts = 0;
                 root.syncControllerState();
             }
         }
@@ -187,8 +191,14 @@ Singleton {
 
         onExited: {
             root.controllerReady = false;
-            if (root.controllerWanted)
-                controllerRestartTimer.restart();
+            if (!root.controllerWanted)
+                return;
+            root.controllerRestartAttempts++;
+            if (root.controllerRestartAttempts > root.controllerRestartLimit) {
+                console.warn(`[Hyprsunset] color controller exited ${root.controllerRestartAttempts} times in a row; giving up (a stale daemon may hold the CTM manager).`);
+                return;
+            }
+            controllerRestartTimer.restart();
         }
     }
 
