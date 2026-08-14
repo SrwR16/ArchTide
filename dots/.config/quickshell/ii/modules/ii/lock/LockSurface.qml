@@ -69,6 +69,19 @@ MouseArea {
     // Key presses
     property bool ctrlHeld: false
     Keys.onPressed: event => {
+        switch (event.key) {
+        case Qt.Key_Shift:
+        case Qt.Key_ShiftLock:
+        case Qt.Key_Alt:
+        case Qt.Key_AltGr:
+        case Qt.Key_Meta:
+        case Qt.Key_Super_L:
+        case Qt.Key_Super_R:
+        case Qt.Key_Hyper_L:
+        case Qt.Key_Hyper_R:
+            event.accepted = true;
+            return;
+        }
         root.context.resetClearTimer();
         if (event.key === Qt.Key_Control) {
             root.ctrlHeld = true;
@@ -379,6 +392,20 @@ MouseArea {
             }
 
             Keys.onPressed: event => {
+                switch (event.key) {
+                case Qt.Key_Shift:
+                case Qt.Key_ShiftLock:
+                case Qt.Key_Control:
+                case Qt.Key_Alt:
+                case Qt.Key_AltGr:
+                case Qt.Key_Meta:
+                case Qt.Key_Super_L:
+                case Qt.Key_Super_R:
+                case Qt.Key_Hyper_L:
+                case Qt.Key_Hyper_R:
+                    event.accepted = true;
+                    return;
+                }
                 root.context.resetClearTimer();
             }
             

@@ -59,12 +59,12 @@ Scope {
     }
 
     PanelLoader {
-        extraCondition: !Config.options.bar.vertical && barExtraCondition && !GlobalStates.connectModeActive
-        component: Bar {}
-    }
-    PanelLoader {
         extraCondition: Config.options.background.enable
         component: Background {}
+    }
+    PanelLoader {
+        extraCondition: !Config.options.bar.vertical && barExtraCondition && !GlobalStates.connectModeActive
+        component: Bar {}
     }
     PanelLoader {
         component: Cheatsheet {}
