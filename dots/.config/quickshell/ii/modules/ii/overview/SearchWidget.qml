@@ -402,6 +402,9 @@ Item {
                     } else if (root.isMaterialSymbolsMode) {
                         if (materialSymbolsPanelLoader.item)
                             materialSymbolsPanelLoader.item.navigateUp();
+                    } else if (root.showSuggestionsPanel) {
+                        if (suggestionsPanelLoader.item)
+                            suggestionsPanelLoader.item.navigateUp();
                     } else {
                         if (appResults.count > 0 && appResults.currentIndex > 0)
                             appResults.currentIndex--;
@@ -424,6 +427,9 @@ Item {
                     } else if (root.isMaterialSymbolsMode) {
                         if (materialSymbolsPanelLoader.item)
                             materialSymbolsPanelLoader.item.navigateDown();
+                    } else if (root.showSuggestionsPanel) {
+                        if (suggestionsPanelLoader.item)
+                            suggestionsPanelLoader.item.navigateDown();
                     } else {
                         if (appResults.count > 0 && appResults.currentIndex < appResults.count - 1)
                             appResults.currentIndex++;
@@ -467,6 +473,8 @@ Item {
                         mediaDownloaderPanelLoader.item.activateSelected();
                     else if (root.isMaterialSymbolsMode && materialSymbolsPanelLoader.item)
                         materialSymbolsPanelLoader.item.activateSelected();
+                    else if (root.showSuggestionsPanel && suggestionsPanelLoader.item)
+                        suggestionsPanelLoader.item.activateSelected();
                 }
 
                 onDeleteSelected: {
