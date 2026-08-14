@@ -315,9 +315,11 @@ Singleton {
             var a = root.ignoreAlpha;
             var barA = root.barIgnoreAlpha;
             var script = "";
-            script += "hl.layer_rule({ match = { namespace = 'quickshell(:(bar|dock|topLayer|sidebar.*|popup|.*[pP]opup|cheatsheet|usage|session|overview|mediaControls|notificationPopup|floatingNotch|onScreenDisplay|osk|wStartMenu|wTaskView|wNotificationCenter|wOnScreenDisplay|actionCenter))?' }, blur = true, blur_popups = true, ignore_alpha = " + a + " }) ";
+            // Bar-specific rule FIRST (more specific) so barIgnoreAlpha is used
+            script += "hl.layer_rule({ match = { namespace = 'quickshell:(bar|floatingNotch)' }, blur = true, blur_popups = true, ignore_alpha = " + barA + " }) ";
+            // General quickshell layers
+            script += "hl.layer_rule({ match = { namespace = 'quickshell(:(dock|topLayer|sidebar.*|popup|.*[pP]opup|cheatsheet|usage|session|overview|mediaControls|notificationPopup|onScreenDisplay|osk|wStartMenu|wTaskView|wNotificationCenter|wOnScreenDisplay|actionCenter))?' }, blur = true, blur_popups = true, ignore_alpha = " + a + " }) ";
             script += "hl.layer_rule({ match = { namespace = 'quickshell:.*[pP]opup' }, blur = true, blur_popups = true, ignore_alpha = " + a + " }) ";
-            script += "hl.layer_rule({ match = { namespace = 'quickshell:(bar|floatingNotch)' }, blur = true, ignore_alpha = " + barA + " }) ";
             script += "hl.layer_rule({ match = { namespace = 'quickshell:background' }, blur = false }) ";
             script += "hl.layer_rule({ match = { namespace = 'quickshell:screenCorners' }, order = 10 }) ";
             script += "hl.layer_rule({ match = { namespace = 'quickshell:session' }, blur = true, ignore_alpha = 0.0 }) ";
@@ -331,12 +333,24 @@ Singleton {
     }
 
     property bool _isApplyingRules: false
+    property bool _rulesApplied: false
     // Border size, border colour, gaps, rounding and blur only exist at runtime:
     // a config reload throws them away and puts the Lua file's values back. So a
     // reload arriving mid-cooldown cannot simply be ignored — nothing would ever
     // push them again, and the window borders would stay wrong for the rest of
     // the session. Remember it instead and re-apply once the cooldown lapses.
     property bool _rulesReapplyPending: false
+
+    // Ensure blur/layer rules are applied once Config is ready
+    Connections {
+        target: Config
+        function onReadyChanged() {
+            if (Config.ready && !root._rulesApplied) {
+                root._rulesApplied = true;
+                root.applyHyprlandRules();
+            }
+        }
+    }
 
     // The border is the only part of this the user can see, and one write can make
     // Hyprland reload several times over, so waiting out the rule cooldown leaves
@@ -391,9 +405,11 @@ Singleton {
         var a = root.ignoreAlpha;
         var barA = root.barIgnoreAlpha;
         var bs = "";
-        bs += "hl.layer_rule({ match = { namespace = 'quickshell(:(bar|dock|topLayer|sidebar.*|popup|.*[pP]opup|cheatsheet|usage|session|overview|mediaControls|notificationPopup|floatingNotch|onScreenDisplay|osk|wStartMenu|wTaskView|wNotificationCenter|wOnScreenDisplay|actionCenter))?' }, blur = true, blur_popups = true, ignore_alpha = " + a + " }) ";
+        // Bar-specific rule FIRST (more specific) so barIgnoreAlpha is used
+        bs += "hl.layer_rule({ match = { namespace = 'quickshell:(bar|floatingNotch)' }, blur = true, blur_popups = true, ignore_alpha = " + barA + " }) ";
+        // General quickshell layers
+        bs += "hl.layer_rule({ match = { namespace = 'quickshell(:(dock|topLayer|sidebar.*|popup|.*[pP]opup|cheatsheet|usage|session|overview|mediaControls|notificationPopup|onScreenDisplay|osk|wStartMenu|wTaskView|wNotificationCenter|wOnScreenDisplay|actionCenter))?' }, blur = true, blur_popups = true, ignore_alpha = " + a + " }) ";
         bs += "hl.layer_rule({ match = { namespace = 'quickshell:.*[pP]opup' }, blur = true, blur_popups = true, ignore_alpha = " + a + " }) ";
-        bs += "hl.layer_rule({ match = { namespace = 'quickshell:(bar|floatingNotch)' }, blur = true, ignore_alpha = " + barA + " }) ";
         bs += "hl.layer_rule({ match = { namespace = 'quickshell:background' }, blur = false }) ";
         bs += "hl.layer_rule({ match = { namespace = 'quickshell:screenCorners' }, order = 10 }) ";
         bs += "hl.layer_rule({ match = { namespace = 'quickshell:session' }, blur = true, ignore_alpha = 0.0 }) ";
