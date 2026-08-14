@@ -479,7 +479,11 @@ Item {
             id: activePositionHelper
             readonly property real indicatorSize: root.shapeDiameter
             readonly property real pillLen: root.pillLength
-            readonly property Item activeItem: listView.contentItem.children[root.getWsIndex(root.activeWsId)]
+            readonly property Item activeItem: {
+                const idx = root.getWsIndex(root.activeWsId);
+                const children = listView.contentItem ? listView.contentItem.children : [];
+                return (idx >= 0 && idx < children.length) ? children[idx] : null;
+            }
 
             x: activeItem ? root.vertical ? (root.width - indicatorSize) / 2 : activeItem.x + listView.x + (activeItem.width - indicatorSize) / 2 : 0
             y: activeItem ? root.vertical ? activeItem.y + listView.y + (activeItem.height - indicatorSize) / 2 : (root.height - indicatorSize) / 2 : 0

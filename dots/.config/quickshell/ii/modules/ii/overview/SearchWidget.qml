@@ -486,7 +486,7 @@ Item {
 
             Item {
                 // Use opacity-driven visibility so results fade out before collapsing on close
-                readonly property bool resultsActive: root.showResults && !root.isAnySpecialMode
+                readonly property bool resultsActive: root.showResults && !root.showSuggestionsPanel && !root.isAnySpecialMode
                 opacity: resultsActive ? 1.0 : 0.0
                 visible: opacity > 0.01
                 Layout.fillWidth: true
