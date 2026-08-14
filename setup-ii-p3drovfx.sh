@@ -46,6 +46,8 @@
 #       --no-hypr             Never install them, never ask
 #       --sddm                Install the Tide SDDM greeter + its matugen template
 #       --no-sddm             Never install them, never ask
+#       --extras              Install the fork's extra configs (mpv + setup scripts)
+#       --no-extras           Never install them, never ask
 #       --rebuild-quickshell  Rebuild Quickshell from source first
 #       --skip-base-check     Do not require illogical-impulse to be present
 #       --ii-subdir <name>    Override ii* auto-detection in the clone
@@ -76,6 +78,9 @@
 # matugen template and the sddm service. The same -y/"no" rule applies, and
 # --sddm is the explicit yes. SDDM writes to /usr/share and /etc, so the
 # installer's own sudo prompts still appear.
+#
+# `install` also offers the fork's extra dotfile folders (currently mpv) on top
+# of the base configs. Same -y/"no" rule; --extras is the explicit yes.
 #
 # Options take --flag=value as well as --flag value, and everything after a
 # bare -- is passed through to hyprset/hyprmerge.
@@ -189,6 +194,7 @@ OPT_II_SUBDIR=""
 OPT_RESTART=true
 OPT_HYPR="" # "" = ask (and -y declines), true/false = explicit
 OPT_SDDM="" # "" = ask on install only (and -y declines), true/false = explicit
+OPT_EXTRAS="" # "" = ask on install only (and -y declines), true/false = explicit
 OPT_SKIP_BASE_CHECK=false
 OPT_ASCII=false
 OPT_NO_COLOR=false
@@ -1789,6 +1795,68 @@ install_sddm_config() {
     return 0
 }
 
+# Extras: fork-shipped dotfile folders beyond the shell/hypr/sddm, each
+# overlaid on ~/.config/<name> during install. A folder may carry a setup
+# script — fetch-*.sh or install.sh — that deploys the folder itself and pulls
+# in external, unversioned dependencies (mpv's Anime4K shaders, material-osc,
+# thumbfast). To ship another folder, add its name here.
+EXTRA_DOTFILES=(
+    mpv
+)
+
+# install_extras_config <repo_root> <verb>
+#
+# Deploys the fork's extra dotfile folders (EXTRA_DOTFILES) onto ~/.config.
+# Offered on `install` only, like the Hyprland overlay; -y declines it and
+# --extras is the explicit yes. A folder with a fetch-*/install.sh runs that
+# script (it self-locates and deploys itself); otherwise the folder is copied
+# over. Safe to re-run — copies are idempotent overlays.
+install_extras_config() {
+    local repo_root="${1:-}" verb="${2:-}"
+
+    [[ "$OPT_EXTRAS" == false ]] && return 0
+
+    if [[ -z "$OPT_EXTRAS" ]]; then
+        # Same rule as hypr/sddm: offered on a fresh install, -y says no, and
+        # an unattended update never touches these underneath somebody.
+        [[ "$verb" == "install" ]] || return 0
+        if [[ "$OPT_ASSUME_YES" == true ]]; then
+            ui_note "Left extras alone. Pass --extras to install them."
+            return 0
+        fi
+        ui_confirm "Install the fork's extra configs (${EXTRA_DOTFILES[*]})?" yes || {
+            ui_note "Left extras alone."
+            return 0
+        }
+    fi
+
+    ui_step "Extras"
+    local name src script deployed=0
+    for name in "${EXTRA_DOTFILES[@]}"; do
+        src="$repo_root/dots/.config/$name"
+        [[ -d "$src" ]] || continue
+        script=""
+        [[ -f "$src/fetch-extras.sh" ]] && script="fetch-extras.sh"
+        [[ -f "$src/install.sh" && -z "$script" ]] && script="install.sh"
+        if [[ -n "$script" ]]; then
+            ui_verbose "running $name/$script"
+            (cd "$src" && bash "./$script") || {
+                ui_fail "$name setup failed" "$script exited $?"
+                return 1
+            }
+        else
+            copy_tree "$src/" "$HOME/.config/$name/" || return 1
+        fi
+        deployed=$((deployed + 1))
+    done
+    if ((deployed == 0)); then
+        ui_note "No extras found in the source."
+        return 0
+    fi
+    ui_ok "Extras" "$deployed folder(s) deployed"
+    return 0
+}
+
 # apply_config <url> <branch> <fork_id> <verb>
 apply_config() {
     local url="$1" branch="$2" fork="$3" verb="$4"
@@ -1912,6 +1980,7 @@ apply_config() {
     # so a half-applied pair of configs is not a state you can end up in.
     install_hypr_config "$repo_root"
     install_sddm_config "$repo_root" "$verb"
+    install_extras_config "$repo_root" "$verb"
 
     if [[ -z "$LOCAL_SRC" && -n "$CLONE_DIR" ]]; then
         rm -rf "$CLONE_DIR"
@@ -2347,6 +2416,8 @@ show_help() {
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-hypr" "$C_RST" "Never install them, never ask"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --sddm" "$C_RST" "Install the Tide SDDM greeter + its matugen template"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-sddm" "$C_RST" "Never install them, never ask"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --extras" "$C_RST" "Install the fork's extra configs (mpv + setup scripts)"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-extras" "$C_RST" "Never install them, never ask"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --rebuild-quickshell" "$C_RST" "Rebuild Quickshell from source first"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --skip-base-check" "$C_RST" "Do not require illogical-impulse to be present"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --ii-subdir <name>" "$C_RST" "Override ii* auto-detection in the clone"
@@ -2373,6 +2444,8 @@ show_help() {
     printf '  %sinstall also offers the fork'"'"'s SDDM greeter (Tide theme + its%s\n' "$C_SUB" "$C_RST"
     printf '  %smatugen template + the sddm service). Same -y/no rule; --sddm is%s\n' "$C_SUB" "$C_RST"
     printf '  %sthe explicit yes. SDDM needs root, so its sudo prompts still appear.%s\n' "$C_SUB" "$C_RST"
+    printf '  %sinstall also offers the fork'"'"'s extra configs (currently mpv, with its%s\n' "$C_SUB" "$C_RST"
+    printf '  %sfetch-extras.sh). Same -y/no rule; --extras is the explicit yes.%s\n' "$C_SUB" "$C_RST"
     printf '  %sOptions take --flag=value as well as --flag value, and everything after%s\n' "$C_SUB" "$C_RST"
     printf '  %sa bare -- is passed through to hyprset/hyprmerge.%s\n' "$C_SUB" "$C_RST"
     printf '  %sAliases: --no-confirm/--noconfirm (-y), --preserve-config (--keep-config),%s\n' "$C_SUB" "$C_RST"
@@ -2495,6 +2568,14 @@ parse_args() {
                 ;;
             --no-sddm | --no-sddm-config)
                 OPT_SDDM=false
+                shift
+                ;;
+            --extras)
+                OPT_EXTRAS=true
+                shift
+                ;;
+            --no-extras)
+                OPT_EXTRAS=false
                 shift
                 ;;
             --skip-base-check | --force-install)
