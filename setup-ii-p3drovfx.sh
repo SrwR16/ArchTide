@@ -44,6 +44,8 @@
 #       --no-restart          Leave Quickshell alone when finished
 #       --hypr                Install the fork's ~/.config/hypr files
 #       --no-hypr             Never install them, never ask
+#       --sddm                Install the Tide SDDM greeter + its matugen template
+#       --no-sddm             Never install them, never ask
 #       --rebuild-quickshell  Rebuild Quickshell from source first
 #       --skip-base-check     Do not require illogical-impulse to be present
 #       --ii-subdir <name>    Override ii* auto-detection in the clone
@@ -69,6 +71,11 @@
 # -y answers it "no" rather than "yes": the Settings update button runs
 # unattended and must not rewrite Hyprland underneath you. --hypr is the way to
 # ask for it in a script.
+#
+# `install` alone also offers the fork's SDDM greeter — the Tide theme, its
+# matugen template and the sddm service. The same -y/"no" rule applies, and
+# --sddm is the explicit yes. SDDM writes to /usr/share and /etc, so the
+# installer's own sudo prompts still appear.
 #
 # Options take --flag=value as well as --flag value, and everything after a
 # bare -- is passed through to hyprset/hyprmerge.
@@ -181,6 +188,7 @@ OPT_REBUILD_QS=false
 OPT_II_SUBDIR=""
 OPT_RESTART=true
 OPT_HYPR="" # "" = ask (and -y declines), true/false = explicit
+OPT_SDDM="" # "" = ask on install only (and -y declines), true/false = explicit
 OPT_SKIP_BASE_CHECK=false
 OPT_ASCII=false
 OPT_NO_COLOR=false
@@ -1720,6 +1728,67 @@ install_hypr_config() {
     return 0
 }
 
+# install_sddm_config <repo_root> <verb>
+#
+# Wires the vendored SDDM setup (dots/.config/sddm plus the matugen sddm
+# template) into ~/.config/matugen, /usr/share/sddm/themes and /etc/sddm.conf.d.
+# Offered on `install` only, like the Hyprland overlay; -y declines it and
+# --sddm is the explicit yes. Runs the fork's dots/.config/sddm/install.sh in
+# its non-interactive mode, which still needs interactive sudo for the system
+# writes, and never disables a display manager that is already running.
+install_sddm_config() {
+    local repo_root="${1:-}" verb="${2:-}"
+
+    [[ "$OPT_SDDM" == false ]] && return 0
+
+    local src="$repo_root/dots/.config/sddm"
+    if [[ ! -f "$src/install.sh" ]]; then
+        # Worth a word only when it was actually asked for. A bare --local ii
+        # config dir never carries the sddm dots, and silence is fine.
+        [[ "$OPT_SDDM" == true ]] &&
+            ui_warn "No dots/.config/sddm in the source — nothing to install."
+        return 0
+    fi
+
+    if [[ -z "$OPT_SDDM" ]]; then
+        # Only ever offered on a fresh install, never on update/switch/apply,
+        # and -y answers it "no": enabling the greeter is not something an
+        # unattended update should do underneath somebody. --sddm is the ask.
+        [[ "$verb" == "install" ]] || return 0
+        if [[ "$OPT_ASSUME_YES" == true ]]; then
+            ui_note "Left SDDM alone. Pass --sddm to install it."
+            return 0
+        fi
+        ui_confirm "Install the Tide SDDM greeter (theme, matugen colours, service)?" yes || {
+            ui_note "Left SDDM alone."
+            return 0
+        }
+    fi
+
+    ui_step "SDDM"
+    local matugen="${XDG_CONFIG_HOME:-$HOME/.config}/matugen"
+    if [[ -d "$repo_root/dots/.config/matugen/templates/sddm" ]]; then
+        mkdir -p "$matugen/templates/sddm"
+        cp -a "$repo_root/dots/.config/matugen/templates/sddm/." "$matugen/templates/sddm/"
+    fi
+
+    # Merge [templates.sddm] into the live matugen config without clobbering
+    # whatever the base install wrote there. Idempotent: re-runs find it present
+    # and skip.
+    local cfg="$matugen/config.toml"
+    if [[ -f "$cfg" ]] && ! grep -q '^\[templates\.sddm\]' "$cfg"; then
+        local block
+        block="$(awk '/^\[templates\.sddm\]/{f=1; print; next} f && /^\[/{f=0} f' "$repo_root/dots/.config/matugen/config.toml" 2>/dev/null || true)"
+        if [[ -n "$block" ]]; then
+            printf '\n%s\n' "$block" >>"$cfg"
+            ui_ok "SDDM matugen" "added [templates.sddm] to $(tilde "$cfg")"
+        fi
+    fi
+
+    (cd "$src" && bash ./install.sh -y) || return 1
+    return 0
+}
+
 # apply_config <url> <branch> <fork_id> <verb>
 apply_config() {
     local url="$1" branch="$2" fork="$3" verb="$4"
@@ -1842,6 +1911,7 @@ apply_config() {
     # After the swap: a swap that failed leaves ~/.config/hypr untouched too,
     # so a half-applied pair of configs is not a state you can end up in.
     install_hypr_config "$repo_root"
+    install_sddm_config "$repo_root" "$verb"
 
     if [[ -z "$LOCAL_SRC" && -n "$CLONE_DIR" ]]; then
         rm -rf "$CLONE_DIR"
@@ -2275,6 +2345,8 @@ show_help() {
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-restart" "$C_RST" "Leave Quickshell alone when finished"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --hypr" "$C_RST" "Install the fork's ~/.config/hypr files"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-hypr" "$C_RST" "Never install them, never ask"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --sddm" "$C_RST" "Install the Tide SDDM greeter + its matugen template"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-sddm" "$C_RST" "Never install them, never ask"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --rebuild-quickshell" "$C_RST" "Rebuild Quickshell from source first"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --skip-base-check" "$C_RST" "Do not require illogical-impulse to be present"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --ii-subdir <name>" "$C_RST" "Override ii* auto-detection in the clone"
@@ -2298,6 +2370,9 @@ show_help() {
     printf '  %sconfig on ~/.config/hypr, leaving custom/ and anything the repo does%s\n' "$C_SUB" "$C_RST"
     printf '  %snot ship alone. -y answers that question no, not yes; --hypr is the%s\n' "$C_SUB" "$C_RST"
     printf '  %sexplicit yes and --no-hypr the permanent no.%s\n' "$C_SUB" "$C_RST"
+    printf '  %sinstall also offers the fork'"'"'s SDDM greeter (Tide theme + its%s\n' "$C_SUB" "$C_RST"
+    printf '  %smatugen template + the sddm service). Same -y/no rule; --sddm is%s\n' "$C_SUB" "$C_RST"
+    printf '  %sthe explicit yes. SDDM needs root, so its sudo prompts still appear.%s\n' "$C_SUB" "$C_RST"
     printf '  %sOptions take --flag=value as well as --flag value, and everything after%s\n' "$C_SUB" "$C_RST"
     printf '  %sa bare -- is passed through to hyprset/hyprmerge.%s\n' "$C_SUB" "$C_RST"
     printf '  %sAliases: --no-confirm/--noconfirm (-y), --preserve-config (--keep-config),%s\n' "$C_SUB" "$C_RST"
@@ -2412,6 +2487,14 @@ parse_args() {
                 ;;
             --no-hypr | --no-hypr-config)
                 OPT_HYPR=false
+                shift
+                ;;
+            --sddm | --sddm-config)
+                OPT_SDDM=true
+                shift
+                ;;
+            --no-sddm | --no-sddm-config)
+                OPT_SDDM=false
                 shift
                 ;;
             --skip-base-check | --force-install)

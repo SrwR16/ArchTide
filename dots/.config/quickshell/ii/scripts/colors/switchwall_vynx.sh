@@ -229,6 +229,18 @@ switch() {
     color="$5"
     theme_file="$6"
 
+    # Mirror the applied wallpaper to the world-readable SDDM dir so the login
+    # greeter shows the current wallpaper. Only when it matches the config path
+    # so a stale racing run cannot clobber a newer wallpaper.
+    if [[ -n "$imgpath" && -f "$imgpath" ]]; then
+        cfg_wall="$(jq -r '.background.wallpaperPath' "$SHELL_CONFIG_FILE" 2>/dev/null)"
+        if [[ -n "$cfg_wall" && "$cfg_wall" != "null" && "$imgpath" == "$cfg_wall" ]]; then
+            mkdir -p /var/tmp/sddm-dotfiles
+            cp -f "$imgpath" /var/tmp/sddm-dotfiles/current_wallpaper 2>/dev/null
+            chmod 644 /var/tmp/sddm-dotfiles/current_wallpaper 2>/dev/null
+        fi
+    fi
+
     # Guard against rapid wallpaper switches racing each other: the all-previews
     # generation below takes over a second, so a second switch launched before it
     # finishes must not have its result overwritten by the older, slower run.
