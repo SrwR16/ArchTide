@@ -29,7 +29,7 @@ end
 
 function parse_workspace_map()
     local home_dir = os.getenv("HOME")
-    local f = io.open(home_dir .. "/.config/illogical-impulse/config.json", "r")
+    local f = io.open(home_dir .. "/.config/archtide/config.json", "r")
     if not f then return false, {}, {} end
     local content = f:read("*all")
     f:close()

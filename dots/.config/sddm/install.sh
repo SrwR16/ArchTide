@@ -33,7 +33,7 @@ primarycolor=$(jq -r '.primary // empty' "$GENERATED_COLORS_FILE" 2>/dev/null)
 onsurfacecolor=$(jq -r '.on_surface // empty' "$GENERATED_COLORS_FILE" 2>/dev/null)
 onprimarycolor=$(jq -r '.on_primary // empty' "$GENERATED_COLORS_FILE" 2>/dev/null)
 
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/ii"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/archtide"
 
 THEME_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/theme"
 THEME_DIR="/usr/share/sddm/themes/tide"
@@ -151,7 +151,7 @@ CFG
     fi
     # Seed the wallpaper mirror so SDDM is never blank: prefer the shell's live
     # wallpaper, then the bundled default. The theme blurs it itself.
-    CUR_WALL="$(jq -r '.background.wallpaperPath // empty' "$XDG_CONFIG_HOME/illogical-impulse/config.json" 2>/dev/null)"
+    CUR_WALL="$(jq -r '.background.wallpaperPath // empty' "$XDG_CONFIG_HOME/archtide/config.json" 2>/dev/null)"
     [ -n "$CUR_WALL" ] || CUR_WALL="$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/user/generated/wallpaper/path.txt" 2>/dev/null)"
     if [ -n "$CUR_WALL" ] && [ -f "$CUR_WALL" ]; then
         cp -f "$CUR_WALL" "$SDDM_DOTFILES_DIR/current_wallpaper" 2>/dev/null || true

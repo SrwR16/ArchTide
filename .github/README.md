@@ -1,4 +1,4 @@
-# [ Quickshell/II ]
+# [ ArchTide ]
 
 Premium Material 3 / Material You dotfiles for Hyprland, powered by Quickshell.
 
@@ -8,7 +8,7 @@ Premium Material 3 / Material You dotfiles for Hyprland, powered by Quickshell.
 
 ## Overview
 
-This repository is a heavily customized fork of **[ii-vynx](https://github.com/vaguesyntax/ii-vynx)**, which itself is based on **[illogical-impulse](https://github.com/end-4/dots-hyprland)**. **This is my personal customization. It's not focused on performance or stability — if you use it, expect a lot of bugs.** If you find one, please open an issue or report it in the ii-p3drovfx thread inside **[end-4 discord](https://discord.gg/GtdRBXgMwq)**. I also accept PRs.
+This repository is **ArchTide** — an independent project derived from ii-vynx (vaguesyntax/ii-vynx), which itself is based on illogical-impulse (end-4/dots-hyprland).
 
 It aims to provide a state-of-the-art Linux desktop experience by strictly adhering to **Material 3 (Material You)** design principles, featuring dynamic theming via Matugen and a highly modular architecture built on **Quickshell**.
 
@@ -19,34 +19,32 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
 
 ### Default installation
 
-Use this if you don't have illogical-impulse already installed. It sets up the base
-dotfiles and everything they need, then puts my config on top.
+Use this if you don't have illogical-impulse already installed. It sets up the base dotfiles and everything they need, then puts ArchTide's config on top.
 
 ```bash
-git clone --recurse-submodules https://github.com/P3DROVFX/ii-p3drovfx.git
-cd ii-p3drovfx
-./setup-ii-p3drovfx.sh install
+git clone --recurse-submodules https://github.com/SrwR16/ArchTide.git
+cd ArchTide
+./setup-archtide.sh install
 ```
 
 ### Minimal installation (only quickshell config)
 
-Use this if illogical-impulse is already working and you only want my Quickshell config.
-Nothing else is touched, and your current config is moved to a backup rather than deleted.
+Use this if illogical-impulse is already working and you only want ArchTide's Quickshell config. Nothing else is touched, and your current config is moved to a backup rather than deleted.
 
 ```bash
-git clone --recurse-submodules https://github.com/P3DROVFX/ii-p3drovfx.git
-cd ii-p3drovfx
-./setup-ii-p3drovfx.sh
+git clone --recurse-submodules https://github.com/SrwR16/ArchTide.git
+cd ArchTide
+./setup-archtide.sh
 ```
 
 ## Documentation
 
-Please refer to the **[upstream ii-vynx wiki](https://github.com/vaguesyntax/ii-vynx/wiki)** for detailed component descriptions.
+Please refer to the **[ArchTide wiki](https://github.com/SrwR16/ArchTide/wiki)** for detailed component descriptions.
 
 ## Credits
 
-- **[end-4](https://github.com/end-4):** Creator of illogical-impulse.
-- **[vaguesyntax](https://github.com/vaguesyntax):** Creator of ii-vynx.
+- **[end-4](https://github.com/end-4):** Creator of illogical-impulse (base).
+- **[vaguesyntax](https://github.com/vaguesyntax):** Creator of ii-vynx (upstream fork).
 - **[pc-trade](https://github.com/pctrade):** Some design and features inspo.
 - **[so-do-i-look-like-him](https://github.com/so-do-i-look-like-him):** Installation bug fixes.
 - **[asteriau](https://github.com/asteriau):** Cheatsheet keybinds animations.

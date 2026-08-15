@@ -1,87 +1,90 @@
-# 🌌 ii-vynx: Quickshell Dotfiles Manager
+# 🌊 ArchTide
 
-A powerful and flexible environment manager for [ii-vynx](https://github.com/vaguesyntax/ii-vynx) (Quickshell + Hyprland). This fork adds advanced source switching and update capabilities directly from your Quickshell settings.
+A premium Material 3 / Material You desktop environment for Hyprland, powered by Quickshell.
 
 ---
 
-## 🚀 Installation
+## Overview
 
-To install **ii-vynx** and set up the management environment, clone this repository and run the setup script:
+ArchTide is an independent project derived from ii-vynx (vaguesyntax/ii-vynx), which itself is based on illogical-impulse (end-4/dots-hyprland). It provides a state-of-the-art Linux desktop experience adhering to Material 3 (Material You) design principles, featuring dynamic theming via Matugen and a highly modular architecture built on Quickshell.
+
+> [!NOTE]
+> This project is a work in progress. Some modules may require manual setup of API keys.
+
+---
+
+## Installation
+
+### Default installation
+
+Use this if you don't have illogical-impulse already installed. It sets up the base dotfiles and everything they need, then puts ArchTide's Quickshell config on top.
 
 ```bash
-git clone https://github.com/P3DROVFX/ii-vynx.git ~/Downloads/ii-vynx
-cd ~/Downloads/ii-vynx
-./setup-ii-vynx.sh
+git clone --recurse-submodules https://github.com/SrwR16/ArchTide.git
+cd ArchTide
+./setup-archtide.sh install
 ```
 
-> [!TIP]
-> The first run will automatically bootstrap the environment into `~/.local/share/ii-vynx/` and create a dedicated fork repository at `~/.local/share/ii-vynx-fork/`.
+### Minimal installation (only quickshell config)
 
----
-
-## 🌟 Custom Features
-
-### 🔍 Revamped Search Launcher (Power-User)
-This repository includes a completely revamped search launcher widget (`Super + D` or `Super + Space`) designed for power-users, complete with:
-*   **Prefix-less Math & Unit Converter**: Real-time evaluation of mathematical expressions (including functions like `sqrt`, `sin`, `cos`) and units/currency conversions (e.g. `120 usd to eur` or `50c to f`) right inside the preview results block without needing a prefix.
-*   **Secure System Controls**: Instantly lock the screen (`lock`), suspend the PC (`suspend`), reboot (`reboot`), shutdown (`poweroff`), or restart the Quickshell shell (`restart`) directly from the search bar.
-*   **Two-Step Confirmation Safeguard**: Clicking or hitting Enter on critical system commands dynamically prompts for confirmation inside the launcher (e.g., `Reboot PC (Are you sure?)`), keeping the launcher open and requiring a second Enter/click to execute, while cancelling automatically if you type or move away.
-
-For a full setup guide, code diffs, and detailed configuration parameters, check out the [Search Upgrades & Implementation Guide](dots/.config/quickshell/ii/modules/ii/overview/IMPLEMENTATION_GUIDE.md).
-
----
-
-## 🔄 Managing Sources
-
-You can switch between your personal fork and the official upstream repository directly from the **About** page in Quickshell Settings (`Super + S` -> About).
-
-### 🎛 UI Controls (Settings > About)
-
-The **Quickshell Source** section provides four main actions:
-
-1.  **Switch Source (My Fork / Official)**:
-    *   **My Fork**: Installs the configuration from your local fork (`~/.local/share/ii-vynx-fork/`).
-    *   **ii-vynx Official**: Installs the configuration from the official upstream cache (`~/.local/share/ii-vynx-upstream/`).
-    *   *Both actions are local and fast, requiring no internet connection once cached.*
-
-2.  **Update (Update Fork / Update ii-vynx)**:
-    *   Performs a `git pull` on the respective local repository.
-    *   Does **not** automatically apply the changes to your active `~/.config/quickshell/ii` until you click a "Switch" button.
-    *   Displays a real-time log of the update process in the UI.
-
----
-
-## 🛡 Safety & Persistence
-
-The installation script is designed to be "user-aware" and preserves your customizations:
-
-*   **About.qml Persistence**: The settings page containing these controls is never overwritten during a switch or update.
-*   **Environment Files**: All `.env` files and patterns defined in `PROTECTED_PATTERNS` are automatically backed up and restored.
-*   **Backups**: Every switch operation creates a full backup of your previous `~/.config/quickshell/ii` directory with a timestamp.
-
----
-
-## 🛠 Command Line Interface
-
-You can also manage the environment using the `vynx` CLI (automatically symlinked to `~/.local/bin/vynx`):
+Use this if illogical-impulse is already working and you only want ArchTide's Quickshell config. Nothing else is touched, and your current config is moved to a backup rather than deleted.
 
 ```bash
-# Switch to official upstream
-vynx --ii-vynx --force-install --no-confirm
-
-# Switch to your fork
-vynx --force-install --no-confirm
-
-# Update your fork repo only
-vynx --update-only
+git clone --recurse-submodules https://github.com/SrwR16/ArchTide.git
+cd ArchTide
+./setup-archtide.sh
 ```
 
 ---
 
-## 📝 Configuration
+## Management CLI
 
-The script auto-detects your environment. For developers, the `FORK_DIR` will prioritize `~/.local/share/ii-vynx-fork` if it exists, otherwise it will use the directory where the script is being executed.
+After installation, the `archtide` command is available at `~/.local/bin/archtide`:
+
+```bash
+# Apply the Quickshell config (default)
+archtide apply
+
+# Install base illogical-impulse, then apply
+archtide install
+
+# Update ArchTide config from GitHub
+archtide update
+
+# Restart Quickshell
+archtide restart
+
+# Report resolved paths, state and tooling
+archtide doctor
+
+# Show help
+archtide help
+
+# Show version
+archtide version
+```
 
 ---
 
-*Powered by [Antigravity AI](https://github.com/google-deepmind) and the ii-vynx community.*
+## Upstream Attribution
+
+ArchTide is built upon the work of these upstream projects:
+
+- **[end-4/dots-hyprland](https://github.com/end-4/dots-hyprland)** — illogical-impulse (base dotfiles)
+- **[vaguesyntax/ii-vynx](https://github.com/vaguesyntax/ii-vynx)** — ii-vynx (intermediate fork)
+- **[Quickshell](https://quickshell.org/)** — Widget system
+- **[Hyprland](https://hypr.land/)** — Compositor
+
+See [NOTICE](NOTICE) for detailed attribution.
+
+---
+
+## License
+
+GPL-3.0 — See [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+    <p><b>If you like this project, consider giving it a star! ⭐</b></p>
+</div>
