@@ -1,4 +1,4 @@
-# [ Quickshell/II ]
+# [ ArchTide ]
 
 A premium Material 3 / Material You dotfiles for Hyprland, powered by Quickshell.
 
@@ -8,7 +8,7 @@ A premium Material 3 / Material You dotfiles for Hyprland, powered by Quickshell
 
 ## Overview
 
-This repository is a heavily customized fork of **[ii-vynx](https://github.com/vaguesyntax/ii-vynx)**, which itself is based on the legendary **[illogical-impulse](https://github.com/end-4/dots-hyprland)**. 
+This repository is **ArchTide** — an independent project derived from ii-vynx (vaguesyntax/ii-vynx), which itself is based on the legendary illogical-impulse (end-4/dots-hyprland).
 
 It aims to provide a state-of-the-art Linux desktop experience by strictly adhering to **Material 3 (Material You)** design principles, featuring dynamic theming via Matugen and a highly modular architecture built on **Quickshell**.
 
@@ -100,7 +100,7 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     }
 
     function launchColorPicker() {
-        Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "colorPickerLaunch", "trigger"]);
+        Quickshell.execDetached(["qs", "-c", "archtide", "ipc", "call", "colorPickerLaunch", "trigger"]);
     }
 
     IpcHandler {
@@ -199,7 +199,7 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     
     - **Adaptive Morphing**: The bar background automatically scales its dimensions based on the active content's implicit size.
     - **Activation**: Enabled by setting `Config.options.bar.cornerStyle` to `3`.
-    - **Full Git Diff**: [View full changes here](https://github.com/P3DROVFX/ii-vynx-fork/commit/8486eb4b4373ffbba5feceaf9cc2dc037f4b69f7)
+    - **Full Git Diff**: [View full changes here](https://github.com/SrwR16/ArchTide/commit/8486eb4b4373ffbba5feceaf9cc2dc037f4b69f7)
 
     #### 1. Configuration Setup (`Config.qml`)
     ```qml
@@ -222,7 +222,7 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     ```
 
     #### 3. Logic & Adaptive Background (`BarContent.qml`)
-    [View BarContent.qml Diff](https://github.com/P3DROVFX/ii-vynx-fork/commit/8486eb4b4373ffbba5feceaf9cc2dc037f4b69f7#diff-19f0d37be19b8e033e30c9ffc925acd0f814df621836d9411bfa00d0458a71aa)
+    [View BarContent.qml Diff](https://github.com/SrwR16/ArchTide/commit/8486eb4b4373ffbba5feceaf9cc2dc037f4b69f7#diff-19f0d37be19b8e033e30c9ffc925acd0f814df621836d9411bfa00d0458a71aa)
     ```qml
     readonly property bool isDynamicIsland: Config.options.bar.cornerStyle === 3
 
@@ -235,7 +235,6 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
         
         // Width scales based on the implicit size of the active sections
         width: root.isDynamicIsland ? (Math.max(islandSections.implicitWidth + 24, 200)) : parent.width
-
         Behavior on width {
             NumberAnimation { duration: 450; easing.type: Easing.OutExpo }
         }
@@ -255,7 +254,7 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     ```
 
     #### 5. Vertical Support (`VerticalBarContent.qml`)
-    [View VerticalBarContent.qml Diff](https://github.com/P3DROVFX/ii-vynx-fork/commit/8486eb4b4373ffbba5feceaf9cc2dc037f4b69f7#diff-79b59a8a73d9fe4e13613cf5e7ee4ea70c474d6796587e2e46734f36ac0e595b)
+    [View VerticalBarContent.qml Diff](https://github.com/SrwR16/ArchTide/commit/8486eb4b4373ffbba5feceaf9cc2dc037f4b69f7#diff-79b59a8a73d9fe4e13613cf5e7ee4ea70c474d6796587e2e46734f36ac0e595b)
   </details>
 
 - **🎥 OBS Integration**: Start/stop recordings directly from the bar with real-time status.
@@ -266,22 +265,22 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
 
 1. Clone this repository with submodules:
 ```bash
-git clone --recurse-submodules https://github.com/P3DROVFX/ii-vynx.git
+git clone --recurse-submodules https://github.com/SrwR16/ArchTide.git
 ```
 
 2. Run the setup script and follow the instructions:
 ```bash
-./setup-ii-vynx.sh
+./setup-archtide.sh
 ```
 
 ## Documentation
 
-Please refer to the **[wiki](https://github.com/vaguesyntax/ii-vynx/wiki)** for detailed component descriptions.
+Please refer to the **[ArchTide wiki](https://github.com/SrwR16/ArchTide/wiki)** for detailed component descriptions.
 
 ## Credits
 
-- **[end-4](https://github.com/end-4):** Creator of illogical-impulse.
-- **[vaguesyntax](https://github.com/vaguesyntax):** Creator of ii-vynx.
+- **[end-4](https://github.com/end-4):** Creator of illogical-impulse (base).
+- **[vaguesyntax](https://github.com/vaguesyntax):** Creator of ii-vynx (upstream fork).
 - **[Quickshell](https://quickshell.org/):** Widget system.
 - **[Hyprland](https://hypr.land/):** Compositor.
 

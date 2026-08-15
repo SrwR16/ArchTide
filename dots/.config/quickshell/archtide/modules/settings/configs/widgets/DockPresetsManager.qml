@@ -14,7 +14,7 @@ ContentSection {
     icon: "bookmarks"
     Layout.fillWidth: true
 
-    readonly property string presetsFilePath: Directories.config + "/illogical-impulse/dock-presets.json"
+    readonly property string presetsFilePath: Directories.config + "/archtide/dock-presets.json"
 
     property var presetsList: []
 

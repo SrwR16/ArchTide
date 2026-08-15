@@ -14,7 +14,7 @@ import Quickshell.Io
  * Note for the process':
  * I have no idea why, but we have to use bash -lc and also set the PATH environment variable manually
  * Or else it cannot detect localsend-cli and cannot use it's functionalities. 
- * The stupid part is that when we run the shell from the terminal "qs -c ii", everything works perfectly fine without the need of "bash -lc" or setting the PATH. 
+ * The stupid part is that when we run the shell from the terminal "qs -c archtide", everything works perfectly fine without the need of "bash -lc" or setting the PATH. 
  * But it doesnt work when we run it from the keybind. So it may be the problem of the lua integration of hyprland or pip's installation path idk.
  */
 Singleton {

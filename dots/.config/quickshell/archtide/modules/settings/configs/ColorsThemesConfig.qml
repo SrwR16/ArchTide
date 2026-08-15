@@ -67,7 +67,7 @@ Item {
         colOnBackground: Appearance.colors.colOnTertiaryContainer
 
         onClicked: {
-            Quickshell.execDetached(["bash", "-c", "qs kill -c ii && qs -c ii &"]);
+            Quickshell.execDetached(["bash", "-c", "qs kill -c archtide && qs -c archtide &"]);
         }
 
         MouseArea {

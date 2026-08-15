@@ -1,9 +1,9 @@
-# ii Desktop Widget Extensions
+# ArchTide Desktop Widget Extensions
 
-Third-party desktop widgets for the ii Quickshell/Hyprland shell. Install any widget by pasting a GitHub repository URL directly in **Settings → Desktop Widgets → Extensions**.
+Third-party desktop widgets for the ArchTide Quickshell/Hyprland shell. Install any widget by pasting a GitHub repository URL directly in **Settings → Desktop Widgets → Extensions**.
 
 > [!WARNING]
-> By creating or publishing a widget for ii, you grant the shell developer the right to use, modify, redistribute, and showcase the widget, in whole or in part, for any purpose without restriction.
+> By creating or publishing a widget for ArchTide, you grant the shell developer the right to use, modify, redistribute, and showcase the widget, in whole or in part, for any purpose without restriction.
 
 ---
 
@@ -98,22 +98,28 @@ AbstractBackgroundWidget {
 
   "configSchema": {
     "refreshInterval": {
-      "type": "slider",
-      "label": "Refresh Interval (seconds)",
-      "default": 2,
-      "min": 1,
-      "max": 10
+      "type": "int",
+      "label": "Refresh every N seconds",
+      "default": 30,
+      "min": 5,
+      "max": 300
     },
-    "showNetwork": {
+    "showTitle": {
       "type": "bool",
-      "label": "Show Network Speed",
+      "label": "Show title bar",
       "default": true
     },
-    "unit": {
+    "style": {
       "type": "enum",
-      "label": "Usage Unit",
-      "default": "percent",
-      "values": ["percent", "absolute"]
+      "label": "Visual style",
+      "default": "compact",
+      "values": ["compact", "expanded", "minimal"]
+    },
+    "apiKey": {
+      "type": "string",
+      "label": "API Key",
+      "default": "",
+      "placeholder": "Enter your API key..."
     }
   }
 }
@@ -249,7 +255,7 @@ Define `configSchema` in `widget.json` to get a settings UI automatically genera
 }
 ```
 
-Config values are stored in `widget_extensions.json` under `~/.config/illogical-impulse/` and persist across sessions and presets.
+Config values are stored in `widget_extensions.json` under `~/.config/archtide/` and persist across sessions and presets.
 
 ---
 
@@ -276,7 +282,7 @@ AbstractBackgroundWidget {
 
 ---
 
-## Accessing ii Design Tokens
+## Accessing ArchTide Design Tokens
 
 Use `Appearance` and `Quickshell.modules.common` to match the shell's Material You theme:
 
@@ -337,7 +343,7 @@ AbstractBackgroundWidget {
 To make your widget discoverable in the community browser (coming soon):
 
 1. Push your repository to GitHub.
-2. Add the topic `ii-desktop-widget` to your repository.
+2. Add the topic `archtide-desktop-widget` to your repository.
 3. Make sure `widget.json` is at the **repository root**.
 4. The community browser will automatically find your widget via the GitHub API.
 
@@ -373,7 +379,7 @@ To make your widget discoverable in the community browser (coming soon):
 
 ## Example Widgets
 
-Coming soon. In the meantime, study the built-in widgets in the ii source:
+Coming soon. In the meantime, study the built-in widgets in the ArchTide source:
 
 - **Clock widget**: `modules/ii/background/widgets/clock/ClockWidget.qml`
 - **Media widget**: `modules/ii/background/widgets/media/MediaWidget.qml`
@@ -383,4 +389,6 @@ These show patterns for using `AbstractBackgroundWidget`, reading from `Config`,
 
 ---
 
-Report issues or questions about the widget extension system [here](https://github.com/P3DROVFX/ii-p3drovfx/issues).
+## Support
+
+Report issues or questions about the widget extension system [here](https://github.com/SrwR16/ArchTide/issues).

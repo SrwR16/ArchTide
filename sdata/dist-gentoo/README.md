@@ -4,8 +4,8 @@ Note:
 - The scripts here are **not** meant to be executed directly.
 - This folder should reflect the equivalents of `/sdata/dist-arch/` but under Gentoo.
   - **When `/sdata/dist-arch/` is newer than this folder, an update on this folder is very likely needed.**
-  - Useful link: [Commit history on sdata/dist-arch/](https://github.com/end-4/dots-hyprland/commits/main/sdata/dist-arch)
-- See also [Install scripts | illogical-impulse](https://ii.clsty.link/en/dev/inst-script/)
+  - Useful link: [Commit history on sdata/dist-arch/](https://github.com/SrwR16/ArchTide/commits/main/sdata/dist-arch)
+- See also [Install scripts | ArchTide](https://github.com/SrwR16/ArchTide/wiki)
 
 ## Contributors
 - Author: [jwihardi](https://github.com/jwihardi)
@@ -16,7 +16,7 @@ Note:
 3. _keywords-user_ and _useflags_ are copies over into the proper portage directories. Quickshell also uses a live ebuild.
 4. Syncs, updates, and depcleans @world.
 5. Copies over the custom live ebuilds (hyprgraphics, hyprland-qt-support, hyprland-qtutils, hyprlang, hyprwayland-scanner) into localrepo and digests them.
-6. Loops through all illogical-impulse ebuilds to digest and emerge them.
+6. Loops through all archtide ebuilds to digest and emerge them.
 
 ## Recommended use flags (useflags)
 - **The recommended useflags are not required, this is a more out of the box experience with these**

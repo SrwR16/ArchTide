@@ -1,6 +1,6 @@
 # Install scripts using Nix to achieve cross-distros
 - This directory is currently WIP.
-- See also [Install scripts | illogical-impulse](https://ii.clsty.link/en/dev/inst-script/)
+- See also [Install scripts | ArchTide](https://github.com/SrwR16/ArchTide/wiki)
 - See also [#1061](https://github.com/end-4/dots-hyprland/issues/1061)
 
 **NOTE: The `dist-nix` is not for NixOS but every distro, using Nix and home-manager.**

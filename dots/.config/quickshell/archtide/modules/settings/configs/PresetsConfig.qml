@@ -25,7 +25,7 @@ ContentPage {
     NoticeBox {
         Layout.fillWidth: true
         Layout.topMargin: -20
-        text: Translation.tr('Not all options are available in this app. You should also check the config file by hitting the "Config file" button on the topleft corner or opening ~/.config/illogical-impulse/config.json manually.')
+        text: Translation.tr('Not all options are available in this app. You should also check the config file by hitting the "Config file" button on the topleft corner or opening ~/.config/archtide/config.json manually.')
 
         RippleButtonWithIcon {
             id: copyPathButton
@@ -35,7 +35,7 @@ ContentPage {
             mainText: justCopied ? Translation.tr("Path copied") : Translation.tr("Copy path")
             onClicked: {
                 copyPathButton.justCopied = true;
-                Quickshell.clipboardText = FileUtils.trimFileProtocol(`${Directories.config}/illogical-impulse/config.json`);
+                Quickshell.clipboardText = FileUtils.trimFileProtocol(`${Directories.config}/archtide/config.json`);
                 revertTextTimer.restart();
             }
             colBackground: Appearance.colors.colSecondaryContainer
@@ -98,7 +98,7 @@ ContentPage {
         colOnBackground: Appearance.colors.colOnTertiaryContainer
 
         onClicked: {
-            Quickshell.execDetached(["bash", "-c", "qs kill -c ii && qs -c ii &"]);
+            Quickshell.execDetached(["bash", "-c", "qs kill -c archtide && qs -c archtide &"]);
         }
 
         MouseArea {

@@ -27,13 +27,13 @@ The following are original to ArchTide or significantly modified from upstream:
 The following originate from ii-p3drovfx (P3DROVFX/ii-p3drovfx) and ii-vynx
 (vaguesyntax/ii-vynx), and have been modified for ArchTide:
 
-- dots/.config/quickshell/ii/ — Entire Quickshell configuration
+- dots/.config/quickshell/archtide/ — Entire Quickshell configuration
   - modules/settings/configs/AboutConfig.qml (major modifications: removed fork switcher, upstream switching)
   - modules/welcome/WelcomeProjectLinks.qml (updated URLs)
   - modules/common/Directories.qml (updated cliPath)
   - modules/common/Config.qml (colorEngine options retained for compatibility)
   - translations/en_US.json, es_MX.json, pt_BR.json, and others (strings updated)
-  - All other QML modules, services, scripts under dots/.config/quickshell/ii/
+  - All other QML modules, services, scripts under dots/.config/quickshell/archtide/
 
 - sdata/cli/lib/hyprset.sh (path updates)
 - sdata/cli/lib/hyprmerge.sh (path updates)
@@ -52,7 +52,7 @@ included largely unmodified as the base dotfiles layer:
 - Base Quickshell module architecture (the "ii" runtime namespace)
 - Core services: Config, Appearance, Directories, FileUtils, Translation
 - System integration: Hyprland keybinds, rules, window management
-- Scripts under dots/.config/quickshell/ii/scripts/ (colors, hyprland, ai, etc.)
+- Scripts under dots/.config/quickshell/archtide/scripts/ (colors, hyprland, ai, etc.)
 - Widget framework (AbstractBackgroundWidget, widget extensions)
 - Settings framework (ConfigSwitch, ConfigSelectionArray, etc.)
 

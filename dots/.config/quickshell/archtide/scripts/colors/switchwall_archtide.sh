@@ -45,7 +45,7 @@ request_shell_theme_reload() {
         echo "[switchwall_archtide.sh] Warning: qs not found; relying on the colors.json watcher" >&2
         return 0
     fi
-    if ! qs -c ii ipc call theme reapplyTheme 2>/dev/null; then
+    if ! qs -c archtide ipc call theme reapplyTheme 2>/dev/null; then
         echo "[switchwall_archtide.sh] Warning: could not request Quickshell theme reload" >&2
     fi
 }
@@ -379,7 +379,7 @@ switch() {
                         matugen_args+=(image "$fallback_img")
                         generate_colors_material_args=(--path "$fallback_img")
                     else
-                        local default_wall="$HOME/.config/quickshell/ii/assets/images/default_wallpaper.png"
+                        local default_wall="$HOME/.config/quickshell/archtide/assets/images/default_wallpaper.png"
                         matugen_args+=(image "$default_wall")
                         generate_colors_material_args=(--path "$default_wall")
                     fi
@@ -514,7 +514,7 @@ done"
                     ffmpeg -y -i "$imgpath/preview.gif" -vframes 1 /tmp/wpe_fallback.png 2>/dev/null
                     imgpath="/tmp/wpe_fallback.png"
                 else
-                    imgpath="$HOME/.config/quickshell/ii/assets/images/default_wallpaper.png"
+                    imgpath="$HOME/.config/quickshell/archtide/assets/images/default_wallpaper.png"
                 fi
             elif [[ "$imgpath" =~ ^[0-9]+$ ]]; then
                 local resolved_dir=""
@@ -534,10 +534,10 @@ done"
                         ffmpeg -y -i "$resolved_dir/preview.gif" -vframes 1 /tmp/wpe_fallback.png 2>/dev/null
                         imgpath="/tmp/wpe_fallback.png"
                     else
-                        imgpath="$HOME/.config/quickshell/ii/assets/images/default_wallpaper.png"
+imgpath="$HOME/.config/quickshell/archtide/assets/images/default_wallpaper.png"
                     fi
                 else
-                    imgpath="$HOME/.config/quickshell/ii/assets/images/default_wallpaper.png"
+                    imgpath="$HOME/.config/quickshell/archtide/assets/images/default_wallpaper.png"
                 fi
             fi
 
@@ -682,8 +682,8 @@ done"
         cp "$theme_file" "$STATE_DIR/user/generated/colors.json"
         echo "[switchwall_archtide.sh] Applied theme: $type_flag"
         request_shell_theme_reload
-        python3 "$HOME/.config/quickshell/ii/scripts/colors/recolor_icons.py"
-        "$SCRIPT_DIR"/applycolor_vynx.sh
+        python3 "$HOME/.config/quickshell/archtide/scripts/colors/recolor_icons.py"
+        "$SCRIPT_DIR"/applycolor_archtide.sh
     else
         matugen "${matugen_args[@]}"
         if [[ "$type_flag" == "scheme-intense" ]]; then
@@ -692,10 +692,10 @@ done"
         fi
         request_shell_theme_reload
         (
-            python3 "$HOME/.config/quickshell/ii/scripts/colors/recolor_icons.py" &
+            python3 "$HOME/.config/quickshell/archtide/scripts/colors/recolor_icons.py" &
             (
                 source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
-                if python3 "$SCRIPT_DIR/generate_colors_material_vynx.py" "${generate_colors_material_args[@]}" \
+                if python3 "$SCRIPT_DIR/generate_colors_material_archtide.py" "${generate_colors_material_args[@]}" \
                     --all-previews "$STATE_DIR/user/generated/wallpaper_preview_colors.json" \
                     --request-token "$request_token_file" --request-value "$my_request_token" \
                     > "$STATE_DIR"/user/generated/material_colors.scss.tmp; then
@@ -705,7 +705,7 @@ done"
                     echo "[switchwall_archtide.sh] Color generation skipped; preserving the previous terminal palette." >&2
                 fi
                 deactivate
-                "$SCRIPT_DIR"/applycolor_vynx.sh
+                "$SCRIPT_DIR"/applycolor_archtide.sh
             ) &
         ) & disown
     fi

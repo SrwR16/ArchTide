@@ -327,7 +327,7 @@ Singleton {
             script += "hl.layer_rule({ match = { namespace = 'quickshell:overviewWindowTransition' }, blur = false }) ";
             script += "hl.layer_rule({ match = { namespace = 'quickshell:workspaceBlurOverlay' }, blur = true, ignore_alpha = 0.0, order = -1, animation = 'fade' }) ";
             script += "hl.layer_rule({ match = { namespace = 'quickshell:notificationPopup' }, noanim = true }) ";
-            script += "hl.window_rule({ match = { title = '^(illogical-impulse Settings)$' }, no_blur = false, ignorealpha = " + a + " }) ";
+            script += "hl.window_rule({ match = { title = '^(ArchTide Settings)$' }, no_blur = false, ignorealpha = " + a + " }) ";
             Quickshell.execDetached(["hyprctl", "eval", script]);
         }
     }
@@ -417,7 +417,7 @@ Singleton {
         bs += "hl.layer_rule({ match = { namespace = 'quickshell:overviewWindowTransition' }, blur = false }) ";
         bs += "hl.layer_rule({ match = { namespace = 'quickshell:workspaceBlurOverlay' }, blur = true, ignore_alpha = 0.0, order = -1, animation = 'fade' }) ";
         bs += "hl.layer_rule({ match = { namespace = 'quickshell:notificationPopup' }, noanim = true }) ";
-        bs += "hl.window_rule({ match = { title = '^(illogical-impulse Settings)$' }, no_blur = false, ignorealpha = " + a + " }) ";
+        bs += "hl.window_rule({ match = { title = '^(ArchTide Settings)$' }, no_blur = false, ignorealpha = " + a + " }) ";
         Quickshell.execDetached(["hyprctl", "eval", bs]);
 
         root.applyHyprlandBorder();

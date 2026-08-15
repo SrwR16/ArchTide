@@ -4,8 +4,8 @@ Note:
 - The scripts here are **not** meant to be executed directly.
 - This folder should reflect the equivalents of `/sdata/dist-arch/` but under Fedora.
   - **When `/sdata/dist-arch/` is newer than this folder, an update on this folder is very likely needed.**
-  - Useful link: [Commit history on sdata/dist-arch/](https://github.com/end-4/dots-hyprland/commits/main/sdata/dist-arch)
-- See also [Install scripts | illogical-impulse](https://ii.clsty.link/en/dev/inst-script/)
+  - Useful link: [Commit history on sdata/dist-arch/](https://github.com/SrwR16/ArchTide/commits/main/sdata/dist-arch)
+- See also [Install scripts | ArchTide](https://github.com/SrwR16/ArchTide/wiki)
 
 ## Contributors
 - Author: [ririko6z](https://github.com/ririko6z)
@@ -14,7 +14,7 @@ Note:
 - It has been tested on Fedora 43 (KDE Plasma Desktop Edition) on the `x86_64` platform.
 
 ## Post installation
-- Fix the issue of the right column crashing when clicking the `Details` button in Wi-Fi mode. Edit this file: `~/.config/illogical-impulse/config.json`
+- Fix the issue of the right column crashing when clicking the `Details` button in Wi-Fi mode. Edit this file: `~/.config/archtide/config.json`
 ```diff
 @@ 44,3 44,3 @@
 -  "apps": {

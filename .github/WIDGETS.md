@@ -255,7 +255,7 @@ Define `configSchema` in `widget.json` to get a settings UI automatically genera
 }
 ```
 
-Config values are stored in `widget_extensions.json` under `~/.config/illogical-impulse/` and persist across sessions and presets.
+Config values are stored in `widget_extensions.json` under `~/.config/archtide/` and persist across sessions and presets.
 
 ---
 
@@ -343,7 +343,7 @@ AbstractBackgroundWidget {
 To make your widget discoverable in the community browser (coming soon):
 
 1. Push your repository to GitHub.
-2. Add the topic `ii-desktop-widget` to your repository.
+2. Add the topic `archtide-desktop-widget` to your repository.
 3. Make sure `widget.json` is at the **repository root**.
 4. The community browser will automatically find your widget via the GitHub API.
 

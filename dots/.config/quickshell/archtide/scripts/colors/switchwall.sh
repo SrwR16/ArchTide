@@ -45,7 +45,7 @@ request_shell_theme_reload() {
         echo "[switchwall.sh] Warning: qs not found; relying on the colors.json watcher" >&2
         return 0
     fi
-    if ! qs -c ii ipc call theme reapplyTheme 2>/dev/null; then
+    if ! qs -c archtide ipc call theme reapplyTheme 2>/dev/null; then
         echo "[switchwall.sh] Warning: could not request Quickshell theme reload" >&2
     fi
 }

@@ -290,7 +290,7 @@ FloatingWindow {
                 })
             }))
 
-    title: "illogical-impulse Settings"
+    title: "ArchTide Settings"
     implicitWidth: 1100
     implicitHeight: 750
     minimumSize: Qt.size(750, 500)
@@ -362,7 +362,7 @@ FloatingWindow {
         // now that the xdg-toplevel is mapped and Hyprland can match it.
         var a = Appearance.ignoreAlpha;
         Quickshell.execDetached(["hyprctl", "eval",
-            "hl.window_rule({ match = { title = '^(illogical-impulse Settings)$' }, no_blur = false, ignorealpha = " + a + " })"]);
+            "hl.window_rule({ match = { title = '^(ArchTide Settings)$' }, no_blur = false, ignorealpha = " + a + " })"]);
     }
 
     function acceptSearch(text) {
