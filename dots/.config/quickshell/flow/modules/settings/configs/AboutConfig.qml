@@ -407,17 +407,17 @@ ContentPage {
                     Layout.bottomMargin: 10
                     IconImage {
                         implicitSize: 50
-                        source: Quickshell.iconPath("illogical-impulse")
+                        source: Quickshell.iconPath("flow")
                     }
                     ColumnLayout {
                         Layout.alignment: Qt.AlignVCenter
                         StyledText {
-                            text: Translation.tr("illogical-impulse")
+                            text: Translation.tr("Flow")
                             font.pixelSize: Appearance.font.pixelSize.normal
                             font.weight: Font.Bold
                         }
                         StyledText {
-                            text: "<a href='https://github.com/end-4/dots-hyprland'>github.com/end-4/dots-hyprland</a>"
+                            text: "<a href='https://github.com/SrwR16/ArchTide'>github.com/SrwR16/ArchTide</a>"
                             font.pixelSize: Appearance.font.pixelSize.small
                             textFormat: Text.RichText
                             onLinkActivated: link => Qt.openUrlExternally(link)
@@ -428,8 +428,8 @@ ContentPage {
                 Flow {
                     Layout.fillWidth: true
                     spacing: 5
-                    RippleButtonWithIcon { materialIcon: "auto_stories"; mainText: Translation.tr("Wiki"); onClicked: Qt.openUrlExternally("https://end-4.github.io/dots-hyprland-wiki/en/ii-qs/02usage/") }
-                    RippleButtonWithIcon { materialIcon: "favorite"; mainText: Translation.tr("Sponsor"); onClicked: Qt.openUrlExternally("https://github.com/sponsors/end-4") }
+                    RippleButtonWithIcon { materialIcon: "auto_stories"; mainText: Translation.tr("Wiki"); onClicked: Qt.openUrlExternally("https://github.com/SrwR16/ArchTide/wiki") }
+                    RippleButtonWithIcon { materialIcon: "favorite"; mainText: Translation.tr("Sponsor"); onClicked: Qt.openUrlExternally("https://github.com/sponsors/SrwR16") }
                 }
             }
 

@@ -149,7 +149,7 @@ ShellRoot {
 
     PanelFamilyLoader {
         identifier: "flow"
-        component: IllogicalImpulseFamily {}
+        component: FlowFamily {}
     }
 
     PanelFamilyLoader {

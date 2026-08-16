@@ -123,7 +123,7 @@ Singleton {
     Process {
         id: scanProc
         running: false
-        command: ["python3", Directories.home.toString().replace(/^file:\/\//, "") + "/.config/quickshell/ii/services/localsend_scan.py"]
+        command: ["python3", Directories.home.toString().replace(/^file:\/\//, "") + "/.config/quickshell/flow/services/localsend_scan.py"]
         stdout: SplitParser {
             onRead: line => {
                 if (!line || line.trim().length === 0) return

@@ -6,10 +6,10 @@ import qs.modules.common
 import qs.modules.common.functions
 
 /*
- * Originally from this PR in the original illogical-impulse repo by user SMANahian: https://github.com/end-4/dots-hyprland/pull/2709
+ * Originally from this PR in the illogical-impulse repo by user SMANahian: https://github.com/end-4/dots-hyprland/pull/2709
  * Couldn't find any license info, so assuming MIT like the rest of the repo.
  * And I couldn't contact the author of the PR, so I ended up copying it here.
-*/
+ */
 
 Item {
     id: root

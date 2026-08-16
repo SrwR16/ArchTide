@@ -3,7 +3,7 @@ import QtQuick.Layouts
 import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
-import qs.modules.ii.background.widgets
+import qs.modules.flow.background.widgets
 
 ColumnLayout {
     id: root

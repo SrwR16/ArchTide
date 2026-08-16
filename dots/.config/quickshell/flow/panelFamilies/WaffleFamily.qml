@@ -17,13 +17,13 @@ import qs.modules.waffle.sessionScreen
 import qs.modules.waffle.taskView
 
 // Fallbacks
-import qs.modules.ii.cheatsheet
-import qs.modules.ii.oledSaver
-import qs.modules.ii.onScreenKeyboard
-import qs.modules.ii.overlay
-import qs.modules.ii.screenTranslator
-import qs.modules.ii.usage
-import qs.modules.ii.wallpaperSelector
+import qs.modules.flow.cheatsheet
+import qs.modules.flow.oledSaver
+import qs.modules.flow.onScreenKeyboard
+import qs.modules.flow.overlay
+import qs.modules.flow.screenTranslator
+import qs.modules.flow.usage
+import qs.modules.flow.wallpaperSelector
 
 Scope {
     PanelLoader { component: WaffleActionCenter {} }

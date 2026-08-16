@@ -841,7 +841,7 @@ Singleton {
                 property int ai: 1 // 0: No | 1: Yes | 2: Local
                 property int weeb: 0 // 0: No | 1: Open | 2: Closet
                 property int wallpapers: 0 // 0: No | 1: Yes
-                property int translator: 1 // 0: No | 1: Default (illogical-impulse) | 2: Expressive (reworked)
+                property int translator: 1 // 0: No | 1: Default (Flow) | 2: Expressive (reworked)
                 property int player: 0 // 0: No | 1: Yes
                 property int phone: 1 // 0: No | 1: Yes — Phone tab (future KDE Connect + scrcpy external)
             }
@@ -2157,7 +2157,7 @@ Singleton {
                 }
 
                 property int barGroupStyle: 0 // 0: Pills | 1: Island (opaque) | 2: Transparent (or maybe line-separated in the future)
-                property string topLeftIcon: "spark" // Options: "distro" or any icon name in ~/.config/quickshell/ii/assets/icons
+                property string topLeftIcon: "spark" // Options: "distro" or any icon name in ~/.config/quickshell/flow/assets/icons
                 property bool useMaterialSymbolForTopLeftIcon: false
                 property int barBackgroundStyle: 1 // 0: Transparent | 1: Visible | 2: Adaptive
                 property bool transparentGlow: true

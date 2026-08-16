@@ -10,7 +10,7 @@ import qs.modules.common
  * WorkspaceProfileService
  *
  * Manages per-file workspace profiles stored in
- * ~/.config/illogical-impulse/workspace_profiles/<slug>.json
+ * ~/.config/flow/workspace_profiles/<slug>.json
  *
  * Each public function delegates to the workspace_profile_manager Rust binary.
  */

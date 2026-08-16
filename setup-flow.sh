@@ -29,6 +29,7 @@
 #   -y, --yes                 Skip every confirmation
 #   -v, --verbose             Echo command output as it runs
 #   -q, --quiet               Only errors on stdout
+#       --dry-run             Print what would be done without making changes
 #       --backup              Keep the replaced config (default)
 #       --no-backup           Discard the replaced config instead
 #       --keep-config         Never reset ~/.config/flow/config.json
@@ -41,7 +42,6 @@
 #       --extras              Install the fork's extra configs (mpv + setup scripts)
 #       --no-extras           Never install them, never ask
 #       --rebuild-quickshell  Rebuild Quickshell from source first
-#       --ii-subdir <name>    Override ii* auto-detection in the clone
 #       --log-file <path>     Write the run log elsewhere
 #       --no-log              Do not write a run log
 #       --ascii               ASCII glyphs only
@@ -108,6 +108,8 @@ BACKUP_BASE_DIR="$SETUP_STATE_DIR/backups"
 DEFAULT_LOG_FILE="$SETUP_STATE_DIR/setup.log"
 QS_DIR="$XDG_CONFIG_HOME/quickshell"
 TARGET_DIR="$QS_DIR/flow"
+FLOW_CONFIG_DIR="$TARGET_DIR"
+FLOW_CONFIG_FILE="$XDG_CONFIG_HOME/flow/config.json"
 BIN_DIR="$HOME/.local/bin"
 CLI_NAME="flow"
 
@@ -159,21 +161,18 @@ HYPR_SEED_ONLY=("hyprland/colors.lua" "hyprlock/colors.conf")
 
 # ── Options ──────────────────────────────────────────────────────────────────
 COMMAND=""
-OPT_FORK=""
-OPT_BRANCH=""
 OPT_LOCAL=""
 OPT_VERBOSE=false
 OPT_QUIET=false
 OPT_ASSUME_YES=false
+OPT_DRY_RUN=false
 OPT_BACKUP=true
 OPT_KEEP_CONFIG="" # "" = per-command default, true/false = explicit
 OPT_REBUILD_QS=false
-OPT_II_SUBDIR=""
 OPT_RESTART=true
 OPT_HYPR="" # "" = ask (and -y declines), true/false = explicit
 OPT_SDDM="" # "" = ask on install only (and -y declines), true/false = explicit
 OPT_EXTRAS="" # "" = ask on install only (and -y declines), true/false = explicit
-OPT_SKIP_BASE_CHECK=false
 OPT_ASCII=false
 OPT_NO_COLOR=false
 OPT_LOG=true
@@ -845,30 +844,6 @@ normalize_url() {
     printf '%s' "$raw"
 }
 
-# resolve_fork <preset|url> -- prints "url|branch"
-# For Flow, there's only one upstream. Presets are removed.
-# This function is kept for compatibility but only accepts the Flow repo.
-resolve_fork() {
-    local arg="$1" key
-    key="$(printf '%s' "$arg" | tr '[:upper:]' '[:lower:]')"
-    # Only support the Flow repo directly
-    case "$key" in
-        flow|flow-dev|srwr16|srwr16/flow|https://github.com/srwr16/flow|https://github.com/SrwR16/Flow)
-            printf '%s|%s' "$FLOW_URL" "$FLOW_BRANCH"
-            return 0
-            ;;
-    esac
-    local norm
-    norm="$(normalize_url "$arg")"
-    if [[ "$norm" == https://github.com/*/* ]]; then
-        # Allow any GitHub repo but warn it's not the official Flow source
-        printf '%s|default' "$norm"
-        return 0
-    fi
-    ui_fail "Unknown source" "$arg is not a recognized Flow source"
-    return 1
-}
-
 # resolve_local <path> -- prints "abspath|kind", kind being repo or ii.
 # A fork checkout and the ii config dir inside one are both valid sources; the
 # difference is only whether detect_ii_subdir still has work to do.
@@ -918,8 +893,7 @@ read_state() {
     remote="${remote//[$'\r\n']/}"
     branch="${branch//[$'\r\n']/}"
     fork="${fork//[$'\r\n']/}"
-    [[ -z "$fork" && -n "$remote" ]] && fork="$(fork_id_from_url "$remote")"
-    [[ -z "$branch" ]] && branch="$FALLBACK_BRANCH"
+    [[ -z "$branch" ]] && branch="$FLOW_BRANCH"
     printf '%s|%s|%s' "$remote" "$branch" "$fork"
 }
 
@@ -931,12 +905,10 @@ read_local_state() {
 }
 
 require_base() {
-    [[ "$OPT_SKIP_BASE_CHECK" == true ]] && return 0
     [[ -d "$FLOW_CONFIG_DIR" ]] && return 0
     ui_fail "Flow config missing" "$(tilde "$FLOW_CONFIG_DIR") does not exist"
     ui_note "Flow config is not installed. Install it explicitly:"
     ui_note "    $SCRIPT_SELF install"
-    ui_note "Or skip this check with --skip-base-check if you know better."
     exit 1
 }
 
@@ -1197,35 +1169,6 @@ swap_in() {
 #══════════════════════════════════════════════════════════════════════════════
 # Repo introspection
 #══════════════════════════════════════════════════════════════════════════════
-
-detect_ii_subdir() {
-    local repo="$1"
-    local base="$repo/dots/.config/quickshell"
-    if [[ -n "$OPT_II_SUBDIR" ]]; then
-        if [[ -d "$base/$OPT_II_SUBDIR" ]]; then
-            printf '%s' "$base/$OPT_II_SUBDIR"
-            return 0
-        fi
-        ui_fail "Missing subdir" "--ii-subdir '$OPT_II_SUBDIR' not found under dots/.config/quickshell"
-        return 1
-    fi
-    [[ -d "$base" ]] || {
-        ui_fail "Not a Quickshell rice" "no dots/.config/quickshell in the repository"
-        return 1
-    }
-    local -a found=()
-    while IFS= read -r d; do found+=("$d"); done < <(
-        find "$base" -mindepth 1 -maxdepth 1 -type d -name 'ii*' ! -name '*.bak*' ! -name '*.tmp*' ! -name '*backup*' 2>/dev/null | sort
-    )
-    if ((${#found[@]} == 0)); then
-        ui_fail "Not a Quickshell rice" "no ii* directory under dots/.config/quickshell"
-        return 1
-    fi
-    if ((${#found[@]} > 1)); then
-        ui_warn "${#found[@]} ii* dirs found; using $(basename "${found[0]}")"
-    fi
-    printf '%s' "${found[0]}"
-}
 
 # Where a bare run should pull from: this checkout's origin and current branch.
 local_origin() {
@@ -1898,16 +1841,44 @@ apply_config() {
         }
     fi
 
+    if [[ "$OPT_DRY_RUN" == true ]]; then
+        ui_banner "Flow" "dry-run"
+        if [[ -n "$LOCAL_SRC" ]]; then
+            ui_kv "source" "local $LOCAL_KIND"
+            ui_kv "path" "$(tilde "$LOCAL_SRC")"
+            ui_kv "branch" "$branch"
+        else
+            ui_kv "source" "Flow"
+            ui_kv "remote" "${url#https://}"
+            ui_kv "branch" "$branch"
+        fi
+        ui_kv "target" "$(tilde "$TARGET_DIR")"
+        ui_kv "backup" "$([[ "$OPT_BACKUP" == true ]] && printf '%s' "$(tilde "$BACKUP_BASE_DIR")" || printf 'disabled')"
+        ui_kv "verb" "$verb"
+        if [[ "$verb" == "install" ]]; then
+            ui_note "Would install system dependencies (quickshell-git on Arch)"
+            ui_note "Would offer SDDM greeter installation"
+            ui_note "Would offer Hyprland config overlay"
+            ui_note "Would offer extras (mpv config)"
+        fi
+        ui_note "Dry run complete — no changes made"
+        return 0
+    fi
+
     if [[ -n "$LOCAL_SRC" ]]; then
         if [[ "$LOCAL_KIND" == "repo" ]]; then
-            source_dir="$(detect_ii_subdir "$LOCAL_SRC")" || return 1
+            source_dir="$LOCAL_SRC/dots/.config/quickshell/flow"
+            [[ -d "$source_dir" ]] || {
+                ui_fail "Not a Flow checkout" "dots/.config/quickshell/flow not found in $(tilde "$LOCAL_SRC")"
+                return 1
+            }
         else
             source_dir="$LOCAL_SRC"
         fi
         ui_ok "Sourced" "$(tree_stats "$source_dir")"
         ui_verbose "source: $source_dir"
     else
-        CLONE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ii-clone-XXXXXX")"
+        CLONE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/flow-clone-XXXXXX")"
         clone_repo "$url" "$branch" "$CLONE_DIR" || return 1
 
         # Clone with branch "default" resolves to whatever HEAD points at.
@@ -1916,7 +1887,11 @@ apply_config() {
         fi
         head="$(git -C "$CLONE_DIR" rev-parse HEAD 2>/dev/null || true)"
 
-        source_dir="$(detect_ii_subdir "$CLONE_DIR")" || return 1
+        source_dir="$CLONE_DIR/dots/.config/quickshell/flow"
+        [[ -d "$source_dir" ]] || {
+            ui_fail "Not a Flow checkout" "dots/.config/quickshell/flow not found in cloned repo"
+            return 1
+        }
         ui_verbose "source: ${source_dir#"$CLONE_DIR"/}"
     fi
 
@@ -2060,15 +2035,6 @@ cmd_apply() {
     local rest="${origin#*|}"
     branch="${rest%%|*}"
     fork="${rest##*|}"
-    [[ -n "$OPT_FORK" ]] && {
-        local pair
-        pair="$(resolve_fork "$OPT_FORK")" || exit 1
-        url="${pair%|*}"
-        branch="${pair#*|}"
-        # fork is always flow for non-local
-        fork="flow"
-    }
-    [[ -n "$OPT_BRANCH" ]] && branch="$OPT_BRANCH"
 
     ui_banner "Flow" "apply"
     apply_config "$url" "$branch" "$fork" "apply"
@@ -2092,14 +2058,6 @@ cmd_install() {
     local rest="${origin#*|}"
     branch="${rest%%|*}"
     fork="${rest##*|}"
-    if [[ -n "$OPT_FORK" ]]; then
-        local pair
-        pair="$(resolve_fork "$OPT_FORK")" || exit 1
-        url="${pair%|*}"
-        branch="${pair#*|}"
-        fork="flow"
-    fi
-    [[ -n "$OPT_BRANCH" ]] && branch="$OPT_BRANCH"
 
     ui_frame_open "Flow install"
     if [[ -n "$LOCAL_SRC" ]]; then
@@ -2122,7 +2080,6 @@ cmd_install() {
     # Just ensure Quickshell is available (on Arch, ensure quickshell-git).
     ensure_quickshell_git
 
-    OPT_SKIP_BASE_CHECK=true
     apply_config "$url" "$branch" "$fork" "install"
 }
 
@@ -2154,7 +2111,6 @@ cmd_update() {
         ui_note "Run: $SCRIPT_SELF update  # pulls from Flow upstream"
         exit 1
     fi
-    [[ -n "$OPT_BRANCH" ]] && branch="$OPT_BRANCH"
 
     ui_banner "Flow" "update"
     apply_config "$url" "$branch" "$fork" "update"
@@ -2163,20 +2119,14 @@ cmd_update() {
 cmd_switch() {
     require_base
     load_local_src
-    if [[ -z "$OPT_FORK" && -z "$OPT_BRANCH" && -z "$LOCAL_SRC" ]]; then
-        ui_fail "Nothing to switch" "pass --fork <url>, --branch <name> or --local <path>"
+    if [[ -z "$LOCAL_SRC" ]]; then
+        ui_fail "Nothing to switch" "pass --local <path> or use 'flow update' to pull from upstream"
         exit 1
     fi
 
     local url="" branch="" fork=""
     if [[ -n "$LOCAL_SRC" ]]; then
         : # apply_config reads the checkout itself
-    elif [[ -n "$OPT_FORK" ]]; then
-        local pair
-        pair="$(resolve_fork "$OPT_FORK")" || exit 1
-        url="${pair%|*}"
-        branch="${pair#*|}"
-        fork="flow"
     else
         local state rest
         state="$(read_state)"
@@ -2186,11 +2136,10 @@ cmd_switch() {
         fork="${rest##*|}"
         if [[ -z "$url" ]] || [[ -n "$(read_local_state)" ]]; then
             ui_fail "No active source" "no remote recorded in $(tilde "$TARGET_DIR")"
-            ui_note "Pass --fork as well, or run:  $SCRIPT_SELF update"
+            ui_note "Use 'flow update' to pull from upstream"
             exit 1
         fi
     fi
-    [[ -n "$OPT_BRANCH" ]] && branch="$OPT_BRANCH"
 
     ui_banner "Flow" "switch"
     apply_config "$url" "$branch" "$fork" "switch"
@@ -2300,8 +2249,6 @@ show_help() {
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --extras" "$C_RST" "Install the fork's extra configs (mpv + setup scripts)"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-extras" "$C_RST" "Never install them, never ask"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --rebuild-quickshell" "$C_RST" "Rebuild Quickshell from source first"
-    printf '  %s%-24s%s %s\n' "$C_STEP" "    --skip-base-check" "$C_RST" "Do not require Flow config to be present"
-    printf '  %s%-24s%s %s\n' "$C_STEP" "    --ii-subdir <name>" "$C_RST" "Override ii* auto-detection in the clone"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --log-file <path>" "$C_RST" "Write the run log elsewhere"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-log" "$C_RST" "Do not write a run log"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --ascii" "$C_RST" "ASCII glyphs only"
@@ -2376,11 +2323,6 @@ parse_args() {
                 OPT_LOCAL="$2"
                 shift 2
                 ;;
-            --ii-subdir)
-                need_value "$1" "${2:-}"
-                OPT_II_SUBDIR="$2"
-                shift 2
-                ;;
             --log-file)
                 need_value "$1" "${2:-}"
                 LOG_FILE="$2"
@@ -2396,6 +2338,10 @@ parse_args() {
                 ;;
             -y | --yes | --no-confirm | --noconfirm)
                 OPT_ASSUME_YES=true
+                shift
+                ;;
+            --dry-run)
+                OPT_DRY_RUN=true
                 shift
                 ;;
             --no-backup)
@@ -2446,10 +2392,6 @@ parse_args() {
                 OPT_EXTRAS=false
                 shift
                 ;;
-            --skip-base-check | --force-install)
-                OPT_SKIP_BASE_CHECK=true
-                shift
-                ;;
             --no-log)
                 OPT_LOG=false
                 shift
@@ -2491,27 +2433,6 @@ parse_args() {
                 COMMAND="${COMMAND:-apply}"
                 shift
                 ;;
-            # Legacy: --fork and --branch are accepted but ignored (no fork switching)
-            -f | --fork)
-                need_value "$1" "${2:-}"
-                ui_warn "Option --fork is deprecated; Flow does not support fork switching"
-                shift 2
-                ;;
-            -b | --branch)
-                need_value "$1" "${2:-}"
-                ui_warn "Option --branch is deprecated; Flow does not support branch switching"
-                shift 2
-                ;;
-            --list-forks)
-                ui_warn "Command list-forks is deprecated; Flow does not support fork switching"
-                COMMAND="help"
-                shift
-                ;;
-            --list-branches)
-                ui_warn "Command list-branches is deprecated; Flow does not support branch switching"
-                COMMAND="help"
-                shift
-                ;;
             --)
                 shift
                 PASSTHRU_ARGS+=("$@")
@@ -2527,9 +2448,6 @@ parse_args() {
         esac
     done
 
-    [[ -n "$OPT_LOCAL" && -n "$OPT_FORK" ]] &&
-        arg_error "--local and --fork name two different sources; pick one"
-
     # First positional is the command unless a legacy flag already chose one.
     if ((${#positional[@]} > 0)); then
         local first="${positional[0]}"
@@ -2538,19 +2456,11 @@ parse_args() {
                 COMMAND="$first"
                 positional=("${positional[@]:1}")
                 ;;
-            # Legacy commands: print warning and show help
-            fork | branch | list-forks | list-branches)
-                ui_warn "Command '$first' is deprecated; Flow does not support fork/branch switching"
-                COMMAND="help"
-                ;;
         esac
     fi
 
     # Command-specific positionals.
     case "$COMMAND" in
-        switch)
-            [[ -n "${positional[0]:-}" ]] && ui_warn "Positional arguments for switch are deprecated; use --local instead"
-            ;;
         hyprset | hyprmerge)
             PASSTHRU_ARGS=("${positional[@]}" "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}")
             ;;
