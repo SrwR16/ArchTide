@@ -113,22 +113,6 @@ FLOW_CONFIG_FILE="$XDG_CONFIG_HOME/flow/config.json"
 BIN_DIR="$HOME/.local/bin"
 CLI_NAME="flow"
 
-# Paths this script used to write to, migrated on first run.
-LEGACY_CLI_NAME="vynx"
-LEGACY_MIRROR_DIR="$XDG_DATA_HOME/ii-vynx"
-LEGACY_BACKUP_DIR="$XDG_DATA_HOME/ii-backups"
-LEGACY_LOG_FILE="/tmp/ii-vynx-install.log"
-
-# Legacy ii-p3drovfx paths (for migration)
-LEGACY_P3DROVFX_MIRROR_DIR="$XDG_DATA_HOME/ii-p3drovfx"
-LEGACY_P3DROVFX_STATE_DIR="$XDG_STATE_HOME/ii-p3drovfx"
-
-# Legacy archtide paths (for migration)
-LEGACY_ARCHTIDE_MIRROR_DIR="$XDG_DATA_HOME/archtide"
-LEGACY_ARCHTIDE_STATE_DIR="$XDG_STATE_HOME/archtide"
-
-BACKUPS_TO_KEEP=3
-
 # ── Flow upstream ────────────────────────────────────────────────────────
 # Single source of truth — no fork switching, no upstream cache required.
 FLOW_URL="https://github.com/SrwR16/ArchTide"
@@ -910,67 +894,6 @@ require_base() {
     ui_note "Flow config is not installed. Install it explicitly:"
     ui_note "    $SCRIPT_SELF install"
     exit 1
-}
-
-migrate_legacy() {
-    local moved=false
-    mkdir -p "$SETUP_STATE_DIR"
-    # Migrate from ii-vynx
-    if [[ -d "$LEGACY_MIRROR_DIR" && ! -e "$MIRROR_DIR" ]]; then
-        mv "$LEGACY_MIRROR_DIR" "$MIRROR_DIR" && moved=true
-        ui_verbose "Migrated $(tilde "$LEGACY_MIRROR_DIR") to $(tilde "$MIRROR_DIR")"
-    fi
-    if [[ -d "$LEGACY_BACKUP_DIR" && ! -e "$BACKUP_BASE_DIR" ]]; then
-        mkdir -p "$(dirname "$BACKUP_BASE_DIR")"
-        mv "$LEGACY_BACKUP_DIR" "$BACKUP_BASE_DIR" && moved=true
-        ui_verbose "Migrated $(tilde "$LEGACY_BACKUP_DIR") to $(tilde "$BACKUP_BASE_DIR")"
-    fi
-    if [[ -f "$LEGACY_LOG_FILE" && -O "$LEGACY_LOG_FILE" ]]; then
-        rm -f "$LEGACY_LOG_FILE"
-    fi
-    # Migrate from ii-p3drovfx
-    if [[ -d "$LEGACY_P3DROVFX_MIRROR_DIR" && ! -e "$MIRROR_DIR" ]]; then
-        mv "$LEGACY_P3DROVFX_MIRROR_DIR" "$MIRROR_DIR" && moved=true
-        ui_verbose "Migrated $(tilde "$LEGACY_P3DROVFX_MIRROR_DIR") to $(tilde "$MIRROR_DIR")"
-    fi
-    if [[ -d "$LEGACY_P3DROVFX_STATE_DIR" && ! -e "$SETUP_STATE_DIR" ]]; then
-        mv "$LEGACY_P3DROVFX_STATE_DIR" "$SETUP_STATE_DIR" && moved=true
-        ui_verbose "Migrated $(tilde "$LEGACY_P3DROVFX_STATE_DIR") to $(tilde "$SETUP_STATE_DIR")"
-    fi
-    # A stale symlink still pointing into the old mirror.
-    if [[ -L "$BIN_DIR/$CLI_NAME" ]]; then
-        local dest
-        dest="$(readlink "$BIN_DIR/$CLI_NAME")"
-        [[ "$dest" == "$LEGACY_MIRROR_DIR"/* || "$dest" == "$LEGACY_P3DROVFX_MIRROR_DIR"/* ]] && install_cli
-    fi
-    # The CLI used to be called vynx. Retire that name, but only when it is ours
-    # to retire and only once the new name is actually in place — a symlink
-    # pointing anywhere else belongs to something the user installed themselves.
-    if [[ -L "$BIN_DIR/$LEGACY_CLI_NAME" ]]; then
-        local old
-        old="$(readlink "$BIN_DIR/$LEGACY_CLI_NAME")"
-        if [[ "$old" == "$MIRROR_DIR"/* || "$old" == "$LEGACY_MIRROR_DIR"/* || "$old" == "$LEGACY_P3DROVFX_MIRROR_DIR"/* ]]; then
-            install_cli
-            if [[ -L "$BIN_DIR/$CLI_NAME" ]]; then
-                rm -f "$BIN_DIR/$LEGACY_CLI_NAME"
-                ui_note "The CLI is now called $CLI_NAME; removed the old $LEGACY_CLI_NAME link."
-            fi
-        fi
-    fi
-    # Also retire the old ii-p3drovfx CLI name if it points to our mirrors
-    if [[ -L "$BIN_DIR/ii-p3drovfx" ]]; then
-        local old
-        old="$(readlink "$BIN_DIR/ii-p3drovfx")"
-        if [[ "$old" == "$MIRROR_DIR"/* || "$old" == "$LEGACY_MIRROR_DIR"/* || "$old" == "$LEGACY_P3DROVFX_MIRROR_DIR"/* ]]; then
-            install_cli
-            if [[ -L "$BIN_DIR/$CLI_NAME" ]]; then
-                rm -f "$BIN_DIR/ii-p3drovfx"
-                ui_note "The CLI is now called $CLI_NAME; removed the old ii-p3drovfx link."
-            fi
-        fi
-    fi
-    [[ "$moved" == true ]] && ui_note "Migrated legacy ii-vynx/ii-p3drovfx paths to Flow."
-    return 0
 }
 
 open_log() {
@@ -2517,7 +2440,7 @@ main() {
     # Only the mutating commands migrate legacy paths; listing and doctor must
     # never move anything just because you asked them a question.
     case "$COMMAND" in
-        apply | install | update | switch | restart | run | remove-cli) migrate_legacy ;;
+        apply | install | update | switch | restart | run | remove-cli) ;;
     esac
 
     case "$COMMAND" in
