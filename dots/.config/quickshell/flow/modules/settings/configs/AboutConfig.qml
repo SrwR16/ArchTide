@@ -23,6 +23,14 @@ ContentPage {
     property bool checkingUpdates: false
     property bool logAutoScroll: true
 
+    // ── Upstream fetch state (shared between About and Update) ──
+    property string upstreamCommit: ""
+    property int aheadCount: 0
+    property int behindCount: 0
+    property var branchList: []
+    property bool fetchingUpstream: false
+    property string fetchError: ""
+
     readonly property string setupScript: FileUtils.trimFileProtocol(Directories.home + "/.local/share/flow/setup-flow.sh")
 
     // The transient unit writes here instead of to a pipe: a pipe back into this
@@ -85,30 +93,60 @@ ContentPage {
                 page.activeBranch = (parts[1] || "dev").trim() || "dev";
                 page.activeSource   = (parts[2] || "flow").trim() || "flow";
                 page.activeCommit = (parts[3] || "").trim();
-                // After loading state, kick off the remote-head probe to compute hasUpdate.
-                remoteHeadProc.running = true;
+                // After loading state, kick off the upstream fetch.
+                fetchUpstreamProc.running = true;
             }
         }
     }
 
-    // ── Remote HEAD probe: shows SHA of origin/<branch> so we can compute hasUpdate ──
+    // ── Shared upstream fetch: git fetch + rev-list + branch -r ──
     Process {
-        id: remoteHeadProc
-                command: ["bash", "-c",
-            "if [ -z \"" + page.activeRemote + "\" ] || [ -z \"" + page.activeBranch + "\" ]; then exit 0; fi; " +
-            "git ls-remote --heads \"" + page.activeRemote + "\" \"" + page.activeBranch + "\" 2>/dev/null | awk '{print $1; exit}'"]
-        onStarted: page.checkingUpdates = true
+        id: fetchUpstreamProc
+        property string flowDir: FileUtils.trimFileProtocol(Directories.config) + "/quickshell/flow"
+        command: ["bash", "-c",
+            "set -euo pipefail; " +
+            "cd \"" + fetchUpstreamProc.flowDir + "\" 2>/dev/null || exit 1; " +
+            "git fetch origin --quiet 2>/dev/null; " +
+            "echo '---FETCH_DONE---'; " +
+            "git rev-list --left-right --count HEAD...@{u} 2>/dev/null || echo '0\t0'; " +
+            "echo '---AHEAD_BEHIND---'; " +
+            "git rev-parse @{u} 2>/dev/null || echo ''; " +
+            "echo '---UPSTREAM_COMMIT---'; " +
+            "git branch -r --format='%(refname:short)' 2>/dev/null | grep '^origin/' | sed 's|^origin/||' | sort -u"]
+        onStarted: {
+            page.fetchingUpstream = true;
+            page.fetchError = "";
+        }
         stdout: StdioCollector {
             onStreamFinished: {
-                page.remoteCommit = text.trim();
+                var parts = text.split("---FETCH_DONE---");
+                if (parts.length > 1) {
+                    var rest = parts[1];
+                    var abParts = rest.split("---AHEAD_BEHIND---");
+                    if (abParts.length > 1) {
+                        var ab = abParts[0].trim().split("\t");
+                        page.aheadCount = parseInt(ab[0]) || 0;
+                        page.behindCount = parseInt(ab[1]) || 0;
+
+                        var ucParts = abParts[1].split("---UPSTREAM_COMMIT---");
+                        if (ucParts.length > 1) {
+                            page.upstreamCommit = ucParts[0].trim();
+                            page.remoteCommit = ucParts[0].trim(); // for hasUpdate compat
+                            var branches = ucParts[1].trim().split("\n").filter(function(b) { return b.trim() !== ""; });
+                            page.branchList = branches;
+                        }
+                    }
+                }
+                page.fetchingUpstream = false;
                 page.checkingUpdates = false;
             }
         }
         stderr: StdioCollector {
             onStreamFinished: {
                 if (text.trim() !== "") {
+                    page.fetchError = text.trim();
+                    page.fetchingUpstream = false;
                     page.checkingUpdates = false;
-                    page.remoteCommit = "";
                 }
             }
         }
@@ -335,7 +373,7 @@ ContentPage {
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Section: System Info (kept verbatim from previous design)
+    // Section: System Info
     // ──────────────────────────────────────────────────────────────────────────
     ContentSection {
         icon: "info"
@@ -396,51 +434,8 @@ ContentPage {
                 topLeftRadius: Appearance.rounding.verysmall
                 topRightRadius: Appearance.rounding.large
                 bottomLeftRadius: Appearance.rounding.verysmall
-                bottomRightRadius: Appearance.rounding.verysmall
-                title: Translation.tr("Parent-Dots Info")
-                icon: "account_tree"
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 12
-                    Layout.topMargin: 10
-                    Layout.bottomMargin: 10
-                    IconImage {
-                        implicitSize: 50
-                        source: Quickshell.iconPath("flow")
-                    }
-                    ColumnLayout {
-                        Layout.alignment: Qt.AlignVCenter
-                        StyledText {
-                            text: Translation.tr("Flow")
-                            font.pixelSize: Appearance.font.pixelSize.normal
-                            font.weight: Font.Bold
-                        }
-                        StyledText {
-                            text: "<a href='https://github.com/SrwR16/ArchTide'>github.com/SrwR16/ArchTide</a>"
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            textFormat: Text.RichText
-                            onLinkActivated: link => Qt.openUrlExternally(link)
-                            PointingHandLinkHover {}
-                        }
-                    }
-                }
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 5
-                    RippleButtonWithIcon { materialIcon: "auto_stories"; mainText: Translation.tr("Wiki"); onClicked: Qt.openUrlExternally("https://github.com/SrwR16/ArchTide/wiki") }
-                    RippleButtonWithIcon { materialIcon: "favorite"; mainText: Translation.tr("Sponsor"); onClicked: Qt.openUrlExternally("https://github.com/sponsors/SrwR16") }
-                }
-            }
-
-            ContentSubsection {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                topLeftRadius: Appearance.rounding.verysmall
-                topRightRadius: Appearance.rounding.verysmall
-                bottomLeftRadius: Appearance.rounding.large
-                bottomRightRadius: Appearance.rounding.verysmall
-                title: Translation.tr("Flow Info")
+                bottomRightRadius: Appearance.rounding.large
+                title: Translation.tr("Flow")
                 icon: "waves"
 
                 RowLayout {
@@ -457,17 +452,31 @@ ContentPage {
                     }
                     ColumnLayout {
                         Layout.alignment: Qt.AlignVCenter
+                        Layout.fillWidth: true
                         StyledText {
                             text: Translation.tr("Flow")
                             font.pixelSize: Appearance.font.pixelSize.normal
                             font.weight: Font.Bold
                         }
                         StyledText {
-                            text: "<a href='https://github.com/SrwR16/ArchTide'>github.com/SrwR16/ArchTide</a>"
+                            text: page.activeRemote
+                                ? "<a href='" + page.activeRemote.replace(/\.git$/, "") + "'>" + page.activeRemote.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "") + "</a>"
+                                : "github.com/SrwR16/ArchTide";
                             font.pixelSize: Appearance.font.pixelSize.small
                             textFormat: Text.RichText
                             onLinkActivated: link => Qt.openUrlExternally(link)
                             PointingHandLinkHover {}
+                        }
+                        StyledText {
+                            text: "Branch: " + page.activeBranch + (page.activeCommit ? "  •  Commit: " + page.activeCommit.substring(0, 7) : "");
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colSubtext
+                        }
+                        StyledText {
+                            visible: page.upstreamCommit !== ""
+                            text: "Upstream: " + (page.aheadCount > 0 ? "↑" + page.aheadCount + " " : "") + (page.behindCount > 0 ? "↓" + page.behindCount + " " : "") + (page.aheadCount === 0 && page.behindCount === 0 ? "up to date" : "") + "  •  " + page.upstreamCommit.substring(0, 7) + "  •  Last fetch: " + (page.fetchingUpstream ? "fetching..." : "just now");
+                            font.pixelSize: Appearance.font.pixelSize.small
+                            color: Appearance.colors.colSubtext
                         }
                     }
                 }
@@ -475,7 +484,9 @@ ContentPage {
                     Layout.fillWidth: true
                     spacing: 5
                     RippleButtonWithIcon { materialIcon: "code"; mainText: Translation.tr("GitHub"); onClicked: Qt.openUrlExternally("https://github.com/SrwR16/ArchTide") }
+                    RippleButtonWithIcon { materialIcon: "auto_stories"; mainText: Translation.tr("Wiki"); onClicked: Qt.openUrlExternally("https://github.com/SrwR16/ArchTide/wiki") }
                     RippleButtonWithIcon { materialIcon: "adjust"; materialIconFill: false; mainText: Translation.tr("Issues"); onClicked: Qt.openUrlExternally("https://github.com/SrwR16/ArchTide/issues") }
+                    RippleButtonWithIcon { visible: page.fetchingUpstream || page.upstreamCommit !== ""; materialIcon: "refresh"; mainText: Translation.tr("Refresh"); onClicked: fetchUpstreamProc.running = true }
                 }
             }
         }
@@ -489,33 +500,47 @@ ContentPage {
         title: Translation.tr("Update")
 
         ContentSubsection {
-            title: Translation.tr("Source updater")
-            icon: "update"
-            tooltip: Translation.tr("Pull latest changes for Flow from GitHub and replace the flow folder")
+            title: Translation.tr("Upstream Status")
+            icon: "cloud_sync"
+            tooltip: Translation.tr("Status of the remote branch compared to your local config")
 
             headerExtra: Component {
                 RowLayout {
                     spacing: 6
                     StatusChip {
-                        iconText: "hub"
-                        chipText: "Flow"
-                        chipColor: Appearance.colors.colSecondaryContainer
-                        textColor: Appearance.colors.colOnSecondaryContainer
+                        visible: page.fetchingUpstream
+                        iconText: "sync"
+                        chipText: Translation.tr("Fetching…")
+                        chipColor: Appearance.colors.colTertiaryContainer
+                        textColor: Appearance.colors.colOnTertiaryContainer
                     }
-
                     StatusChip {
-                        iconText: "call_split"
-                        chipText: page.activeBranch
-                        chipColor: Appearance.colors.colSecondaryContainer
-                        textColor: Appearance.colors.colOnSecondaryContainer
+                        visible: page.upstreamCommit !== "" && !page.fetchingUpstream
+                        iconText: page.behindCount > 0 ? "cloud_download" : (page.aheadCount > 0 ? "cloud_upload" : "check_circle")
+                        chipText: page.behindCount > 0
+                            ? Translation.tr("%1 behind").arg(page.behindCount)
+                            : (page.aheadCount > 0
+                                ? Translation.tr("%1 ahead").arg(page.aheadCount)
+                                : Translation.tr("Up to date"));
+                        chipColor: page.behindCount > 0 ? Appearance.colors.colErrorContainer
+                            : (page.aheadCount > 0 ? Appearance.colors.colTertiaryContainer
+                                : Appearance.colors.colPrimaryContainer);
+                        textColor: page.behindCount > 0 ? Appearance.colors.colOnErrorContainer
+                            : (page.aheadCount > 0 ? Appearance.colors.colOnTertiaryContainer
+                                : Appearance.colors.colOnPrimaryContainer);
                     }
-
                     StatusChip {
-                        visible: page.activeCommit !== ""
+                        visible: page.upstreamCommit !== "" && !page.fetchingUpstream
                         iconText: "description"
-                        chipText: page.activeCommit.substring(0, 7)
+                        chipText: page.upstreamCommit.substring(0, 7)
                         chipColor: Appearance.colors.colLayer2
                         textColor: Appearance.colors.colOnLayer1
+                    }
+                    RippleButtonWithIcon {
+                        visible: page.upstreamCommit !== "" && !page.fetchingUpstream
+                        materialIcon: "refresh"
+                        mainText: Translation.tr("Refresh")
+                        onClicked: fetchUpstreamProc.running = true
                     }
                 }
             }
@@ -524,7 +549,7 @@ ContentPage {
                 Layout.fillWidth: true
                 spacing: 12
 
-                // Main update button — single button, source+branch current.
+                // Main update button
                 RippleButton {
                     id: updateBtn
                     Layout.fillWidth: true
@@ -553,27 +578,7 @@ ContentPage {
                     }
                 }
 
-                // ── Circle Badge next to the button ──
-                Rectangle {
-                    visible: page.hasUpdate && !(actionProc.running && actionProc.mode === "update") && !(actionProc.finished && actionProc.mode === "update")
-                    radius: width / 2
-                    color: Appearance.colors.colErrorContainer
-                    Layout.preferredHeight: 48
-                    Layout.preferredWidth: 48
-                    Layout.alignment: Qt.AlignVCenter
-
-                    MaterialSymbol {
-                        anchors.centerIn: parent
-                        text: "deployed_code_update"
-                        iconSize: 22
-                        color: Appearance.colors.colOnErrorContainer
-                        fill: 1
-                    }
-
-                    Behavior on opacity { NumberAnimation { duration: 200 } }
-                }
-
-                // ── Feedback Badge next to the button (success/error) ──
+                // Feedback Badge next to the button (success/error)
                 Rectangle {
                     visible: actionProc.finished && actionProc.mode === "update"
                     radius: width / 2
@@ -608,85 +613,173 @@ ContentPage {
                     text: Translation.tr("When enabled, updating also overlays this fork's ~/.config/hypr onto yours (custom/ is never touched, and anything replaced is backed up first). Disable to update only the Quickshell config.")
                 }
             }
+        }
 
-            // ── Status + log box (inline) ──
-            ColumnLayout {
+        ContentSubsection {
+            title: Translation.tr("Switch Branch")
+            icon: "call_split"
+            tooltip: Translation.tr("Switch to a different branch from the remote repository")
+
+            headerExtra: Component {
+                RowLayout {
+                    spacing: 6
+                    StatusChip {
+                        iconText: "call_split"
+                        chipText: page.activeBranch
+                        chipColor: Appearance.colors.colSecondaryContainer
+                        textColor: Appearance.colors.colOnSecondaryContainer
+                    }
+                }
+            }
+
+            RowLayout {
                 Layout.fillWidth: true
-                spacing: 6
+                spacing: 12
 
-                Rectangle {
+                ComboBox {
+                    id: branchCombo
                     Layout.fillWidth: true
-                    Layout.topMargin: 8
-                    Layout.preferredHeight: 40
-                    visible: actionProc.finished
-                    radius: Appearance.rounding.small
-                    color: ColorUtils.transparentize(actionProc.exitCode === 0 ? Appearance.colors.colPrimary : Appearance.colors.colError, 0.85)
-                    border.width: 0
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        spacing: 8
-
-                        MaterialSymbol {
-                            text: actionProc.exitCode === 0 ? "check_circle" : "error"
-                            iconSize: 20
-                            color: actionProc.exitCode === 0 ? Appearance.colors.colPrimary : Appearance.colors.colError
+                    Layout.preferredHeight: 44
+                    model: page.branchList
+                    currentIndex: page.branchList.indexOf(page.activeBranch)
+                    placeholderText: Translation.tr("Select branch…")
+                    delegate: ItemDelegate {
+                        width: branchCombo.width - branchCombo.leftPadding - branchCombo.rightPadding
+                        text: modelData
+                        font.pixelSize: Appearance.font.pixelSize.normal
+                        contentItem: Text {
+                            text: modelData
+                            font: parent.font
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignLeft
+                            verticalAlignment: Text.AlignVCenter
                         }
-
-                        StyledText {
-                            Layout.fillWidth: true
-                            text: actionProc.exitCode === 0
-                                  ? Translation.tr("Update completed successfully! Reload the shell to apply.")
-                                  : Translation.tr("Update failed! Check the log below.")
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            color: Appearance.colors.colOnLayer0
+                        highlighted: branchCombo.highlightedIndex === index
+                    }
+                    indicator: Canvas {
+                        implicitWidth: 24
+                        implicitHeight: 24
+                        onPaint: {
+                            var ctx = getContext("2d");
+                            ctx.reset();
+                            ctx.fillStyle = Appearance.colors.colOnLayer1;
+                            ctx.moveTo(width / 2 - 4, height / 2 - 2);
+                            ctx.lineTo(width / 2 + 4, height / 2 - 2);
+                            ctx.lineTo(width / 2, height / 2 + 4);
+                            ctx.closePath();
+                            ctx.fill();
                         }
+                    }
+                    background: Rectangle {
+                        radius: Appearance.rounding.medium
+                        border.width: 1
+                        border.color: Appearance.colors.colOutline
+                        color: Appearance.colors.colSurface
                     }
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.topMargin: 6
-                    Layout.preferredHeight: Math.min(250, logText.implicitHeight + 16)
-                    visible: actionProc.logOutput !== ""
-                    radius: Appearance.rounding.small
-                    color: Appearance.colors.colLayer0
-                    border.width: 0
+                RippleButton {
+                    Layout.preferredHeight: 44
+                    Layout.preferredWidth: 100
+                    buttonRadius: Appearance.rounding.medium
+                    colBackground: Appearance.colors.colPrimary
+                    colBackgroundHover: Appearance.colors.colPrimaryHover
+                    colRipple: Appearance.colors.colPrimaryActive
+                    enabled: !actionProc.running && branchCombo.currentText !== "" && branchCombo.currentText !== page.activeBranch
+                    contentItem: StyledText {
+                        text: Translation.tr("Switch")
+                        font.pixelSize: Appearance.font.pixelSize.normal
+                        font.weight: Font.Bold
+                        color: Appearance.colors.colOnPrimary
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        var targetBranch = branchCombo.currentText;
+                        page.runAction("switch", ["switch", "--branch", targetBranch, "--yes", "--keep-config",
+                            Config.options.update.replaceHyprConfig ? "--hypr" : "--no-hypr"]);
+                    }
+                }
+            }
+        }
 
-                    StyledFlickable {
-                        id: logFlickable
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        clip: true
-                        contentHeight: logText.implicitHeight
-                        // The script draws fixed-width boxes, so the log must
-                        // scroll sideways rather than wrap and shred the frames.
-                        contentWidth: logText.implicitWidth
-                        flickableDirection: Flickable.HorizontalAndVerticalFlick
+        // ── Status + log box (inline) ──
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 6
 
-                        Connections {
-                            target: logFlickable
-                            function onContentYChanged() {
-                                page.logAutoScroll = logFlickable.contentY >= Math.max(0, logFlickable.contentHeight - logFlickable.height) - 2;
-                            }
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: 8
+                Layout.preferredHeight: 40
+                visible: actionProc.finished
+                radius: Appearance.rounding.small
+                color: ColorUtils.transparentize(actionProc.exitCode === 0 ? Appearance.colors.colPrimary : Appearance.colors.colError, 0.85)
+                border.width: 0
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 8
+
+                    MaterialSymbol {
+                        text: actionProc.exitCode === 0 ? "check_circle" : "error"
+                        iconSize: 20
+                        color: actionProc.exitCode === 0 ? Appearance.colors.colPrimary : Appearance.colors.colError
+                    }
+
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: actionProc.exitCode === 0
+                              ? Translation.tr("Update completed successfully! Reload the shell to apply.")
+                              : Translation.tr("Update failed! Check the log below.")
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnLayer0
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.topMargin: 6
+                Layout.preferredHeight: Math.min(250, logText.implicitHeight + 16)
+                visible: actionProc.logOutput !== ""
+                radius: Appearance.rounding.small
+                color: Appearance.colors.colLayer0
+                border.width: 0
+
+                StyledFlickable {
+                    id: logFlickable
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    clip: true
+                    contentHeight: logText.implicitHeight
+                    // The script draws fixed-width boxes, so the log must
+                    // scroll sideways rather than wrap and shred the frames.
+                    contentWidth: logText.implicitWidth
+                    flickableDirection: Flickable.HorizontalAndVerticalFlick
+
+                    Connections {
+                        target: logFlickable
+                        function onContentYChanged() {
+                            page.logAutoScroll = logFlickable.contentY >= Math.max(0, logFlickable.contentHeight - logFlickable.height) - 2;
                         }
+                    }
 
-                        Text {
-                            id: logText
-                            textFormat: Text.RichText
-                            text: page.ansiToRich(actionProc.logOutput)
-                            font.family: Appearance.font.family.monospace
-                            font.pixelSize: Appearance.font.pixelSize.small
-                            color: Appearance.colors.colOnLayer1
-                            wrapMode: Text.NoWrap
+                    Text {
+                        id: logText
+                        textFormat: Text.RichText
+                        text: page.ansiToRich(actionProc.logOutput)
+                        font.family: Appearance.font.family.monospace
+                        font.pixelSize: Appearance.font.pixelSize.small
+                        color: Appearance.colors.colOnLayer1
+                        wrapMode: Text.NoWrap
 
-                            onTextChanged: Qt.callLater(() => {
-                                if (page.logAutoScroll)
-                                    logFlickable.contentY = Math.max(0, logFlickable.contentHeight - logFlickable.height);
-                            });
-                        }
+                        onTextChanged: Qt.callLater(() => {
+                            if (page.logAutoScroll)
+                                logFlickable.contentY = Math.max(0, logFlickable.contentHeight - logFlickable.height);
+                        });
                     }
                 }
             }

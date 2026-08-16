@@ -113,6 +113,8 @@ FLOW_CONFIG_FILE="$XDG_CONFIG_HOME/flow/config.json"
 BIN_DIR="$HOME/.local/bin"
 CLI_NAME="flow"
 
+BACKUPS_TO_KEEP=3
+
 # ── Flow upstream ────────────────────────────────────────────────────────
 # Single source of truth — no fork switching, no upstream cache required.
 FLOW_URL="https://github.com/SrwR16/ArchTide"
