@@ -2,8 +2,8 @@
 #
 # setup-flow.sh — installer, updater and manager for the Flow Quickshell configuration.
 #
-# Running it bare applies the Quickshell config only. Installing the base
-# illogical-impulse dotfiles underneath it is always an explicit request.
+# Running it bare applies the Quickshell config only. Flow is self-contained
+# and does not require a base dotfiles installation.
 #
 # The same file is symlinked to ~/.local/bin/flow and every command
 # below is reachable through that name too, with one difference: bare
@@ -12,7 +12,7 @@
 # ── Commands ─────────────────────────────────────────────────────────────────
 #
 #   apply                   Apply the Quickshell config (the default)
-#   install                 Install base illogical-impulse, then apply
+#   install                 Install Flow dependencies and apply config
 #   update                  Refresh the Flow config from GitHub
 #   restart                 Restart Quickshell (alias: run)
 #   doctor                  Report resolved paths, active state and tooling
@@ -31,25 +31,24 @@
 #   -q, --quiet               Only errors on stdout
 #       --backup              Keep the replaced config (default)
 #       --no-backup           Discard the replaced config instead
-#       --keep-config         Never reset ~/.config/illogical-impulse/config.json
+#       --keep-config         Never reset ~/.config/flow/config.json
 #       --reset-config        Always reset it (a backup is kept)
 #       --no-restart          Leave Quickshell alone when finished
 #       --hypr                Install the fork's ~/.config/hypr files
 #       --no-hypr             Never install them, never ask
-#       --sddm                Install the Tide SDDM greeter + its matugen template
+#       --sddm                Install the Flow SDDM greeter + its matugen template
 #       --no-sddm             Never install them, never ask
 #       --extras              Install the fork's extra configs (mpv + setup scripts)
 #       --no-extras           Never install them, never ask
 #       --rebuild-quickshell  Rebuild Quickshell from source first
-#       --skip-base-check     Do not require illogical-impulse to be present
 #       --ii-subdir <name>    Override ii* auto-detection in the clone
 #       --log-file <path>     Write the run log elsewhere
 #       --no-log              Do not write a run log
 #       --ascii               ASCII glyphs only
 #       --no-color            Strip ANSI colour
 #
-# --local takes either a fork checkout (with dots/.config/quickshell/ii*) or an
-# ii config dir directly. `update` will not guess a local path back: it refuses
+# --local takes either a fork checkout (with dots/.config/quickshell/flow*) or a
+# flow config dir directly. `update` will not guess a local path back: it refuses
 # and prints the --local line to re-run, so a stale checkout is never silently
 # redeployed.
 #
@@ -58,7 +57,7 @@
 # master. That happens before any config lands, and asks first unless -y.
 #
 # Given neither --keep-config nor --reset-config, config.json is kept on
-# updates and branch hops and reset on fork switches, where the schema changes.
+# updates and branch hops and reset on source switches, where the schema changes.
 #
 # apply, install, update and switch offer to overlay the fork's Hyprland config
 # on ~/.config/hypr. Given neither --hypr nor --no-hypr it is a question, and
@@ -66,13 +65,13 @@
 # unattended and must not rewrite Hyprland underneath you. --hypr is the way to
 # ask for it in a script.
 #
-# `install` alone also offers the fork's SDDM greeter — the Tide theme, its
+# `install` alone also offers the Flow SDDM greeter — the Flow theme, its
 # matugen template and the sddm service. The same -y/"no" rule applies, and
 # --sddm is the explicit yes. SDDM writes to /usr/share and /etc, so the
 # installer's own sudo prompts still appear.
 #
-# `install` also offers the fork's extra dotfile folders (currently mpv) on top
-# of the base configs. Same -y/"no" rule; --extras is the explicit yes.
+# `install` also offers the Flow's extra dotfile folders (currently mpv) on top
+# of the configs. Same -y/"no" rule; --extras is the explicit yes.
 #
 # Options take --flag=value as well as --flag value, and everything after a
 # bare -- is passed through to hyprset/hyprmerge.
@@ -107,10 +106,8 @@ MIRROR_DIR="$XDG_DATA_HOME/flow"       # installed copy of this script + libs
 SETUP_STATE_DIR="$XDG_STATE_HOME/flow" # logs and backups
 BACKUP_BASE_DIR="$SETUP_STATE_DIR/backups"
 DEFAULT_LOG_FILE="$SETUP_STATE_DIR/setup.log"
-BASE_DIR="$XDG_CONFIG_HOME/illogical-impulse" # base dotfiles marker
-BASE_CONFIG_FILE="$BASE_DIR/config.json"
 QS_DIR="$XDG_CONFIG_HOME/quickshell"
-TARGET_DIR="$QS_DIR/ii"
+TARGET_DIR="$QS_DIR/flow"
 BIN_DIR="$HOME/.local/bin"
 CLI_NAME="flow"
 
@@ -124,11 +121,15 @@ LEGACY_LOG_FILE="/tmp/ii-vynx-install.log"
 LEGACY_P3DROVFX_MIRROR_DIR="$XDG_DATA_HOME/ii-p3drovfx"
 LEGACY_P3DROVFX_STATE_DIR="$XDG_STATE_HOME/ii-p3drovfx"
 
+# Legacy archtide paths (for migration)
+LEGACY_ARCHTIDE_MIRROR_DIR="$XDG_DATA_HOME/archtide"
+LEGACY_ARCHTIDE_STATE_DIR="$XDG_STATE_HOME/archtide"
+
 BACKUPS_TO_KEEP=3
 
 # ── Flow upstream ────────────────────────────────────────────────────────
 # Single source of truth — no fork switching, no upstream cache required.
-FLOW_URL="https://github.com/SrwR16/Flow"
+FLOW_URL="https://github.com/SrwR16/ArchTide"
 FLOW_BRANCH="dev"
 
 # Files carried across a replace, relative to the Quickshell config dir.
@@ -740,7 +741,7 @@ ui_demo() {
     ui_ok "Staged" "3 protected files carried"
     ui_step "Swapping"
     [[ "$UI_TTY" == true ]] && sleep 0.1
-    ui_ok "Swapped" "backup $G_ARROW ii_flow_dev_20260727-1412"
+    ui_ok "Swapped" "backup $G_ARROW flow_flow_dev_20260727-1412"
     printf '\n'
     ui_info "an informational step"
     ui_note "a dimmed aside"
@@ -931,9 +932,9 @@ read_local_state() {
 
 require_base() {
     [[ "$OPT_SKIP_BASE_CHECK" == true ]] && return 0
-    [[ -d "$BASE_DIR" ]] && return 0
-    ui_fail "Base dotfiles missing" "$(tilde "$BASE_DIR") does not exist"
-    ui_note "illogical-impulse is not installed. Install it explicitly:"
+    [[ -d "$FLOW_CONFIG_DIR" ]] && return 0
+    ui_fail "Flow config missing" "$(tilde "$FLOW_CONFIG_DIR") does not exist"
+    ui_note "Flow config is not installed. Install it explicitly:"
     ui_note "    $SCRIPT_SELF install"
     ui_note "Or skip this check with --skip-base-check if you know better."
     exit 1
@@ -1247,13 +1248,13 @@ local_origin() {
 # Quickshell
 #══════════════════════════════════════════════════════════════════════════════
 
-# ensure_quickshell_git — put the AUR quickshell-git back after a base install.
+# ensure_quickshell_git — ensure quickshell-git is installed on Arch.
 #
-# The base installer builds its own illogical-impulse-quickshell-git from a
-# commit pinned months ago and drops quickshell-git on the way. This fork is
-# written against Quickshell master, so the pinned build is normally older
-# than the QML expects and the shell fails to start. Undo that before any
-# config lands, which is why install is the only command that calls this.
+# The base installer builds its own pinned quickshell and drops quickshell-git
+# on the way. This fork is written against Quickshell master, so the pinned
+# build is normally older than the QML expects and the shell fails to start.
+# Undo that before any config lands, which is why install is the only command
+# that calls this.
 #
 # Arch only: every other distro packages Quickshell its own way, and the
 # pinned PKGBUILD is an Arch-specific problem.
@@ -2017,31 +2018,31 @@ apply_config() {
     return 0
 }
 
-# The real user config lives outside the Quickshell dir, so replacing ii never
+# The real user config lives outside the Quickshell dir, so replacing flow never
 # touches it. Reset it only when the schema is likely to have changed.
 handle_base_config() {
     local verb="$1"
-    [[ -f "$BASE_CONFIG_FILE" ]] || return 0
+    [[ -f "$FLOW_CONFIG_FILE" ]] || return 0
 
     local keep="$OPT_KEEP_CONFIG"
     if [[ -z "$keep" ]]; then
-        # Fork switches change the option schema; updates and branch hops do not.
+        # Source switches change the option schema; updates and branch hops do not.
         [[ "$verb" == "switch" ]] && keep=false || keep=true
     fi
     if [[ "$keep" == true ]]; then
-        ui_note "Kept $(tilde "$BASE_CONFIG_FILE")."
+        ui_note "Kept $(tilde "$FLOW_CONFIG_FILE")."
         return 0
     fi
 
     if [[ "$OPT_ASSUME_YES" != true ]]; then
-        ui_confirm "Reset $(tilde "$BASE_CONFIG_FILE")? A backup is kept." || {
+        ui_confirm "Reset $(tilde "$FLOW_CONFIG_FILE")? A backup is kept." || {
             ui_note "Kept the existing config."
             return 0
         }
     fi
     local dest
-    dest="${BASE_CONFIG_FILE}.bak-$(date +%Y%m%d-%H%M%S)"
-    mv "$BASE_CONFIG_FILE" "$dest"
+    dest="${FLOW_CONFIG_FILE}.bak-$(date +%Y%m%d-%H%M%S)"
+    mv "$FLOW_CONFIG_FILE" "$dest"
     ui_ok "Reset" "config.json $G_ARROW $(basename "$dest")"
     return 0
 }
@@ -2076,13 +2077,13 @@ cmd_apply() {
 cmd_install() {
     load_local_src
     if [[ -n "$LOCAL_SRC" && "$LOCAL_KIND" != "repo" ]]; then
-        ui_fail "Not a fork checkout" "$(tilde "$LOCAL_SRC") is an ii config dir"
+        ui_fail "Not a fork checkout" "$(tilde "$LOCAL_SRC") is a flow config dir"
         ui_note "install runs ./setup from the repository root. Point --local at that."
         exit 1
     fi
 
     ui_banner "Flow" "install"
-    ui_note "Installs illogical-impulse first, then Flow's Quickshell config."
+    ui_note "Installs Flow dependencies and applies Flow's Quickshell config."
     printf '\n'
 
     local origin url branch fork
@@ -2100,71 +2101,25 @@ cmd_install() {
     fi
     [[ -n "$OPT_BRANCH" ]] && branch="$OPT_BRANCH"
 
-    ui_frame_open "Base install"
+    ui_frame_open "Flow install"
     if [[ -n "$LOCAL_SRC" ]]; then
         ui_kv "source" "$(tilde "$LOCAL_SRC")"
     else
         ui_kv "source" "${url#https://}"
         ui_kv "branch" "$branch"
     fi
-    ui_kv "runs" "./setup install"
+    ui_kv "runs" "flow install"
     ui_frame_close
 
     if [[ "$OPT_ASSUME_YES" != true ]]; then
-        ui_confirm "Install the base dotfiles now? This installs system packages." || {
+        ui_confirm "Install Flow now? This installs system packages." || {
             ui_note "Cancelled."
             return 0
         }
     fi
 
-    # The base installer lives in the repository, not in the ii config dir, so
-    # it comes from a fresh clone rather than from a possibly stale mirror —
-    # unless a local checkout was named, which is the whole point of --local.
-    local base_root
-    if [[ -n "$LOCAL_SRC" ]]; then
-        base_root="$LOCAL_SRC"
-    else
-        CLONE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ii-base-XXXXXX")"
-        clone_repo "$url" "$branch" "$CLONE_DIR" || return 1
-        base_root="$CLONE_DIR"
-    fi
-
-    local -a runner=(./setup install)
-    if [[ ! -x "$base_root/setup" ]]; then
-        if [[ ! -f "$base_root/setup" ]]; then
-            if [[ -n "$LOCAL_SRC" ]]; then
-                ui_fail "No base installer" "$(tilde "$base_root") has no ./setup"
-            else
-                ui_fail "No base installer" "$url has no ./setup at $branch"
-            fi
-            return 1
-        fi
-        if [[ -n "$LOCAL_SRC" ]]; then
-            # Never chmod somebody's working tree just to run their installer.
-            runner=(bash ./setup install)
-        else
-            chmod +x "$base_root/setup"
-        fi
-    fi
-
-    ui_info "Handing over to ./setup install — its own output follows."
-    printf '\n'
-    local rc=0
-    (cd "$base_root" && "${runner[@]}") || rc=$?
-    printf '\n'
-    if ((rc != 0)); then
-        ui_fail "Base install failed" "./setup install exited $rc"
-        return 1
-    fi
-    ui_ok "Base ready" "illogical-impulse installed"
-
-    if [[ -z "$LOCAL_SRC" ]]; then
-        rm -rf "$CLONE_DIR"
-        CLONE_DIR=""
-    fi
-
-    # Before any config files land, so the shell the user ends up looking at
-    # is running the Quickshell this fork was written against.
+    # Flow is self-contained; no base dotfiles installer to run.
+    # Just ensure Quickshell is available (on Arch, ensure quickshell-git).
     ensure_quickshell_git
 
     OPT_SKIP_BASE_CHECK=true
@@ -2265,7 +2220,7 @@ cmd_doctor() {
     ui_frame_close
 
     ui_frame_open "Paths"
-    ui_kv "base" "$([[ -d "$BASE_DIR" ]] && tilde "$BASE_DIR" || printf 'missing')"
+    ui_kv "base" "$([[ -d "$FLOW_CONFIG_DIR" ]] && tilde "$FLOW_CONFIG_DIR" || printf 'missing')"
     ui_kv "mirror" "$([[ -d "$MIRROR_DIR" ]] && tilde "$MIRROR_DIR" || printf 'missing')"
     ui_kv "backups" "$({ find "$BACKUP_BASE_DIR" -maxdepth 1 -type d -name 'ii_*' 2>/dev/null || true; } | wc -l) kept"
     ui_kv "log" "$(tilde "$LOG_FILE")"
@@ -2317,7 +2272,7 @@ show_help() {
 
     ui_rule "Commands"
     printf '  %s%-16s%s %s\n' "$C_OK" "apply" "$C_RST" "Apply the Quickshell config (default)"
-    printf '  %s%-16s%s %s\n' "$C_OK" "install" "$C_RST" "Install base illogical-impulse, then apply"
+    printf '  %s%-16s%s %s\n' "$C_OK" "install" "$C_RST" "Install Flow dependencies and apply config"
     printf '  %s%-16s%s %s\n' "$C_OK" "update" "$C_RST" "Refresh Flow config from GitHub"
     printf '  %s%-16s%s %s\n' "$C_OK" "restart" "$C_RST" "Restart Quickshell (alias: run)"
     printf '  %s%-16s%s %s\n' "$C_OK" "doctor" "$C_RST" "Report resolved paths, state and tooling"
@@ -2335,17 +2290,17 @@ show_help() {
     printf '  %s%-24s%s %s\n' "$C_STEP" "-q, --quiet" "$C_RST" "Only errors on stdout"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --backup" "$C_RST" "Keep the replaced config (default)"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-backup" "$C_RST" "Discard the previous config instead of keeping it"
-    printf '  %s%-24s%s %s\n' "$C_STEP" "    --keep-config" "$C_RST" "Never reset ~/.config/illogical-impulse/config.json"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --keep-config" "$C_RST" "Never reset ~/.config/flow/config.json"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --reset-config" "$C_RST" "Always reset it (a backup is kept)"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-restart" "$C_RST" "Leave Quickshell alone when finished"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --hypr" "$C_RST" "Install the fork's ~/.config/hypr files"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-hypr" "$C_RST" "Never install them, never ask"
-    printf '  %s%-24s%s %s\n' "$C_STEP" "    --sddm" "$C_RST" "Install the Tide SDDM greeter + its matugen template"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --sddm" "$C_RST" "Install the Flow SDDM greeter + its matugen template"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-sddm" "$C_RST" "Never install them, never ask"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --extras" "$C_RST" "Install the fork's extra configs (mpv + setup scripts)"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-extras" "$C_RST" "Never install them, never ask"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --rebuild-quickshell" "$C_RST" "Rebuild Quickshell from source first"
-    printf '  %s%-24s%s %s\n' "$C_STEP" "    --skip-base-check" "$C_RST" "Do not require illogical-impulse to be present"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --skip-base-check" "$C_RST" "Do not require Flow config to be present"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --ii-subdir <name>" "$C_RST" "Override ii* auto-detection in the clone"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --log-file <path>" "$C_RST" "Write the run log elsewhere"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-log" "$C_RST" "Do not write a run log"
@@ -2355,19 +2310,19 @@ show_help() {
     printf '\n'
 
     ui_rule "Notes"
-    printf '  %s--local takes a fork checkout or an ii config dir; either way nothing%s\n' "$C_SUB" "$C_RST"
+    printf '  %s--local takes a fork checkout or a flow config dir; either way nothing%s\n' "$C_SUB" "$C_RST"
     printf '  %sis cloned. update will not guess the path back: it refuses and prints%s\n' "$C_SUB" "$C_RST"
     printf '  %sthe --local line to re-run.%s\n' "$C_SUB" "$C_RST"
     printf '  %sOn Arch, install swaps the base installer'"'"'s pinned quickshell for the%s\n' "$C_SUB" "$C_RST"
     printf '  %sAUR quickshell-git this fork targets, before any config lands.%s\n' "$C_SUB" "$C_RST"
     printf '  %sGiven neither --keep-config nor --reset-config, config.json is kept on%s\n' "$C_SUB" "$C_RST"
-    printf '  %supdates and branch hops and reset on fork switches, where the schema%s\n' "$C_SUB" "$C_RST"
+    printf '  %supdates and branch hops and reset on source switches, where the schema%s\n' "$C_SUB" "$C_RST"
     printf '  %schanges.%s\n' "$C_SUB" "$C_RST"
     printf '  %sapply, install, update and switch offer to overlay the fork'"'"'s Hyprland%s\n' "$C_SUB" "$C_RST"
     printf '  %sconfig on ~/.config/hypr, leaving custom/ and anything the repo does%s\n' "$C_SUB" "$C_RST"
     printf '  %snot ship alone. -y answers that question no, not yes; --hypr is the%s\n' "$C_SUB" "$C_RST"
     printf '  %sexplicit yes and --no-hypr the permanent no.%s\n' "$C_SUB" "$C_RST"
-    printf '  %sinstall also offers the fork'"'"'s SDDM greeter (Tide theme + its%s\n' "$C_SUB" "$C_RST"
+    printf '  %sinstall also offers the fork'"'"'s SDDM greeter (Flow theme + its%s\n' "$C_SUB" "$C_RST"
     printf '  %smatugen template + the sddm service). Same -y/no rule; --sddm is%s\n' "$C_SUB" "$C_RST"
     printf '  %sthe explicit yes. SDDM needs root, so its sudo prompts still appear.%s\n' "$C_SUB" "$C_RST"
     printf '  %sinstall also offers the fork'"'"'s extra configs (currently mpv, with its%s\n' "$C_SUB" "$C_RST"
@@ -2385,7 +2340,7 @@ show_help() {
     printf '  %s%s apply --local .%s          %sdeploy the checkout you stand in%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
     printf '\n'
     printf '%sLog: %s%s\n' "$C_SUB" "$(tilde "$DEFAULT_LOG_FILE")" "$C_RST"
-    printf '%sDocs: %shttps://github.com/SrwR16/Flow/wiki%s\n\n' "$C_SUB" "$C_UL" "$C_RST"
+    printf '%sDocs: %shttps://github.com/SrwR16/ArchTide/wiki%s\n\n' "$C_SUB" "$C_UL" "$C_RST"
 }
 
 #══════════════════════════════════════════════════════════════════════════════
