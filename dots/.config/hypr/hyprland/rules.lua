@@ -41,7 +41,7 @@ hl.window_rule({match = {class = ".*plasmawindowed.*" },                     flo
 hl.window_rule({match = {class = "kcm_.*" },                                  float = true})
 hl.window_rule({match = {class = ".*bluedevilwizard" },                      float = true})
 hl.window_rule({match = {title = ".*Welcome" },                              float = true})
-hl.window_rule({match = {title = "^(ArchTide Settings)$" },         float = true, no_blur = false})
+hl.window_rule({match = {title = "^(Flow Settings)$" },         float = true, no_blur = false})
 hl.window_rule({match = {title = ".*Shell conflicts.*" },                    float = true})
 hl.window_rule({match = {class = "org.freedesktop.impl.portal.desktop.kde" }, float = true})
 hl.window_rule({match = {class = "org.freedesktop.impl.portal.desktop.kde" }, size = {"(monitor_w*0.60)", "(monitor_h*0.65)"} })
