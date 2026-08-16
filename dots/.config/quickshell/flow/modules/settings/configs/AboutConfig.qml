@@ -640,8 +640,8 @@ ContentPage {
                     id: branchCombo
                     Layout.fillWidth: true
                     Layout.preferredHeight: 44
-                    model: page.branchList
-                    currentIndex: page.branchList.indexOf(page.activeBranch)
+                    model: (page.branchList.length > 0) ? page.branchList : [page.activeBranch]
+                    currentIndex: page.branchList.length > 0 ? page.branchList.indexOf(page.activeBranch) : 0
                     placeholderText: Translation.tr("Select branch…")
                     delegate: ItemDelegate {
                         width: branchCombo.width - branchCombo.leftPadding - branchCombo.rightPadding
