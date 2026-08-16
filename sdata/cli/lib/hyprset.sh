@@ -5,7 +5,7 @@
 #   hyprset.sh key  <section:field|field> <value>
 #   hyprset.sh anim <name>                <params>
 #
-# Reached as `setup-archtide.sh hyprset ...`, as `archtide hyprset ...`,
+# Reached as `setup-flow.sh hyprset ...`, as `flow hyprset ...`,
 # or run directly by HyprlandSettings.qml. Always executed, never sourced.
 
 set -euo pipefail
@@ -14,7 +14,10 @@ XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 
 # HYPRSET_CONFIG wins; otherwise the current data dir, falling back to the
 # pre-rename location so a half-migrated install still writes somewhere sane.
-CONFIG_PATH="${HYPRSET_CONFIG:-$XDG_DATA_HOME/archtide/hyprland.conf}"
+CONFIG_PATH="${HYPRSET_CONFIG:-$XDG_DATA_HOME/flow/hyprland.conf}"
+if [[ ! -f "$CONFIG_PATH" && -f "$XDG_DATA_HOME/archtide/hyprland.conf" ]]; then
+    CONFIG_PATH="$XDG_DATA_HOME/archtide/hyprland.conf"
+fi
 if [[ ! -f "$CONFIG_PATH" && -f "$XDG_DATA_HOME/ii-p3drovfx/hyprland.conf" ]]; then
     CONFIG_PATH="$XDG_DATA_HOME/ii-p3drovfx/hyprland.conf"
 fi

@@ -1,44 +1,44 @@
-ArchTide — Attribution Notice
-==============================
+Flow — Attribution Notice
+===========================
 
-This project (ArchTide) is a derivative work based on multiple upstream projects.
+This project (Flow) is a derivative work based on multiple upstream projects.
 This file documents the provenance of all code in this repository to satisfy
 GPL-3.0 attribution requirements and clarify authorship.
 
 ---
 
-1. ArchTide-Authored / Custom Code
-----------------------------------
-The following are original to ArchTide or significantly modified from upstream:
+1. Flow-Authored / Custom Code
+------------------------------
+The following are original to Flow or significantly modified from upstream:
 
-- setup-archtide.sh (installer, derived from setup-ii-p3drovfx.sh)
+- setup-flow.sh (installer, derived from setup-archtide.sh)
 - All files under .github/ (workflows, issue templates, README.md, WIDGETS.md)
 - All files under sdata/ (distro packaging, subcommands, installer modules)
 - Root README.md
 - Root NOTICE (this file)
-- Migration logic for ii-p3drovfx/ii-vynx paths
-- ArchTide-specific CLI commands (install, apply, update, doctor, restart, version)
-- ArchTide branding and identity throughout
+- Migration logic for ii-p3drovfx/ii-vynx/archtide paths
+- Flow-specific CLI commands (install, apply, update, doctor, restart, version)
+- Flow branding and identity throughout
 
 ---
 
-2. Modified Inherited Code (from ii-p3drovfx / ii-vynx)
---------------------------------------------------------
-The following originate from ii-p3drovfx (P3DROVFX/ii-p3drovfx) and ii-vynx
-(vaguesyntax/ii-vynx), and have been modified for ArchTide:
+2. Modified Inherited Code (from ArchTide / ii-p3drovfx / ii-vynx)
+--------------------------------------------------------------------
+The following originate from ArchTide (SrwR16/ArchTide), ii-p3drovfx (P3DROVFX/ii-p3drovfx), and ii-vynx
+(vaguesyntax/ii-vynx), and have been modified for Flow:
 
-- dots/.config/quickshell/archtide/ — Entire Quickshell configuration
+- dots/.config/quickshell/flow/ — Entire Quickshell configuration
   - modules/settings/configs/AboutConfig.qml (major modifications: removed fork switcher, upstream switching)
   - modules/welcome/WelcomeProjectLinks.qml (updated URLs)
   - modules/common/Directories.qml (updated cliPath)
   - modules/common/Config.qml (colorEngine options retained for compatibility)
   - translations/en_US.json, es_MX.json, pt_BR.json, and others (strings updated)
-  - All other QML modules, services, scripts under dots/.config/quickshell/archtide/
+  - All other QML modules, services, scripts under dots/.config/quickshell/flow/
 
 - sdata/cli/lib/hyprset.sh (path updates)
 - sdata/cli/lib/hyprmerge.sh (path updates)
 
-Original copyright: P3DROVFX (ii-p3drovfx), vaguesyntax (ii-vynx)
+Original copyright: SrwR16 (ArchTide), P3DROVFX (ii-p3drovfx), vaguesyntax (ii-vynx)
 License: GPL-3.0 (inherited from illogical-impulse)
 
 ---
@@ -52,7 +52,7 @@ included largely unmodified as the base dotfiles layer:
 - Base Quickshell module architecture (the "ii" runtime namespace)
 - Core services: Config, Appearance, Directories, FileUtils, Translation
 - System integration: Hyprland keybinds, rules, window management
-- Scripts under dots/.config/quickshell/archtide/scripts/ (colors, hyprland, ai, etc.)
+- Scripts under dots/.config/quickshell/flow/scripts/ (colors, hyprland, ai, etc.)
 - Widget framework (AbstractBackgroundWidget, widget extensions)
 - Settings framework (ConfigSwitch, ConfigSelectionArray, etc.)
 
@@ -66,7 +66,7 @@ License: GPL-3.0
 The following external projects are used as dependencies (not embedded):
 
 - Quickshell (https://quickshell.org/) — Widget system, LGPL-3.0
-- Hyprland (https://hypr.land/) — Compositor, BSD-3-Clause
+- Hyprland (https://hyprland.com/) — Compositor, BSD-3-Clause
 - Matugen (https://github.com/matugen/matugen) — Material You color generation, MIT
 - Material Icons / Material Symbols — Google Fonts, Apache-2.0
 - Various system tools: hyprctl, hyprpaper, hyprlock, sddm, etc.
@@ -82,14 +82,15 @@ See LICENSE for the full license text.
 
 ---
 
-6. Upstream Repository References
+5. Upstream Repository References
 ---------------------------------
 For historical context and attribution, the following upstream repositories
 contributed to this codebase:
 
 - https://github.com/end-4/dots-hyprland (illogical-impulse — base)
 - https://github.com/vaguesyntax/ii-vynx (ii-vynx — intermediate fork)
-- https://github.com/P3DROVFX/ii-p3drovfx (ii-p3drovfx — direct parent fork)
+- https://github.com/P3DROVFX/ii-p3drovfx (ii-p3drovfx — parent fork)
+- https://github.com/SrwR16/ArchTide (ArchTide — direct parent fork)
 
-ArchTide is now an independent project at:
+Flow is now an independent project at:
 - https://github.com/SrwR16/ArchTide

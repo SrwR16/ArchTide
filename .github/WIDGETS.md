@@ -1,9 +1,9 @@
-# ArchTide Desktop Widget Extensions
+# Flow Desktop Widget Extensions
 
-Third-party desktop widgets for the ArchTide Quickshell/Hyprland shell. Install any widget by pasting a GitHub repository URL directly in **Settings → Desktop Widgets → Extensions**.
+Third-party desktop widgets for the Flow Quickshell/Hyprland shell. Install any widget by pasting a GitHub repository URL directly in **Settings → Desktop Widgets → Extensions**.
 
 > [!WARNING]
-> By creating or publishing a widget for ArchTide, you grant the shell developer the right to use, modify, redistribute, and showcase the widget, in whole or in part, for any purpose without restriction.
+> By creating or publishing a widget for Flow, you grant the shell developer the right to use, modify, redistribute, and showcase the widget, in whole or in part, for any purpose without restriction.
 
 ---
 
@@ -255,7 +255,7 @@ Define `configSchema` in `widget.json` to get a settings UI automatically genera
 }
 ```
 
-Config values are stored in `widget_extensions.json` under `~/.config/archtide/` and persist across sessions and presets.
+Config values are stored in `widget_extensions.json` under `~/.config/flow/` and persist across sessions and presets.
 
 ---
 
@@ -282,7 +282,7 @@ AbstractBackgroundWidget {
 
 ---
 
-## Accessing ArchTide Design Tokens
+## Accessing Flow Design Tokens
 
 Use `Appearance` and `Quickshell.modules.common` to match the shell's Material You theme:
 
@@ -343,7 +343,7 @@ AbstractBackgroundWidget {
 To make your widget discoverable in the community browser (coming soon):
 
 1. Push your repository to GitHub.
-2. Add the topic `archtide-desktop-widget` to your repository.
+2. Add the topic `flow-desktop-widget` to your repository.
 3. Make sure `widget.json` is at the **repository root**.
 4. The community browser will automatically find your widget via the GitHub API.
 
@@ -379,7 +379,7 @@ To make your widget discoverable in the community browser (coming soon):
 
 ## Example Widgets
 
-Coming soon. In the meantime, study the built-in widgets in the ArchTide source:
+Coming soon. In the meantime, study the built-in widgets in the Flow source:
 
 - **Clock widget**: `modules/ii/background/widgets/clock/ClockWidget.qml`
 - **Media widget**: `modules/ii/background/widgets/media/MediaWidget.qml`

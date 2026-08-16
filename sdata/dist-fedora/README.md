@@ -14,7 +14,7 @@ Note:
 - It has been tested on Fedora 43 (KDE Plasma Desktop Edition) on the `x86_64` platform.
 
 ## Post installation
-- Fix the issue of the right column crashing when clicking the `Details` button in Wi-Fi mode. Edit this file: `~/.config/archtide/config.json`
+- Fix the issue of the right column crashing when clicking the `Details` button in Wi-Fi mode. Edit this file: `~/.config/flow/config.json`
 ```diff
 @@ 44,3 44,3 @@
 -  "apps": {

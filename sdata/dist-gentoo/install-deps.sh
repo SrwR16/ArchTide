@@ -33,20 +33,20 @@ fi
 arch=$(portageq envvar ACCEPT_KEYWORDS)
 
 # Exclude hyprland, will deal with that separately
-metapkgs=(archtide-{audio,backlight,basic,bibata-modern-classic-bin,fonts-themes,hyprland,kde,microtex-git,oneui4-icons-git,portal,python,quickshell-git,screencapture,toolkit,widgets})
+metapkgs=(flow-{audio,backlight,basic,bibata-modern-classic-bin,fonts-themes,hyprland,kde,microtex-git,oneui4-icons-git,portal,python,quickshell-git,screencapture,toolkit,widgets})
 
 ebuild_dir="/var/db/repos/ii-dots"
 
 
 ########## IMPORT KEYWORDS (START)
-# Illogical-Impulse
+# Flow
 x sudo cp ./sdata/dist-gentoo/keywords ./sdata/dist-gentoo/keywords-user
 x sed -i "s/$/ ~${arch}/" ./sdata/dist-gentoo/keywords-user
-v sudo cp ./sdata/dist-gentoo/keywords-user /etc/portage/package.accept_keywords/archtide
+v sudo cp ./sdata/dist-gentoo/keywords-user /etc/portage/package.accept_keywords/flow
 
 ########## IMPORT USEFLAGS
-v sudo cp ./sdata/dist-gentoo/useflags /etc/portage/package.use/archtide
-v sudo sh -c 'cat ./sdata/dist-gentoo/additional-useflags >> /etc/portage/package.use/archtide'
+v sudo cp ./sdata/dist-gentoo/useflags /etc/portage/package.use/flow
+v sudo sh -c 'cat ./sdata/dist-gentoo/additional-useflags >> /etc/portage/package.use/flow'
 
 ########## UPDATE SYSTEM
 v sudo emerge --sync
@@ -54,11 +54,11 @@ v sudo emerge --quiet --newuse --update --deep @world
 v sudo emerge --quiet @smart-live-rebuild
 
 # Remove old ebuilds (if this isn't done the wildcard will fuck upon a version change)
-x sudo rm -fr ${ebuild_dir}/app-misc/archtide-*
+x sudo rm -fr ${ebuild_dir}/app-misc/flow-*
 
 source ./sdata/dist-gentoo/import-local-pkgs.sh
 
-########## INSTALL ARCHTIDE EBUILDS
+########## INSTALL FLOW EBUILDS
 for i in "${metapkgs[@]}"; do
 	x sudo mkdir -p ${ebuild_dir}/app-misc/${i}
 	v sudo cp ./sdata/dist-gentoo/${i}/${i}*.ebuild ${ebuild_dir}/app-misc/${i}/

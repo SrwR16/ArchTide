@@ -6,6 +6,7 @@ __pycache__/
 *.py[cod]
 
 /dots/.config/quickshell/ii/.qmlls.ini
+/dots/.config/quickshell/flow/.qmlls.ini
 
 # exp-update
 /.update-lock
@@ -18,34 +19,49 @@ __pycache__/
 /.env
 /dots/.config/quickshell/ii/scripts/ytmusic/generate-ytmusic-theme.sh
 /dots/.config/quickshell/ii/scripts/email/test_gmail.qml
-/dots/.config/quickshell/ii/scripts/sync_to_archtide.sh
-/dots/.config/quickshell/ii/assets/images/devices/device_68_7D_6B_94_0B_C2.png
-/dots/.config/quickshell/ii/.agents
-/dots/.config/quickshell/ii/.graphifyignore
-/dots/.config/quickshell/ii/graphify-out
-/dots/.config/quickshell/ii/GEMINI.md.old
-/dots/.config/quickshell/ii/.claude
-/dots/.config/quickshell/ii/.active-branch
-/dots/.config/quickshell/ii/.active-remote
-/dots/.config/quickshell/ii/.active-commit
-/dots/.config/quickshell/ii/.active-fork
-/dots/.config/quickshell/ii/.active-local
-/dots/.config/quickshell/ii/.cortexkit
-/dots/.config/quickshell/ii/user_widgets
+/dots/.config/quickshell/flow/scripts/sync_to_flow.sh
+/dots/.config/quickshell/archtide/assets/images/devices/device_68_7D_6B_94_0B_C2.png
+/dots/.config/quickshell/archtide/.agents
+/dots/.config/quickshell/archtide/.graphifyignore
+/dots/.config/quickshell/archtide/graphify-out
+/dots/.config/quickshell/archtide/GEMINI.md.old
+/dots/.config/quickshell/archtide/.claude
+/dots/.config/quickshell/archtide/.active-branch
+/dots/.config/quickshell/archtide/.active-remote
+/dots/.config/quickshell/archtide/.active-commit
+/dots/.config/quickshell/archtide/.active-fork
+/dots/.config/quickshell/archtide/.active-local
+/dots/.config/quickshell/archtide/.cortexkit
+/dots/.config/quickshell/archtide/user_widgets
+/dots/.config/quickshell/flow/.active-branch
+/dots/.config/quickshell/flow/.active-remote
+/dots/.config/quickshell/flow/.active-commit
+/dots/.config/quickshell/flow/.active-fork
+/dots/.config/quickshell/flow/.active-local
+/dots/.config/quickshell/flow/.cortexkit
+/dots/.config/quickshell/flow/user_widgets
 
 # Compiled binary — build it from workspace_compactor_src/ instead (see scripts/hyprland/README.md)
-/dots/.config/quickshell/ii/scripts/hyprland/workspace_compactor
+/dots/.config/quickshell/archtide/scripts/hyprland/workspace_compactor
+/dots/.config/quickshell/flow/scripts/hyprland/workspace_compactor
 
 # Compiled binary — build it from workspace_profile_manager_src/ instead (see scripts/hyprland/README.md)
-/dots/.config/quickshell/ii/scripts/hyprland/workspace_profile_manager
+/dots/.config/quickshell/archtide/scripts/hyprland/workspace_profile_manager
+/dots/.config/quickshell/flow/scripts/hyprland/workspace_profile_manager
 
 # Compiled binary — build it from osk_autoshow_src/ instead (see scripts/osk/README.md)
-/dots/.config/quickshell/ii/scripts/osk/osk_autoshow
+/dots/.config/quickshell/archtide/scripts/osk/osk_autoshow
+/dots/.config/quickshell/flow/scripts/osk/osk_autoshow
 
 # Compiled binary — build it from app_stats_src/ instead (see scripts/appStats/README.md)
-/dots/.config/quickshell/ii/scripts/appStats/app_stats
-/dots/.config/quickshell/ii/scripts/appStats/app_stats_src/target/
-/dots/.config/quickshell/ii/scripts/appStats/app_stats_src/Cargo.lock
+/dots/.config/quickshell/archtide/scripts/appStats/app_stats
+/dots/.config/quickshell/flow/scripts/appStats/app_stats
+/dots/.config/quickshell/archtide/scripts/appStats/app_stats_src/target/
+/dots/.config/quickshell/flow/scripts/appStats/app_stats_src/target/
+/dots/.config/quickshell/archtide/scripts/appStats/app_stats_src/Cargo.lock
+/dots/.config/quickshell/flow/scripts/appStats/app_stats_src/Cargo.lock
 
-/dots/.config/quickshell/ii/.tmp
-/dots/.config/quickshell/ii/.commandcode
+/dots/.config/quickshell/archtide/.tmp
+/dots/.config/quickshell/flow/.tmp
+/dots/.config/quickshell/archtide/.commandcode
+/dots/.config/quickshell/flow/.commandcode

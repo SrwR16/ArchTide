@@ -5,7 +5,7 @@ Note:
 - This folder should reflect the equivalents of `/sdata/dist-arch/` but under Gentoo.
   - **When `/sdata/dist-arch/` is newer than this folder, an update on this folder is very likely needed.**
   - Useful link: [Commit history on sdata/dist-arch/](https://github.com/SrwR16/ArchTide/commits/main/sdata/dist-arch)
-- See also [Install scripts | ArchTide](https://github.com/SrwR16/ArchTide/wiki)
+- See also [Install scripts | Flow](https://github.com/SrwR16/ArchTide/wiki)
 
 ## Contributors
 - Author: [jwihardi](https://github.com/jwihardi)

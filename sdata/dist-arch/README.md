@@ -1,6 +1,6 @@
 # Install scripts for Arch Linux
 
-- See also [Install scripts | ArchTide](https://github.com/SrwR16/ArchTide/wiki)
+- See also [Install scripts | Flow](https://github.com/SrwR16/ArchTide/wiki)
 
 ## Old Dependency Installation Method
 The old deps install method mainly involved `./sdata/dependencies.conf` (which has been removed now).

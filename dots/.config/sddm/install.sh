@@ -8,7 +8,7 @@ case "$1" in
     -y|--yes) AUTO=1 ;;
 esac
 
-# Installs/configures SDDM with the vendored TIDE greeter theme (apps/sddm/theme,
+# Installs/configures SDDM with the vendored Flow greeter theme (apps/sddm/theme,
 # staged to ~/.local/share/dotfiles/apps/sddm/theme) — the hyprlock design as a
 # login screen. Wires it to auto-sync the desktop wallpaper + matugen colors and
 # resolves any old conflicting Current= themes by writing ONE authoritative
@@ -24,7 +24,7 @@ DISTRO="Arch Linux"
 CHECK_PKG_CMD="pacman -Qi sddm"
 
 # qt6-5compat provides Qt5Compat.GraphicalEffects (FastBlur/DropShadow) used by
-# the Tide greeter; inter-font is the greeter's (and the whole shell's) UI font.
+# the Flow greeter; inter-font is the greeter's (and the whole shell's) UI font.
 INSTALL_CMD_OFFICIAL="sudo pacman -S --needed --noconfirm sddm qt6-svg qt6-5compat qt6-virtualkeyboard qt6-multimedia-ffmpeg inter-font"
 
 # Gum prompt colors — read from the shell's generated matugen palette when available.
@@ -33,10 +33,10 @@ primarycolor=$(jq -r '.primary // empty' "$GENERATED_COLORS_FILE" 2>/dev/null)
 onsurfacecolor=$(jq -r '.on_surface // empty' "$GENERATED_COLORS_FILE" 2>/dev/null)
 onprimarycolor=$(jq -r '.on_primary // empty' "$GENERATED_COLORS_FILE" 2>/dev/null)
 
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/archtide"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/flow"
 
 THEME_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/theme"
-THEME_DIR="/usr/share/sddm/themes/tide"
+THEME_DIR="/usr/share/sddm/themes/flow"
 # World-readable, user-owned dir so the 'sddm' greeter can read the config
 # and background (it cannot traverse ~/.cache). Uses /var/tmp: it's
 # world-writable + world-traversable (so the sddm user can read it) and needs
@@ -81,7 +81,7 @@ activate_sddm() {
 # Write ONE authoritative SDDM config and remove every conflicting Current= file.
 write_sddm_config() {
     sudo -v >/dev/null 2>&1 || true   # prompt for password once, cache it
-    echo ":: Writing single SDDM config (theme=tide) and removing conflicts..."
+    echo ":: Writing single SDDM config (theme=flow) and removing conflicts..."
     rootdo mkdir -p "$SDDM_CONF_D"
     for f in "$SDDM_CONF_D"/*.conf; do
         [ -e "$f" ] || continue
@@ -100,7 +100,7 @@ write_sddm_config() {
     tmp="$(mktemp)"
     cat > "$tmp" <<EOF
 [Theme]
-Current=tide
+Current=flow
 
 [General]
 DisplayServer=wayland
@@ -112,15 +112,15 @@ EOF
     rm -f "$tmp"
 }
 
-# Copy the vendored Tide theme into /usr/share/sddm/themes and point its
+# Copy the vendored Flow theme into /usr/share/sddm/themes and point its
 # theme.conf at the matugen-generated, world-readable config.
-install_tide_theme() {
+install_flow_theme() {
     sudo -v >/dev/null 2>&1 || true   # prompt for password once, cache it
     if [ ! -d "$THEME_SRC" ]; then
-        echo "ERROR: Vendored Tide SDDM theme not found at $THEME_SRC"
+        echo "ERROR: Vendored Flow SDDM theme not found at $THEME_SRC"
         return 1
     fi
-    echo ":: Installing Tide SDDM theme to $THEME_DIR..."
+    echo ":: Installing Flow SDDM theme to $THEME_DIR..."
     rootdo mkdir -p "$THEME_DIR"
     rootdo cp -rf "$THEME_SRC"/. "$THEME_DIR"/
 
@@ -151,7 +151,7 @@ CFG
     fi
     # Seed the wallpaper mirror so SDDM is never blank: prefer the shell's live
     # wallpaper, then the bundled default. The theme blurs it itself.
-    CUR_WALL="$(jq -r '.background.wallpaperPath // empty' "$XDG_CONFIG_HOME/archtide/config.json" 2>/dev/null)"
+    CUR_WALL="$(jq -r '.background.wallpaperPath // empty' "$XDG_CONFIG_HOME/flow/config.json" 2>/dev/null)"
     [ -n "$CUR_WALL" ] || CUR_WALL="$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/user/generated/wallpaper/path.txt" 2>/dev/null)"
     if [ -n "$CUR_WALL" ] && [ -f "$CUR_WALL" ]; then
         cp -f "$CUR_WALL" "$SDDM_DOTFILES_DIR/current_wallpaper" 2>/dev/null || true
@@ -165,15 +165,15 @@ CFG
 }
 
 # --- 4. MAIN LOGIC ---
-if [ -z "$AUTO" ]; then clear; figlet -f smslant "Tide SDDM"; fi
+if [ -z "$AUTO" ]; then clear; figlet -f smslant "Flow SDDM"; fi
 
 if ! check_sddm_installed; then
     echo ":: Status: SDDM not installed."
-    if [ -n "$AUTO" ] || gum confirm --selected.background=$primarycolor --selected.foreground=$onprimarycolor --prompt.foreground=$onsurfacecolor "Install SDDM + Tide greeter theme?"; then
+    if [ -n "$AUTO" ] || gum confirm --selected.background=$primarycolor --selected.foreground=$onprimarycolor --prompt.foreground=$onsurfacecolor "Install SDDM + Flow greeter theme?"; then
         install_sddm
         if check_sddm_installed; then
             write_sddm_config
-            install_tide_theme
+            install_flow_theme
             if [ -n "$AUTO" ] || gum confirm --selected.background=$primarycolor --selected.foreground=$onprimarycolor --prompt.foreground=$onsurfacecolor "Activate SDDM now?"; then
                 activate_sddm
             fi
@@ -189,7 +189,7 @@ elif ! check_sddm_active; then
     echo ":: SDDM is installed but NOT active."
     install_sddm   # --needed: only fills in missing qt deps / inter-font
     write_sddm_config
-    install_tide_theme
+    install_flow_theme
     if [ -n "$AUTO" ] || gum confirm --selected.background=$primarycolor --selected.foreground=$onprimarycolor --prompt.foreground=$onsurfacecolor "Activate SDDM now?"; then
         activate_sddm
     fi
@@ -204,7 +204,7 @@ else
         "Re-apply SDDM config")
             install_sddm   # --needed: only fills in missing qt deps / inter-font
             write_sddm_config
-            install_tide_theme
+            install_flow_theme
             echo ":: Re-applied. Reboot to see changes." ;;
         "Deactivate SDDM")
             if [ -n "$AUTO" ] || gum confirm --selected.background=$primarycolor --selected.foreground=$onprimarycolor --prompt.foreground=$onsurfacecolor "Are you sure you want to deactivate SDDM?"; then

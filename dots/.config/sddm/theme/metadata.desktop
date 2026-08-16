@@ -1,11 +1,11 @@
 [SddmGreeterTheme]
-Name=Tide
-Description=Tide Shell login — matches the Tide hyprlock design
+Name=Flow
+Description=Flow Shell login — matches the Flow hyprlock design
 Author=SARWAR
 License=MIT
 Version=1.0
 MainScript=Main.qml
 ConfigFile=theme.conf
-Theme-Id=tide
+Theme-Id=flow
 Theme-API=2.0
 QtVersion=6

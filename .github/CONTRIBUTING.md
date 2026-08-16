@@ -6,7 +6,7 @@
 
 # Translations
 
-See `dots/.config/quickshell/archtide/translations/tools`
+See `dots/.config/quickshell/flow/translations/tools`
 
 # Code
 
@@ -46,19 +46,21 @@ _Might not be necessary depending on what you change, but this is recommended._
 _Most stuff in the shell will work but not everything._
 
 - Install Hyprland and the development version of Quickshell (`yay -S hyprland quickshell-git`).
-- Copy `dots/.config/quickshell/archtide` to `~/.config/quickshell/archtide`.
+- Copy `dots/.config/quickshell/flow` to `~/.config/quickshell/flow`.
 
 ## Extra setup for Quickshell
-- Quickshell-specific LSP setup: Run `touch ~/.config/quickshell/archtide/.qmlls.ini` for proper LSP support.
+
+- Quickshell-specific LSP setup: Run `touch ~/.config/quickshell/flow/.qmlls.ini` for proper LSP support.
 - Hint for VSCode: Get the official "Qt Qml" extension, go to its settings and change custom exe path to `/usr/bin/qmlls6`.
 
 ## Python
+
 If your changes involves using python package or script, please use the virtual environment created by uv as described in `sdata/uv/README.md`.
 
 # Running
 
 - Launch Hyprland (not the "uwsm-managed" one)
 - For the shell:
-  - Open `~/.config/quickshell/archtide` in your code editor.
-  - In a terminal run `pkill qs; qs -c archtide` to start the shell in the terminal (for logs).
+  - Open `~/.config/quickshell/flow` in your code editor.
+  - In a terminal run `pkill qs; qs -c flow` to start the shell in the terminal (for logs).
   - Make edits in the opened folder. Changes are reloaded live.

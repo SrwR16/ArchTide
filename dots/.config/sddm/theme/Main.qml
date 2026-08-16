@@ -4,7 +4,7 @@ import SddmComponents 2.0
 import Qt5Compat.GraphicalEffects
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tide SDDM greeter — the hyprlock design, as a login screen.
+// Flow SDDM greeter — the hyprlock design, as a login screen.
 // Blurred live wallpaper (synced world-readable by the wallpaper scripts),
 // a light 12-hour Inter clock in the upper third, and a frosted translucent
 // password pill in the lower third. Colors come from matugen via theme.conf

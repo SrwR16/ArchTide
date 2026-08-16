@@ -1,4 +1,4 @@
-# [ ArchTide ]
+# [ Flow ]
 
 Premium Material 3 / Material You dotfiles for Hyprland, powered by Quickshell.
 
@@ -8,7 +8,7 @@ Premium Material 3 / Material You dotfiles for Hyprland, powered by Quickshell.
 
 ## Overview
 
-This repository is **ArchTide** — an independent project derived from ii-vynx (vaguesyntax/ii-vynx), which itself is based on illogical-impulse (end-4/dots-hyprland).
+This repository is **Flow** — an independent project derived from ArchTide, which itself was derived from ii-vynx (vaguesyntax/ii-vynx), which itself is based on illogical-impulse (end-4/dots-hyprland).
 
 It aims to provide a state-of-the-art Linux desktop experience by strictly adhering to **Material 3 (Material You)** design principles, featuring dynamic theming via Matugen and a highly modular architecture built on **Quickshell**.
 
@@ -19,27 +19,27 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
 
 ### Default installation
 
-Use this if you don't have illogical-impulse already installed. It sets up the base dotfiles and everything they need, then puts ArchTide's config on top.
+Use this if you don't have illogical-impulse already installed. It sets up the base dotfiles and everything they need, then puts Flow's config on top.
 
 ```bash
 git clone --recurse-submodules https://github.com/SrwR16/ArchTide.git
 cd ArchTide
-./setup-archtide.sh install
+./setup-flow.sh install
 ```
 
 ### Minimal installation (only quickshell config)
 
-Use this if illogical-impulse is already working and you only want ArchTide's Quickshell config. Nothing else is touched, and your current config is moved to a backup rather than deleted.
+Use this if illogical-impulse is already working and you only want Flow's Quickshell config. Nothing else is touched, and your current config is moved to a backup rather than deleted.
 
 ```bash
 git clone --recurse-submodules https://github.com/SrwR16/ArchTide.git
 cd ArchTide
-./setup-archtide.sh
+./setup-flow.sh
 ```
 
 ## Documentation
 
-Please refer to the **[ArchTide wiki](https://github.com/SrwR16/ArchTide/wiki)** for detailed component descriptions.
+Please refer to the **[Flow wiki](https://github.com/SrwR16/ArchTide/wiki)** for detailed component descriptions.
 
 ## Credits
 
