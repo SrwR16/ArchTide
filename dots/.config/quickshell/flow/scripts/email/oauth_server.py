@@ -142,7 +142,7 @@ while not result["done"]:
 if result["done"]:
     print("📡 Notifying Quickshell via IPC...", flush=True)
     ipc = subprocess.run(
-        ["qs", "-c", os.path.expanduser("~/.config/quickshell/ii"), "ipc", "call", "gmail", "onAuthComplete", result["refresh"], result["email"], result["picture"]],
+        ["qs", "-c", os.path.expanduser("~/.config/quickshell/flow"), "ipc", "call", "gmail", "onAuthComplete", result["refresh"], result["email"], result["picture"]],
         capture_output=True, text=True
     )
     if ipc.returncode == 0:

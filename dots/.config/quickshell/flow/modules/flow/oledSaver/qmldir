@@ -1,2 +1,2 @@
-module qs.modules.ii.oledSaver
+module qs.modules.flow.oledSaver
 OledSaver 1.0 OledSaver.qml

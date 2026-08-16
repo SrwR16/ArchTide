@@ -32,7 +32,7 @@ Item {
         fileImportsBySource = ({});
         root.indexed = false;
         root.indexing = true;
-        let configRoot = FileUtils.trimFileProtocol(Directories.config) + "/quickshell/ii/";
+        let configRoot = FileUtils.trimFileProtocol(Directories.config) + "/quickshell/flow/";
         let basePath = configRoot + "modules/settings/configs/";
 
         let files = [];

@@ -1,4 +1,4 @@
-module qs.modules.ii.colorPickerPopup
+module qs.modules.flow.colorPickerPopup
 
 ColorPickerPopup 1.0 ColorPickerPopup.qml
 ColorPickerPopupContent 1.0 ColorPickerPopupContent.qml

@@ -1,4 +1,4 @@
-module qs.modules.ii.usage
+module qs.modules.flow.usage
 
 Usage 1.0 Usage.qml
 UsageActivityHeatmap 1.0 UsageActivityHeatmap.qml

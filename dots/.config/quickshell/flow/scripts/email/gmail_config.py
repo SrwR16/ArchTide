@@ -5,8 +5,8 @@ import urllib.parse
 
 def _load_env():
     # .env is in the parent directory of 'scripts', which is two levels up from 'scripts/email'
-    # Actually, Directories.scriptPath is quickshell/ii/scripts
-    # .env is in quickshell/ii/.env
+    # Actually, Directories.scriptPath is quickshell/flow/scripts
+    # .env is in quickshell/flow/.env
     # So it's ../../.env from scripts/email/
     env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
     env = {}

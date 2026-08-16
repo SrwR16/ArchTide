@@ -352,7 +352,7 @@ Item {
                     colBackground: Appearance.colors.colSurfaceContainerHigh
                     colBackgroundHover: Appearance.colors.colSurfaceContainerHighest
                     onClicked: {
-                        var envDir = FileUtils.trimFileProtocol(Directories.config + "/quickshell/ii");
+                        var envDir = FileUtils.trimFileProtocol(Directories.config + "/quickshell/flow");
                         Quickshell.execDetached(["xdg-open", envDir]);
                     }
                     

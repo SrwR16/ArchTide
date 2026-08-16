@@ -1,3 +1,3 @@
-module qs.modules.ii.alarmRingingPopup
+module qs.modules.flow.alarmRingingPopup
 
 AlarmRingingPopup 1.0 AlarmRingingPopup.qml

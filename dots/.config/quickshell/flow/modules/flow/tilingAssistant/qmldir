@@ -1,4 +1,4 @@
-module qs.modules.ii.tilingAssistant
+module qs.modules.flow.tilingAssistant
 
 LayoutHint 1.0 LayoutHint.qml
 TilingOverlay 1.0 TilingOverlay.qml

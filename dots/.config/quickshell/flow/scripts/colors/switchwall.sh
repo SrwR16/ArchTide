@@ -378,7 +378,7 @@ switch() {
                         matugen_args+=(image "$fallback_img")
                         generate_colors_material_args=(--path "$fallback_img")
                     else
-                        local default_wall="$HOME/.config/quickshell/ii/assets/images/default_wallpaper.png"
+                        local default_wall="$CONFIG_DIR/assets/images/default_wallpaper.png"
                         matugen_args+=(image "$default_wall")
                         generate_colors_material_args=(--path "$default_wall")
                     fi
@@ -513,7 +513,7 @@ done"
                     ffmpeg -y -i "$imgpath/preview.gif" -vframes 1 /tmp/wpe_fallback.png 2>/dev/null
                     imgpath="/tmp/wpe_fallback.png"
                 else
-                    imgpath="$HOME/.config/quickshell/ii/assets/images/default_wallpaper.png"
+                    imgpath="$CONFIG_DIR/assets/images/default_wallpaper.png"
                 fi
             elif [[ "$imgpath" =~ ^[0-9]+$ ]]; then
                 local resolved_dir=""
@@ -533,10 +533,10 @@ done"
                         ffmpeg -y -i "$resolved_dir/preview.gif" -vframes 1 /tmp/wpe_fallback.png 2>/dev/null
                         imgpath="/tmp/wpe_fallback.png"
                     else
-                        imgpath="$HOME/.config/quickshell/ii/assets/images/default_wallpaper.png"
+                        imgpath="$CONFIG_DIR/assets/images/default_wallpaper.png"
                     fi
                 else
-                    imgpath="$HOME/.config/quickshell/ii/assets/images/default_wallpaper.png"
+                    imgpath="$CONFIG_DIR/assets/images/default_wallpaper.png"
                 fi
             fi
 
@@ -668,7 +668,7 @@ done"
         cp "$theme_file" "$STATE_DIR/user/generated/colors.json"
         echo "[switchwall.sh] Applied theme: $type_flag"
         request_shell_theme_reload
-        python3 "$HOME/.config/quickshell/ii/scripts/colors/recolor_icons.py"
+        python3 "$CONFIG_DIR/scripts/colors/recolor_icons.py"
         "$SCRIPT_DIR"/applycolor.sh
     else
         matugen "${matugen_args[@]}"
@@ -677,7 +677,7 @@ done"
             python3 "$SCRIPT_DIR/boost_surface_chroma.py" "$STATE_DIR/user/generated/colors.json" --mode "$mode_flag"
         fi
         request_shell_theme_reload
-        python3 "$HOME/.config/quickshell/ii/scripts/colors/recolor_icons.py"
+        python3 "$CONFIG_DIR/scripts/colors/recolor_icons.py"
         source "$(eval echo $ILLOGICAL_IMPULSE_VIRTUAL_ENV)/bin/activate"
         if python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \
             --all-previews "$STATE_DIR/user/generated/wallpaper_preview_colors.json" \
@@ -696,7 +696,7 @@ done"
     # Generate dynamic Material You icon theme
     # Using gowall and python helper to recolor a base SVG theme
     #echo "Generating dynamic icons..."
-    #python3 "$HOME/.config/quickshell/ii/scripts/colors/recolor_icons.py"
+    #python3 "$CONFIG_DIR/scripts/colors/recolor_icons.py"
     #local _venv="${ILLOGICAL_IMPULSE_VIRTUAL_ENV:-$XDG_STATE_HOME/quickshell/.venv}"
     #source "$(eval echo $_venv)/bin/activate"
     #python3 "$SCRIPT_DIR/generate_colors_material.py" "${generate_colors_material_args[@]}" \

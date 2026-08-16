@@ -4,7 +4,7 @@ import json
 import sys
 
 def main():
-    config_dir = os.path.expanduser("~/.config/quickshell/ii")
+    config_dir = os.path.expanduser("~/.config/quickshell/flow")
     user_widgets_dir = os.path.join(config_dir, "user_widgets")
     
     # Ensure the directory exists

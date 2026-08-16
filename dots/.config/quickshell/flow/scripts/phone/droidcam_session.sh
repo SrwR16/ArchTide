@@ -22,7 +22,7 @@
 set -u
 IFS=$'\n\t'
 
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/ii/phone"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/flow/phone"
 mkdir -p "$STATE_DIR"
 
 logfile_for()   { printf '%s/%s.log'   "$STATE_DIR" "$1"; }
