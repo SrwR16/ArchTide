@@ -444,7 +444,7 @@ ContentPage {
                     Layout.topMargin: 10
                     Layout.bottomMargin: 10
                     Image {
-                        source: "file://" + Quickshell.shellPath("assets/icons/flow.png")
+                        source: "file://" + Quickshell.shellPath("assets/icons/archtide.png")
                         sourceSize: Qt.size(50, 50)
                         fillMode: Image.PreserveAspectFit
                         width: 50
@@ -642,7 +642,6 @@ ContentPage {
                     Layout.preferredHeight: 44
                     model: (page.branchList.length > 0) ? page.branchList : [page.activeBranch]
                     currentIndex: page.branchList.length > 0 ? page.branchList.indexOf(page.activeBranch) : 0
-                    placeholderText: Translation.tr("Select branch…")
                     delegate: ItemDelegate {
                         width: branchCombo.width - branchCombo.leftPadding - branchCombo.rightPadding
                         text: modelData
