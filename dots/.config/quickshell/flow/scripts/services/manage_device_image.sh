@@ -3,7 +3,7 @@ ACTION=$1
 ARG2=$2
 ARG3=$3
 
-TARGET_DIR="$HOME/.config/illogical-impulse/bluetooth_images/"
+TARGET_DIR="$HOME/.config/flow/bluetooth_images/"
 mkdir -p "$TARGET_DIR"
 
 if [ "$ACTION" == "pick" ]; then

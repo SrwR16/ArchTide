@@ -22,7 +22,7 @@ def get_api_key() -> str:
     try:
         import subprocess
         result = subprocess.run(
-            ["secret-tool", "lookup", "application", "illogical-impulse"],
+            ["secret-tool", "lookup", "application", "flow"],
             capture_output=True, text=True, check=True
         )
         data = json.loads(result.stdout.strip())

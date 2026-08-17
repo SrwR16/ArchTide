@@ -53,6 +53,6 @@ One event per line on stdout:
 
 ## Configuration
 
-Everything lives under `osk.autoShow` in `~/.config/illogical-impulse/config.json`,
+Everything lives under `osk.autoShow` in `~/.config/flow/config.json`,
 and is exposed in Settings → Overlays → On-screen Keyboard. `enable` is `false` by
 default; while it is off the helper is never launched.

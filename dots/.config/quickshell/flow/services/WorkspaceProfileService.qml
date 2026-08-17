@@ -526,7 +526,7 @@ Singleton {
     Component.onCompleted: {
         // Ensure profiles directory exists
         Quickshell.execDetached(["mkdir", "-p",
-            `${Directories.home}/.config/illogical-impulse/workspace_profiles`]);
+            `${Directories.home}/.config/flow/workspace_profiles`]);
         checkBinaryProc.running = true;
         Qt.callLater(root.refresh);
     }

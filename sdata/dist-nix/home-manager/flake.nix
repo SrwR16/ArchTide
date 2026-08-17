@@ -1,6 +1,6 @@
 # flake.nix
 {
-  description = "illogical-impulse";
+  description = "flow";
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-25.11";
@@ -35,7 +35,7 @@
       };
     in {
       homeConfigurations = {
-        illogical_impulse = home-manager.lib.homeManagerConfiguration {
+        flow = home-manager.lib.homeManagerConfiguration {
           inherit pkgs;
           extraSpecialArgs = { inherit home_attrs 
           #nixgl

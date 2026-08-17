@@ -107,7 +107,7 @@ singleton is lazy, so without it nothing is collected until the overlay is first
 ### Configuration
 
 Settings → System → **App Usage** covers all of it. The same keys live under
-`Config.options.appStats` in `~/.config/illogical-impulse/config.json`.
+`Config.options.appStats` in `~/.config/flow/config.json`.
 
 Everything in the first table is a command-line flag the daemon reads once at
 startup, so changing one relaunches it.

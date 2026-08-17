@@ -185,7 +185,7 @@ Estado interno que deve sobreviver reload sem virar configuração:
 Dados derivados e reconstruíveis:
 
 ```text
-~/.cache/illogical-impulse/phone/
+~/.cache/flow/phone/
 ├── contacts/
 ├── apps/
 └── scrcpy/
@@ -554,7 +554,7 @@ Quando houver `PHOTO` embutida:
 4. gravar em:
 
 ```text
-~/.cache/illogical-impulse/phone/contacts/<hash>.jpg
+~/.cache/flow/phone/contacts/<hash>.jpg
 ```
 
 5. retornar apenas `avatarPath`.
@@ -1113,7 +1113,7 @@ No fallback:
 Salvar cache por device:
 
 ```text
-~/.cache/illogical-impulse/phone/apps/<device-id>.json
+~/.cache/flow/phone/apps/<device-id>.json
 ```
 
 Campos:
@@ -2223,7 +2223,7 @@ Evitar migração destrutiva no primeiro rollout.
 Arquivo:
 
 ```text
-sdata/dist-arch/illogical-impulse-phone/PKGBUILD
+sdata/dist-arch/flow-phone/PKGBUILD
 ```
 
 ## Alterar
@@ -2370,7 +2370,7 @@ dots/.config/quickshell/flow/modules/flow/bar/widgets/indicators/PhoneScrcpyIndi
 dots/.config/quickshell/flow/modules/settings/configs/DevicesPhoneConfig.qml
 dots/.config/quickshell/flow/modules/settings/configs/widgets/KdeConnectConfig.qml
 
-sdata/dist-arch/illogical-impulse-phone/PKGBUILD
+sdata/dist-arch/flow-phone/PKGBUILD
 
 dots/.config/quickshell/flow/translations/en_US.json
 dots/.config/quickshell/flow/translations/pt_BR.json

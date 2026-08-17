@@ -42,7 +42,7 @@ function gen_firstrun(){
   x touch "${FIRSTRUN_FILE}"
   x mkdir -p "$(dirname ${INSTALLED_LISTFILE})"
   realpath -se "${FIRSTRUN_FILE}" >> "${INSTALLED_LISTFILE}"
-  rm -f "${XDG_STATE_HOME:-$HOME/.local/state}/illogical-impulse/user/first_run.txt"
+  rm -f "${XDG_STATE_HOME:-$HOME/.local/state}/flow/user/first_run.txt"
 }
 cp_file(){
   # NOTE: This function is only for using in other functions
@@ -158,7 +158,7 @@ function install_google_sans_flex(){
   local src_name="google-sans-flex"
   local src_url="https://github.com/end-4/google-sans-flex"
   local src_dir="$REPO_ROOT/cache/$src_name"
-  local target_dir="${XDG_DATA_HOME}/fonts/illogical-impulse-$src_name"
+  local target_dir="${XDG_DATA_HOME}/fonts/flow-$src_name"
   if fc-list | grep -qi "$font_name"; then return; fi
   x mkdir -p $src_dir
   x cd $src_dir

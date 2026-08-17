@@ -15,7 +15,7 @@ already scans:
 3. `~/.config/hyprshade/shaders`
 4. `/usr/share/hyprshade/shaders`
 
-…or point `screenShader.extraShaderDirs` in `~/.config/illogical-impulse/config.json`
+…or point `screenShader.extraShaderDirs` in `~/.config/flow/config.json`
 at somewhere else entirely.
 
 ## Writing one

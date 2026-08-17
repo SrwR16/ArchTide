@@ -7,7 +7,7 @@ A high-performance Rust backend that captures live Hyprland clients via `hyprctl
 **Binary:** `~/.config/quickshell/flow/scripts/hyprland/workspace_profile_manager`
 **Source:** `~/.config/quickshell/flow/scripts/hyprland/workspace_profile_manager_src/`
 
-**Data:** Profiles are saved as JSON to `~/.config/illogical-impulse/workspace_profiles/` — safe to back up or sync across machines, and will survive dots updates.
+**Data:** Profiles are saved as JSON to `~/.config/flow/workspace_profiles/` — safe to back up or sync across machines, and will survive dots updates.
 
 ### Rebuilding from Source
 
@@ -34,7 +34,7 @@ falls back to the nearest occupied workspace below it.
 relative to that monitor, not global — compacting monitor 2 lands its windows in its own range
 instead of monitor 1's. It works out the monitor's range the same way the bar does: if
 `bar.workspaces.useWorkspaceMap` is enabled (Settings → Bar → Workspaces → Display Options), it
-reads `workspaceMap`/`shown` from `~/.config/illogical-impulse/config.json` directly, so it always
+reads `workspaceMap`/`shown` from `~/.config/flow/config.json` directly, so it always
 agrees with what the bar shows. Otherwise it falls back to the `workspace_in_group()` block
 convention from `~/.config/hypr/hyprland/lib/init.lua` (fixed-size blocks of `workspaceGroupSize`
 per monitor, 10 by default) — pass a different block size as the first argument to the binary if

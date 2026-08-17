@@ -41,7 +41,7 @@ fn dispatch_batch(cmds: &[String]) {
     hyprctl(&format!("[[BATCH]]{}", joined));
 }
 
-/// Mirrors `Config.options.bar.workspaces` (`~/.config/illogical-impulse/config.json`) — the
+/// Mirrors `Config.options.bar.workspaces` (`~/.config/flow/config.json`) — the
 /// same per-monitor ranges the bar itself uses, so the compactor lands windows where the bar
 /// already expects them.
 struct WorkspaceMapConfig {
@@ -58,7 +58,7 @@ fn read_workspace_map_config() -> WorkspaceMapConfig {
     else {
         return default;
     };
-    let path = format!("{}/illogical-impulse/config.json", config_home);
+    let path = format!("{}/flow/config.json", config_home);
     let Ok(contents) = std::fs::read_to_string(&path) else {
         return default;
     };

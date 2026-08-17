@@ -1886,7 +1886,7 @@ apply_config() {
 
     # Only launch the welcome window at the end of default installation.
     # Prevent it from opening during update, fork switch, branch hop, or apply.
-    local first_run_file="${XDG_STATE_HOME:-$HOME/.local/state}/illogical-impulse/user/first_run.txt"
+    local first_run_file="${XDG_STATE_HOME:-$HOME/.local/state}/flow/user/first_run.txt"
     if [[ "$verb" == "install" ]]; then
         rm -f "$first_run_file"
     else

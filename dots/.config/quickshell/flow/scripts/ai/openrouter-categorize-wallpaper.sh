@@ -24,7 +24,7 @@ Wallpaper filename: $WALLPAPER_NAME"
 mkdir -p "$(dirname "$RESIZED_IMG_PATH")"
 magick "$SOURCE_IMG_PATH" -resize 200x -quality 50 "$RESIZED_IMG_PATH"
 
-API_KEY=$(secret-tool lookup 'application' 'illogical-impulse' | jq -r '.apiKeys.openrouter')
+API_KEY=$(secret-tool lookup 'application' 'flow' | jq -r '.apiKeys.openrouter')
 
 if [[ -z "$API_KEY" || "$API_KEY" == "null" ]]; then
     echo "OpenRouter API key not found"

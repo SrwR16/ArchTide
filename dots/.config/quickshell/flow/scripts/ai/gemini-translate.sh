@@ -8,7 +8,7 @@ fi
 # Variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-SHELL_CONFIG_DIR="$XDG_CONFIG_HOME/illogical-impulse"
+SHELL_CONFIG_DIR="$XDG_CONFIG_HOME/flow"
 SHELL_CONFIG_FILE="${SHELL_CONFIG_DIR}/config.json"
 TRANSLATIONS_DIR="${SCRIPT_DIR}/../../translations"
 TRANSLATIONS_TARGET_DIR="${TRANSLATIONS_DIR}"
@@ -45,7 +45,7 @@ jq -n \
     }' > "$PAYLOAD_FILE"
 
 # Get API key
-API_KEY=$(secret-tool lookup 'application' 'illogical-impulse' | jq -r '.apiKeys.gemini')
+API_KEY=$(secret-tool lookup 'application' 'flow' | jq -r '.apiKeys.gemini')
 
 # Notify start
 notify-send "Translation started" "Translating missing keys in batches, you'll be notified when complete." -a "$NOTIFICATION_APP_NAME"

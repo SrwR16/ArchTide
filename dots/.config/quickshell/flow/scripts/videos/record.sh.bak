@@ -2,7 +2,7 @@ certo#!/usr/bin/env bash
 
 # echo "SCRIPT STARTED $(date)" >> /tmp/region-record.log
 
-CONFIG_FILE="$HOME/.config/illogical-impulse/config.json"
+CONFIG_FILE="$HOME/.config/flow/config.json"
 JSON_PATH=".screenRecord.savePath"
 
 STATE_FILE="$HOME/.local/state/quickshell/states.json"

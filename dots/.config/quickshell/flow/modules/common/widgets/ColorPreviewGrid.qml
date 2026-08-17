@@ -8,7 +8,7 @@ import qs.modules.common
 
     To add a new custom color scheme:
 
-    1. Get a proper color scheme (in the same format as the default ones) and put in to ~/.config/illogical_impulse/themes
+    1. Get a proper color scheme (in the same format as the default ones) and put in to ~/.config/flow/themes
     2. Add the exact name of the json file to the config.json - appearance - customColorSchemes
 */
 

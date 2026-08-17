@@ -15,7 +15,7 @@ use which::which;
 
 fn profiles_dir() -> PathBuf {
     let mut path = home_dir().expect("Home dir not found");
-    path.push(".config/illogical-impulse/workspace_profiles");
+    path.push(".config/flow/workspace_profiles");
     fs::create_dir_all(&path).ok();
     path
 }

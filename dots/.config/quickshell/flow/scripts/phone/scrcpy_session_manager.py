@@ -9,7 +9,7 @@ import argparse
 import re
 from pathlib import Path
 
-CACHE_DIR = Path.home() / ".cache" / "illogical-impulse" / "phone" / "apps"
+CACHE_DIR = Path.home() / ".cache" / "flow" / "phone" / "apps"
 
 class ScrcpySessionManager:
     def __init__(self):

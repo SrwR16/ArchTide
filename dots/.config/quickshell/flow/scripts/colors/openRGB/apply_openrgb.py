@@ -64,7 +64,7 @@ xdg_state_home = os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/s
 xdg_config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
 state_dir = os.path.join(xdg_state_home, "quickshell")
 
-config_path = os.path.join(xdg_config_home, "illogical-impulse", "config.json")
+config_path = os.path.join(xdg_config_home, "flow", "config.json")
 with open(config_path, "r") as f:
     config = json.load(f)
 

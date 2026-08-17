@@ -157,7 +157,7 @@ for folder in "${folders[@]}"; do
     fi
 done
 
-state_root="${XDG_STATE_HOME:-$HOME/.local/state}/illogical-impulse/gdrive"
+state_root="${XDG_STATE_HOME:-$HOME/.local/state}/flow/gdrive"
 if ! mkdir -p -- "$state_root"; then
     usage_error "could not create the gdrive state directory"
 fi

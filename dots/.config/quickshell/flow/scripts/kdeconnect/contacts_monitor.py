@@ -22,7 +22,7 @@ except Exception:
     HAS_GIO = False
 
 
-CACHE_DIR = Path.home() / ".cache" / "illogical-impulse" / "phone" / "contacts"
+CACHE_DIR = Path.home() / ".cache" / "flow" / "phone" / "contacts"
 
 def get_kpeoplevcard_root():
     xdg_data = os.environ.get("XDG_DATA_HOME")
