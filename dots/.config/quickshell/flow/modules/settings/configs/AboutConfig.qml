@@ -444,7 +444,7 @@ ContentPage {
                     Layout.topMargin: 10
                     Layout.bottomMargin: 10
                     Image {
-                        source: "file://" + Quickshell.shellPath("assets/icons/archtide.png")
+                        source: "file://" + Quickshell.shellPath("assets/icons/flow.png")
                         sourceSize: Qt.size(50, 50)
                         fillMode: Image.PreserveAspectFit
                         width: 50

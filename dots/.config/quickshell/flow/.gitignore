@@ -3,7 +3,7 @@ GEMINI.md
 AGENTS.md
 .agent
 .backup_custom
-.archtide-synced
+.flow-synced
 
 # Script de sync local
-scripts/sync_to_archtide.sh
+scripts/sync_to_flow.sh

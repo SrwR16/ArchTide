@@ -4,7 +4,7 @@
 EAPI=8
 MICROTEX_VER="0e3707f"
 
-DESCRIPTION="MicroTeX for archtide dotfiles"
+DESCRIPTION="MicroTeX for flow dotfiles"
 HOMEPAGE="https://github.com/NanoMichael/MicroTeX"
 SRC_URI="https://github.com/NanoMichael/MicroTeX/archive/${MICROTEX_VER}.tar.gz -> MicroTeX-${MICROTEX_VER}.tar.gz"
 
@@ -45,10 +45,10 @@ src_compile() {
 
 src_install() {
 	cd "${S}" || die
-	insinto /opt/archtide-microtex-git
+	insinto /opt/flow-microtex-git
 	doins -r build/LaTeX
 	doins -r build/res
 
-	insinto /usr/share/licenses/archtide-microtex-git
+	insinto /usr/share/licenses/flow-microtex-git
 	doins LICENSE
 }

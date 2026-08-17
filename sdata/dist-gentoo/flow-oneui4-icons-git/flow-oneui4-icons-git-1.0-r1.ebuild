@@ -3,7 +3,7 @@
 
 EAPI=8
 
-DESCRIPTION="A fork of mjkim0727/OneUI4-Icons for archtide dotfiles"
+DESCRIPTION="A fork of mjkim0727/OneUI4-Icons for flow dotfiles"
 HOMEPAGE=""
 SRC_URI="https://github.com/end-4/OneUI4-Icons/archive/main.tar.gz -> ${P}.tar.gz"
 

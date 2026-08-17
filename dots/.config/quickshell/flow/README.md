@@ -100,7 +100,7 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     }
 
     function launchColorPicker() {
-        Quickshell.execDetached(["qs", "-c", "archtide", "ipc", "call", "colorPickerLaunch", "trigger"]);
+        Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "colorPickerLaunch", "trigger"]);
     }
 
     IpcHandler {
