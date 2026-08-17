@@ -20,7 +20,7 @@ ContentSection {
         onCheckedChanged: {
             Config.options.background.useSeparateLockscreenWallpaper = checked;
             if (checked && !Config.options.background.lockscreenWallpaperPath)
-                Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "wallpaperSelector", "toggleLockscreen"]);
+                Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "wallpaperSelector", "toggleLockscreen"]);
         }
         StyledToolTip {
             text: Translation.tr("Use a different wallpaper on the lockscreen with custom Matugen color scheme transition")
@@ -50,7 +50,7 @@ ContentSection {
                     Layout.fillWidth: true
                     materialIcon: "wallpaper"
                     mainText: Translation.tr("Select Lockscreen Wallpaper")
-                    onClicked: Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "wallpaperSelector", "toggleLockscreen"])
+                    onClicked: Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "wallpaperSelector", "toggleLockscreen"])
                 }
 
                 RippleButtonWithIcon {
@@ -83,7 +83,7 @@ ContentSection {
         onCheckedChanged: {
             Config.options.background.useSeparateLightModeWallpaper = checked;
             if (checked && !Config.options.background.lightModeWallpaperPath)
-                Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "wallpaperSelector", "toggleLightmode"]);
+                Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "wallpaperSelector", "toggleLightmode"]);
         }
         StyledToolTip {
             text: Translation.tr("Use a different wallpaper when in light mode. The current desktop wallpaper will be used for dark mode.")
@@ -113,7 +113,7 @@ ContentSection {
                     Layout.fillWidth: true
                     materialIcon: "wallpaper"
                     mainText: Translation.tr("Select Light Mode Wallpaper")
-                    onClicked: Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "wallpaperSelector", "toggleLightmode"])
+                    onClicked: Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "wallpaperSelector", "toggleLightmode"])
                 }
 
                 RippleButtonWithIcon {

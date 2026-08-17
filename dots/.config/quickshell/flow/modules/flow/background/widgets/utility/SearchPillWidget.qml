@@ -141,7 +141,7 @@ AbstractBackgroundWidget {
 
     Process {
         id: cheatsheetIpc
-        command: ["qs", "ipc", "-c", "ii", "call", "cheatsheet", "toggle"]
+        command: ["qs", "ipc", "-c", "flow", "call", "cheatsheet", "toggle"]
     }
 
     StyledDropShadow {

@@ -369,7 +369,7 @@ Item {
                 onCheckedChanged: {
                     Config.options.background.useSeparateLockscreenWallpaper = checked;
                     if (checked && !Config.options.background.lockscreenWallpaperPath) {
-                        Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "wallpaperSelector", "toggleLockscreen"]);
+                        Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "wallpaperSelector", "toggleLockscreen"]);
                     }
                 }
                 StyledToolTip {
@@ -397,7 +397,7 @@ Item {
                         materialIcon: "wallpaper"
                         mainText: Translation.tr("Select Lockscreen Wallpaper")
                         onClicked: {
-                            Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "wallpaperSelector", "toggleLockscreen"]);
+                            Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "wallpaperSelector", "toggleLockscreen"]);
                         }
                     }
 
@@ -429,7 +429,7 @@ Item {
                 onCheckedChanged: {
                     Config.options.background.useSeparateLightModeWallpaper = checked;
                     if (checked && !Config.options.background.lightModeWallpaperPath) {
-                        Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "wallpaperSelector", "toggleLightmode"]);
+                        Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "wallpaperSelector", "toggleLightmode"]);
                     }
                 }
                 StyledToolTip {
@@ -457,7 +457,7 @@ Item {
                         materialIcon: "wallpaper"
                         mainText: Translation.tr("Select Light Mode Wallpaper")
                         onClicked: {
-                            Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "wallpaperSelector", "toggleLightmode"]);
+                            Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "wallpaperSelector", "toggleLightmode"]);
                         }
                     }
 

@@ -270,7 +270,7 @@ Singleton {
     }
 
     function launchColorPicker() {
-        Quickshell.execDetached(["qs", "-c", "ii", "ipc", "call", "colorPickerLaunch", "trigger"]);
+        Quickshell.execDetached(["qs", "-c", "flow", "ipc", "call", "colorPickerLaunch", "trigger"]);
     }
 
     IpcHandler {

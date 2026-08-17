@@ -2,8 +2,8 @@
 
 Raises the on-screen keyboard when a text field is focused by finger or pen.
 
-**Binary:** `~/.config/quickshell/ii/scripts/osk/osk_autoshow`
-**Source:** `~/.config/quickshell/ii/scripts/osk/osk_autoshow_src/`
+**Binary:** `~/.config/quickshell/flow/scripts/osk/osk_autoshow`
+**Source:** `~/.config/quickshell/flow/scripts/osk/osk_autoshow_src/`
 
 ## Why a helper is needed
 
@@ -23,7 +23,7 @@ so that mouse clicks and Tab navigation never raise the keyboard.
 ## Building
 
 ```bash
-cd ~/.config/quickshell/ii/scripts/osk/osk_autoshow_src
+cd ~/.config/quickshell/flow/scripts/osk/osk_autoshow_src
 cargo build --release
 cp target/release/osk_autoshow ../
 ```

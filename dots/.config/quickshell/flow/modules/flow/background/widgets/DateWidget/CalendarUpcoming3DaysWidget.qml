@@ -25,7 +25,7 @@ AbstractBackgroundWidget {
     // Process for IPC toggle to open cheatsheet timetable
     Process {
         id: cheatsheetIpcProcess
-        command: ["qs", "ipc", "-c", "ii", "call", "cheatsheet", "toggle"]
+        command: ["qs", "ipc", "-c", "flow", "call", "cheatsheet", "toggle"]
     }
 
     // Stable date calculation without re-triggering model on clock seconds or events updates

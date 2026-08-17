@@ -23,7 +23,7 @@ for i in range(1, 6):
     
     if os.path.exists(frame):
         size = os.path.getsize(frame)
-        res_py = subprocess.run(["python3", "/home/pedro/.config/quickshell/ii/scripts/colors/video_frame_color.py", frame], capture_output=True, text=True)
+        res_py = subprocess.run(["python3", "/home/pedro/.config/quickshell/flow/scripts/colors/video_frame_color.py", frame], capture_output=True, text=True)
         color = res_py.stdout.strip()
         print(f"Amostra {i} (00:0{i}s): Cor extraída = {color} | Tamanho do frame PNG = {size} bytes")
     else:

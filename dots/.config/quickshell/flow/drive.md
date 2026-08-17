@@ -27,9 +27,9 @@ A implementação é dividida em 4 camadas: **Config (persistência)**, **Servic
 
 ### 1. Config — Persistência no `Config.qml`
 
-Adicionar um novo `JsonObject` `googleDrive` dentro do bloco `options` do [Config.qml](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/modules/common/Config.qml), seguindo o mesmo padrão de tipagem segura (`list<string>` nunca `list<var>`).
+Adicionar um novo `JsonObject` `googleDrive` dentro do bloco `options` do [Config.qml](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/modules/common/Config.qml), seguindo o mesmo padrão de tipagem segura (`list<string>` nunca `list<var>`).
 
-#### [MODIFY] [Config.qml](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/modules/common/Config.qml)
+#### [MODIFY] [Config.qml](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/modules/common/Config.qml)
 
 Nova seção `googleDrive` no `JsonObject options`:
 
@@ -80,7 +80,7 @@ property JsonObject googleDrive: JsonObject {
 
 Singleton que gerencia a lógica de sincronização, agenda timer, e expõe estado reativo.
 
-#### [NEW] [GoogleDriveService.qml](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/services/GoogleDriveService.qml)
+#### [NEW] [GoogleDriveService.qml](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/services/GoogleDriveService.qml)
 
 **Responsabilidades:**
 - Verificar se `rclone` está instalado
@@ -144,13 +144,13 @@ Timer {
 
 #### [NEW] `scripts/gdrive/` — Diretório de scripts
 
-##### [NEW] [setup_rclone.py](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/scripts/gdrive/setup_rclone.py)
+##### [NEW] [setup_rclone.py](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/scripts/gdrive/setup_rclone.py)
 - Recebe `client_id`, `client_secret` como argumentos
 - Configura o remote `rclone` chamado `ii-gdrive` com tipo `drive`
 - Abre browser para OAuth2 consent via `rclone authorize "drive"`
 - Retorna `"OK"` ou `"ERROR: <msg>"` no stdout
 
-##### [NEW] [sync.sh](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/scripts/gdrive/sync.sh)
+##### [NEW] [sync.sh](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/scripts/gdrive/sync.sh)
 - Wrapper para `rclone sync` com:
   - `--progress --stats-one-line-date --stats 2s` (para parsing de progresso)
   - `--exclude-from` gerado dos patterns de exclusão
@@ -159,12 +159,12 @@ Timer {
   - `--log-file` para persistência de logs
 - Output estruturado (JSON por linha) para o QML parsear progresso em tempo real
 
-##### [NEW] [drive_info.py](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/scripts/gdrive/drive_info.py)
+##### [NEW] [drive_info.py](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/scripts/gdrive/drive_info.py)
 - Executa `rclone about ii-gdrive: --json`
 - Executa `rclone size ii-gdrive:<driveBasePath> --json`
 - Retorna JSON com `{total, used, free, backupSize}`
 
-##### [NEW] [check_rclone.sh](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/scripts/gdrive/check_rclone.sh)
+##### [NEW] [check_rclone.sh](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/scripts/gdrive/check_rclone.sh)
 - Verifica se `rclone` está no PATH
 - Verifica se o remote `ii-gdrive` existe
 - Retorna JSON `{installed: bool, configured: bool, version: string}`
@@ -175,7 +175,7 @@ Timer {
 
 A seção Google Drive no `TasksAccountsConfig.qml` terá um design **rico em cards, gráficos e elementos variados**, evitando excesso de `ConfigSwitch`.
 
-#### [MODIFY] [TasksAccountsConfig.qml](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/modules/settings/configs/TasksAccountsConfig.qml)
+#### [MODIFY] [TasksAccountsConfig.qml](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/modules/settings/configs/TasksAccountsConfig.qml)
 
 **Layout proposto (de cima para baixo):**
 
@@ -243,7 +243,7 @@ Card com lista de pastas de backup, usando `ConfigListView` ou `StyledListView` 
 │  ├───────────────────────────────────────────────────────┤    │
 │  │  🖼 ~/Pictures              156.8 MB    [  ✕  ]      │    │
 │  ├───────────────────────────────────────────────────────┤    │
-│  │  ⚙ ~/.config/quickshell/ii    4.2 MB   [  ✕  ]      │    │
+│  │  ⚙ ~/.config/quickshell/flow    4.2 MB   [  ✕  ]      │    │
 │  └───────────────────────────────────────────────────────┘    │
 │                                                                │
 │  PagePlaceholder if empty:                                     │
@@ -356,7 +356,7 @@ Card com `ConfigListView` para patterns de exclusão, usando `ConfigTextField` +
 
 ### 5. Registro no SettingsPageRegistry
 
-#### [MODIFY] [SettingsPageRegistry.qml](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/modules/common/SettingsPageRegistry.qml)
+#### [MODIFY] [SettingsPageRegistry.qml](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/modules/common/SettingsPageRegistry.qml)
 
 Adicionar `"Google Drive"`, `"Backup"`, `"Cloud backup"` aos `aliases` da entrada `tasksAccounts`:
 
@@ -375,7 +375,7 @@ Adicionar `"Google Drive"`, `"Backup"`, `"Cloud backup"` aos `aliases` da entrad
 
 ### 6. Registro do Service no `qmldir`
 
-#### [MODIFY] [qmldir](file:///home/pedro/Downloads/ii-vynx/dots/.config/quickshell/ii/services/qmldir)
+#### [MODIFY] [qmldir](file:///home/pedro/Downloads/flow-vynx/dots/.config/quickshell/flow/services/qmldir)
 
 Adicionar:
 ```

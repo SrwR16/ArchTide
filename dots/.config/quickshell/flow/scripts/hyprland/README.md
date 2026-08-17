@@ -4,8 +4,8 @@
 
 A high-performance Rust backend that captures live Hyprland clients via `hyprctl`, saves them as JSON profiles, and restores layouts on demand. Used by the Cheatsheet.
 
-**Binary:** `~/.config/quickshell/ii/scripts/hyprland/workspace_profile_manager`
-**Source:** `~/.config/quickshell/ii/scripts/hyprland/workspace_profile_manager_src/`
+**Binary:** `~/.config/quickshell/flow/scripts/hyprland/workspace_profile_manager`
+**Source:** `~/.config/quickshell/flow/scripts/hyprland/workspace_profile_manager_src/`
 
 **Data:** Profiles are saved as JSON to `~/.config/illogical-impulse/workspace_profiles/` — safe to back up or sync across machines, and will survive dots updates.
 
@@ -14,7 +14,7 @@ A high-performance Rust backend that captures live Hyprland clients via `hyprctl
 Only needed if you've modified the Rust source. Requires Rust/`cargo` ([install via rustup](https://rustup.rs)).
 
 ```bash
-cd ~/.config/quickshell/ii/scripts/hyprland/workspace_profile_manager_src
+cd ~/.config/quickshell/flow/scripts/hyprland/workspace_profile_manager_src
 cargo build --release
 cp target/release/workspace_profile_manager ../
 ```
@@ -40,7 +40,7 @@ convention from `~/.config/hypr/hyprland/lib/init.lua` (fixed-size blocks of `wo
 per monitor, 10 by default) — pass a different block size as the first argument to the binary if
 you've changed `workspaceGroupSize` away from 10 (see keybind below).
 
-**Source:** `~/.config/quickshell/ii/scripts/hyprland/workspace_compactor_src/`
+**Source:** `~/.config/quickshell/flow/scripts/hyprland/workspace_compactor_src/`
 
 ### Building from Source
 
@@ -48,7 +48,7 @@ Requires Rust/`cargo` ([install via rustup](https://rustup.rs)). The binary is n
 it once and the keybind picks it up.
 
 ```bash
-cd ~/.config/quickshell/ii/scripts/hyprland/workspace_compactor_src
+cd ~/.config/quickshell/flow/scripts/hyprland/workspace_compactor_src
 cargo build --release
 cp target/release/workspace_compactor ../
 ```

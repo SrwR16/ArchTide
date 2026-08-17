@@ -438,13 +438,13 @@ Resolver:
 Criar:
 
 ```text
-dots/.config/quickshell/ii/scripts/kdeconnect/contacts_monitor.py
+dots/.config/quickshell/flow/scripts/kdeconnect/contacts_monitor.py
 ```
 
 ou, para agrupar tudo novo de Phone:
 
 ```text
-dots/.config/quickshell/ii/scripts/phone/contacts_monitor.py
+dots/.config/quickshell/flow/scripts/phone/contacts_monitor.py
 ```
 
 ### Recomendação
@@ -711,7 +711,7 @@ Essas ações devem reaproveitar um helper de ADB do `KdeConnectService`, sem du
 Criar:
 
 ```text
-modules/ii/sidebarPolicies/phone/PhoneContactsPage.qml
+modules/flow/sidebarPolicies/phone/PhoneContactsPage.qml
 ```
 
 Estrutura:
@@ -1423,7 +1423,7 @@ Se a janela sumiu mas o process manager diz running:
 Criar:
 
 ```text
-modules/ii/sidebarPolicies/phone/PhoneAppsPage.qml
+modules/flow/sidebarPolicies/phone/PhoneAppsPage.qml
 ```
 
 Layout:
@@ -2326,24 +2326,24 @@ Evitar transformar `DevicesPhoneConfig` em uma página gigante.
 ## Services
 
 ```text
-dots/.config/quickshell/ii/services/PhoneContactsService.qml
-dots/.config/quickshell/ii/services/PhoneScrcpyService.qml
+dots/.config/quickshell/flow/services/PhoneContactsService.qml
+dots/.config/quickshell/flow/services/PhoneScrcpyService.qml
 ```
 
 ## Phone UI
 
 ```text
-dots/.config/quickshell/ii/modules/ii/sidebarPolicies/phone/PhoneNavigationCards.qml
-dots/.config/quickshell/ii/modules/ii/sidebarPolicies/phone/PhoneContactsPage.qml
-dots/.config/quickshell/ii/modules/ii/sidebarPolicies/phone/PhoneAppsPage.qml
+dots/.config/quickshell/flow/modules/flow/sidebarPolicies/phone/PhoneNavigationCards.qml
+dots/.config/quickshell/flow/modules/flow/sidebarPolicies/phone/PhoneContactsPage.qml
+dots/.config/quickshell/flow/modules/flow/sidebarPolicies/phone/PhoneAppsPage.qml
 ```
 
 ## Scripts
 
 ```text
-dots/.config/quickshell/ii/scripts/kdeconnect/contacts_monitor.py
-dots/.config/quickshell/ii/scripts/phone/scrcpy_session_manager.py
-dots/.config/quickshell/ii/scripts/phone/v4l2_phone_camera.sh
+dots/.config/quickshell/flow/scripts/kdeconnect/contacts_monitor.py
+dots/.config/quickshell/flow/scripts/phone/scrcpy_session_manager.py
+dots/.config/quickshell/flow/scripts/phone/v4l2_phone_camera.sh
 ```
 
 O helper V4L2 pode ser Python se a lógica crescer; começar Bash é aceitável se ele permanecer pequeno e determinístico.
@@ -2353,28 +2353,28 @@ O helper V4L2 pode ser Python se a lógica crescer; começar Bash é aceitável 
 # 19. Arquivos existentes a alterar
 
 ```text
-dots/.config/quickshell/ii/services/KdeConnectService.qml
-dots/.config/quickshell/ii/services/PhoneCameraService.qml
+dots/.config/quickshell/flow/services/KdeConnectService.qml
+dots/.config/quickshell/flow/services/PhoneCameraService.qml
 
-dots/.config/quickshell/ii/modules/common/Config.qml
-dots/.config/quickshell/ii/modules/common/Persistent.qml
-dots/.config/quickshell/ii/GlobalStates.qml              # somente se realmente necessário
+dots/.config/quickshell/flow/modules/common/Config.qml
+dots/.config/quickshell/flow/modules/common/Persistent.qml
+dots/.config/quickshell/flow/GlobalStates.qml              # somente se realmente necessário
 
-dots/.config/quickshell/ii/modules/ii/sidebarPolicies/phone/Phone.qml
-dots/.config/quickshell/ii/modules/ii/sidebarPolicies/phone/PhoneFooter.qml
-dots/.config/quickshell/ii/modules/ii/sidebarPolicies/phone/PhoneScrcpyPage.qml
-dots/.config/quickshell/ii/modules/ii/sidebarPolicies/phone/PhoneWebcamPage.qml
+dots/.config/quickshell/flow/modules/flow/sidebarPolicies/phone/Phone.qml
+dots/.config/quickshell/flow/modules/flow/sidebarPolicies/phone/PhoneFooter.qml
+dots/.config/quickshell/flow/modules/flow/sidebarPolicies/phone/PhoneScrcpyPage.qml
+dots/.config/quickshell/flow/modules/flow/sidebarPolicies/phone/PhoneWebcamPage.qml
 
-dots/.config/quickshell/ii/modules/ii/bar/widgets/indicators/PhoneScrcpyIndicator.qml
+dots/.config/quickshell/flow/modules/flow/bar/widgets/indicators/PhoneScrcpyIndicator.qml
 
-dots/.config/quickshell/ii/modules/settings/configs/DevicesPhoneConfig.qml
-dots/.config/quickshell/ii/modules/settings/configs/widgets/KdeConnectConfig.qml
+dots/.config/quickshell/flow/modules/settings/configs/DevicesPhoneConfig.qml
+dots/.config/quickshell/flow/modules/settings/configs/widgets/KdeConnectConfig.qml
 
 sdata/dist-arch/illogical-impulse-phone/PKGBUILD
 
-dots/.config/quickshell/ii/translations/en_US.json
-dots/.config/quickshell/ii/translations/pt_BR.json
-dots/.config/quickshell/ii/translations/es_MX.json
+dots/.config/quickshell/flow/translations/en_US.json
+dots/.config/quickshell/flow/translations/pt_BR.json
+dots/.config/quickshell/flow/translations/es_MX.json
 
 AGENTS.md
 ```

@@ -19,10 +19,10 @@ The integration follows a multi-layer architecture:
 | `scripts/soundcore/soundcore_anc.sh` | Bash wrapper for the `openscq30_cli`. |
 | `modules/common/SoundcoreService.qml` | Singleton service that handles logic and process execution. |
 | `modules/common/models/quickToggles/SoundcoreAncToggle.qml` | The model defining the toggle behavior, icons, and labels. |
-| `modules/ii/sidebarDashboard/quickToggles/androidStyle/AndroidSoundcoreAncToggle.qml` | The visual Android-style toggle component. |
-| `modules/ii/sidebarDashboard/quickToggles/androidStyle/AndroidToggleDelegateChooser.qml` | Registered the toggle so it appears in the dashboard menu. |
-| `modules/ii/sidebarDashboard/quickToggles/AndroidQuickPanel.qml` | Whitelisted the toggle type for the sidebar. |
-| `modules/ii/bluetoothConnectionPopup/BluetoothConnectionPopupContent.qml` | Added the ANC status label to the connection overlay. |
+| `modules/flow/sidebarDashboard/quickToggles/androidStyle/AndroidSoundcoreAncToggle.qml` | The visual Android-style toggle component. |
+| `modules/flow/sidebarDashboard/quickToggles/androidStyle/AndroidToggleDelegateChooser.qml` | Registered the toggle so it appears in the dashboard menu. |
+| `modules/flow/sidebarDashboard/quickToggles/AndroidQuickPanel.qml` | Whitelisted the toggle type for the sidebar. |
+| `modules/flow/bluetoothConnectionPopup/BluetoothConnectionPopupContent.qml` | Added the ANC status label to the connection overlay. |
 
 ## How to Modify
 

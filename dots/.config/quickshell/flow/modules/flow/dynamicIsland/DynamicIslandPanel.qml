@@ -1681,7 +1681,7 @@ Scope {
                             color: Appearance.colors.colOnSurfaceVariant
                         }
                         StyledText {
-                            text: "ii"
+                            text: "flow"
                             font.pixelSize: Appearance.font.pixelSize.smaller
                             font.bold: true
                             color: Appearance.colors.colOnSurfaceVariant

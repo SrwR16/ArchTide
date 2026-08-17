@@ -30,7 +30,7 @@ AbstractBackgroundWidget {
     // Process for IPC toggle to open cheatsheet timetable
     Process {
         id: cheatsheetIpcProcess
-        command: ["qs", "ipc", "-c", "ii", "call", "cheatsheet", "toggle"]
+        command: ["qs", "ipc", "-c", "flow", "call", "cheatsheet", "toggle"]
     }
 
     // Current system date & time

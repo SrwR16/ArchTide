@@ -90,17 +90,17 @@ AbstractBackgroundWidget {
 
     Process {
         id: calendarIpc
-        command: ["qs", "ipc", "-c", "ii", "call", "cheatsheet", "toggle"]
+        command: ["qs", "ipc", "-c", "flow", "call", "cheatsheet", "toggle"]
     }
 
     Process {
         id: todoIpc
-        command: ["qs", "ipc", "-c", "ii", "call", "sidebarDashboard", "openTab", "todo"]
+        command: ["qs", "ipc", "-c", "flow", "call", "sidebarDashboard", "openTab", "todo"]
     }
 
     Process {
         id: emailIpc
-        command: ["qs", "ipc", "-c", "ii", "call", "cheatsheet", "toggle"]
+        command: ["qs", "ipc", "-c", "flow", "call", "cheatsheet", "toggle"]
     }
 
     Item {

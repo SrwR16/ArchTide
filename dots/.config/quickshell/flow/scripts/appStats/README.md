@@ -4,8 +4,8 @@ Per-app usage and energy sampler: foreground/background screen time, watt-hours,
 CPU and GPU time, memory, launches and sessions — plus the battery's own level and
 charge history where there is one — the data behind the usage overlay.
 
-**Binary:** `~/.config/quickshell/ii/scripts/appStats/app_stats`
-**Source:** `~/.config/quickshell/ii/scripts/appStats/app_stats_src/`
+**Binary:** `~/.config/quickshell/flow/scripts/appStats/app_stats`
+**Source:** `~/.config/quickshell/flow/scripts/appStats/app_stats_src/`
 
 ## Why a helper is needed
 
@@ -34,7 +34,7 @@ Both are below — paste the block, then press **Super + U**.
 # 1. Build the sampler. rust is the only build requirement; the first build fetches
 #    libc and serde_json, so it needs network. Result is ~530 KB.
 yay -S --needed rust
-cd ~/.config/quickshell/ii/scripts/appStats/app_stats_src
+cd ~/.config/quickshell/flow/scripts/appStats/app_stats_src
 cargo build --release
 cp target/release/app_stats ../
 
@@ -94,7 +94,7 @@ hl.layer_rule({ match = { namespace = "quickshell:usage" }, ignore_alpha = 0.6})
 hl.layer_rule({ match = { namespace = "quickshell:usage" }, animation = "slide bottom"})
 ```
 
-On the shell side: `services/AppStats.qml`, the `modules/ii/usage/` overlay, the
+On the shell side: `services/AppStats.qml`, the `modules/flow/usage/` overlay, the
 `appStats` group in `modules/common/Config.qml`, `UsageStatsConfig.qml` registered in
 `SettingsPageRegistry` under System, `Directories.appStats`, `usageOpen` in
 `GlobalStates.qml`, and a `PanelLoader` for `Usage` in both panel families.

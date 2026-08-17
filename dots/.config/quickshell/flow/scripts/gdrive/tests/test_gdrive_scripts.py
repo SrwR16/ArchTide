@@ -340,7 +340,7 @@ class QmlIntegrationTests(unittest.TestCase):
 
     def test_dashboard_visual_components_are_responsive_and_token_driven(self) -> None:
         root = GDRIVE_DIR.parents[1]
-        heatmap = (root / "modules" / "ii" / "usage" / "UsageActivityHeatmap.qml").read_text(encoding="utf-8")
+        heatmap = (root / "modules" / "flow" / "usage" / "UsageActivityHeatmap.qml").read_text(encoding="utf-8")
         combo = (root / "modules" / "common" / "widgets" / "StyledComboBox.qml").read_text(encoding="utf-8")
 
         self.assertIn("resolvedCellWidth", heatmap)

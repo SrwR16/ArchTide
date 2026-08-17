@@ -1,7 +1,7 @@
 # Análise: Desktop Widgets + Lock Screen Integration
 
 > Data: 2026-07-13
-> Escopo: `modules/ii/background/`, `modules/ii/lock/`, `modules/common/Config.qml`
+> Escopo: `modules/flow/background/`, `modules/flow/lock/`, `modules/common/Config.qml`
 
 ---
 
@@ -459,25 +459,25 @@ No modo de edição, ter um "lock screen preview" onde o usuário pode arrastar 
 ## 6. Arquivos Envolvidos
 
 ### Core
-- `modules/ii/background/Background.qml` — `bgRoot`, `WidgetCanvas`, Repeater
-- `modules/ii/background/widgets/AbstractBackgroundWidget.qml` — Base class
+- `modules/flow/background/Background.qml` — `bgRoot`, `WidgetCanvas`, Repeater
+- `modules/flow/background/widgets/AbstractBackgroundWidget.qml` — Base class
 - `modules/common/Config.qml` — `activeWidgets` schema, `lock` config
 
 ### Widgets Específicos
-- `modules/ii/background/widgets/clock/ClockWidget.qml`
-- `modules/ii/background/widgets/media/MediaWidget.qml`
-- `modules/ii/background/widgets/media/ExpressiveMediaWidget.qml`
-- `modules/ii/background/widgets/weather/WeatherWidget.qml`
-- `modules/ii/background/widgets/weather/ExpressiveWeatherWidget.qml`
-- `modules/ii/background/widgets/DateWidget/DateWidget.qml`
+- `modules/flow/background/widgets/clock/ClockWidget.qml`
+- `modules/flow/background/widgets/media/MediaWidget.qml`
+- `modules/flow/background/widgets/media/ExpressiveMediaWidget.qml`
+- `modules/flow/background/widgets/weather/WeatherWidget.qml`
+- `modules/flow/background/widgets/weather/ExpressiveWeatherWidget.qml`
+- `modules/flow/background/widgets/DateWidget/DateWidget.qml`
 
 ### Registry & Config UI
-- `modules/ii/background/widgets/WidgetsRegistry.qml`
+- `modules/flow/background/widgets/WidgetsRegistry.qml`
 - `modules/settings/configs/WidgetsConfig.qml`
 
 ### Lock Screen
-- `modules/ii/lock/Lock.qml`
-- `modules/ii/lock/LockSurface.qml`
+- `modules/flow/lock/Lock.qml`
+- `modules/flow/lock/LockSurface.qml`
 
 ---
 

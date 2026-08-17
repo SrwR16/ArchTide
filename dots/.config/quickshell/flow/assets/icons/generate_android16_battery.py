@@ -1,7 +1,7 @@
 import os
 import re
 
-appearance_path = '/home/pedro/.config/quickshell/ii/modules/common/Appearance.qml'
+appearance_path = '/home/pedro/.config/quickshell/flow/modules/common/Appearance.qml'
 
 color_outline = "#ece6e9" # default m3onSecondaryContainer
 color_error   = "#ffb4ab" # default m3error
@@ -22,7 +22,7 @@ try:
 except Exception as e:
     pass
 
-output_dir = '/home/pedro/.config/quickshell/ii/assets/icons/android16'
+output_dir = '/home/pedro/.config/quickshell/flow/assets/icons/android16'
 os.makedirs(output_dir, exist_ok=True)
 
 svg_template = """<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">

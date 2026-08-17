@@ -31,8 +31,8 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     ### 📂 Installation Guide
     1. **Service Layer**: Copy `EmailService.qml` to `services/`.
     2. **Backend Scripts**: Copy the `email/` folder to `scripts/`.
-    3. **UI Components**: Copy the `email/` folder to `modules/ii/cheatsheet/`.
-    4. **Main View**: Ensure `CheatsheetEmail.qml` is in `modules/ii/cheatsheet/`.
+    3. **UI Components**: Copy the `email/` folder to `modules/flow/cheatsheet/`.
+    4. **Main View**: Ensure `CheatsheetEmail.qml` is in `modules/flow/cheatsheet/`.
     5. **Environment**: Create a `.env` file in the root.
 
     ### 🔧 Core Integration Changes
@@ -41,7 +41,7 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     // inside options.cheatsheet
     property bool enableGmail: false
     ```
-    #### 2. `modules/ii/cheatsheet/Cheatsheet.qml`
+    #### 2. `modules/flow/cheatsheet/Cheatsheet.qml`
     ```qml
     if (Config.options.cheatsheet.enableGmail) {
         list.push({ "icon": "mail", "name": Translation.tr("Email") });
@@ -79,7 +79,7 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     - **Two-Step Confirmation Safeguard**: Clicking or hitting Enter on critical system commands dynamically prompts for confirmation inside the launcher (e.g., `Reboot PC (Are you sure?)`), keeping the launcher open and requiring a second Enter/click to execute, while cancelling automatically if you type or move away.
 
     ### 📖 Setup Guide
-    For a full setup guide, code diffs, and detailed configuration parameters, check out the [Search Upgrades & Implementation Guide](modules/ii/overview/IMPLEMENTATION_GUIDE.md).
+    For a full setup guide, code diffs, and detailed configuration parameters, check out the [Search Upgrades & Implementation Guide](modules/flow/overview/IMPLEMENTATION_GUIDE.md).
   </details>
 
 - **🎨 Intelligent Color Picker**: Capture colors from your screen and instantly generate Material You palettes. Real-time visual feedback across different M3 layers.
@@ -109,7 +109,7 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     }
     ```
 
-    ### 2. Bar Integration (`modules/ii/bar/UtilButtons.qml`)
+    ### 2. Bar Integration (`modules/flow/bar/UtilButtons.qml`)
     ```qml
     Loader {
         active: Config.options.bar.utilButtons.showColorPicker
@@ -156,9 +156,9 @@ It aims to provide a state-of-the-art Linux desktop experience by strictly adher
     <summary><b>🛠️ Full Implementation Guide</b></summary>
 
     ### 1. File Structure
-    - `modules/ii/cheatsheet/commands/CheatsheetCommands.qml`
-    - `modules/ii/cheatsheet/commands/CommandCard.qml`
-    - `modules/ii/cheatsheet/commands/CommandForm.qml`
+    - `modules/flow/cheatsheet/commands/CheatsheetCommands.qml`
+    - `modules/flow/cheatsheet/commands/CommandCard.qml`
+    - `modules/flow/cheatsheet/commands/CommandForm.qml`
     - `services/CommandsService.qml`
 
     ### 2. Configuration Setup
