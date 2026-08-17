@@ -4,7 +4,7 @@
 # Generated color sequences (from Matugen via QuickShell)
 local sequences_file="${FLOW_STATE_DIR:-$HOME/.local/state/quickshell/user/generated/terminal}/sequences.txt"
 if [[ -f "$sequences_file" && -r "$sequences_file" ]]; then
-  cat "$sequences_file"
+  command cat "$sequences_file"
 fi
 
 # Kitty theme (if using Kitty)
