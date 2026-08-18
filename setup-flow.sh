@@ -18,6 +18,7 @@
 #   doctor                  Report resolved paths, active state and tooling
 #   hyprset <args>          Write a Hyprland key or animation
 #   hyprmerge <args>        Merge a Hyprland config into the local one
+#   project detect          Show detected languages/frameworks/tooling (read-only)
 #   remove-cli              Remove the flow symlink
 #   help                    Print the full surface (alias: -h, --help)
 #   version                 Print the version (alias: -V, --version)
@@ -46,6 +47,7 @@
 #       --no-log              Do not write a run log
 #       --ascii               ASCII glyphs only
 #       --no-color            Strip ANSI colour
+#       --json                Emit JSON (currently used by: project detect)
 #
 # --local takes either a fork checkout (with dots/.config/quickshell/flow*) or a
 # flow config dir directly. `update` will not guess a local path back: it refuses
@@ -166,6 +168,7 @@ OPT_LOG=true
 LOG_FILE="$DEFAULT_LOG_FILE"
 LOG_READY=false
 PASSTHRU_ARGS=()
+PROJECT_ARGS=()
 
 # ── Run state (used by the exit trap) ────────────────────────────────────────
 STAGE_DIR=""
@@ -2132,6 +2135,34 @@ cmd_hypr() {
     exec bash "$path" "$@"
 }
 
+# cmd_project <subcmd> [args...] — dispatches "flow project <subcmd>".
+# Mirrors cmd_hypr's resolve-then-ui_die convention: check SCRIPT_DIR, fall
+# back to MIRROR_DIR, die with the normal error UI (not a raw shell error)
+# if neither has the helper.
+cmd_project() {
+    local subcmd="${1:-detect}"
+    (($# > 0)) && shift
+
+    case "$subcmd" in
+        detect)
+            local path="" d
+            for d in "$SCRIPT_DIR" "$MIRROR_DIR"; do
+                [[ -f "$d/sdata/subcmd-project/detect.sh" ]] && {
+                    path="$d/sdata/subcmd-project/detect.sh"
+                    break
+                }
+            done
+            [[ -n "$path" ]] || ui_die "Missing helper" "sdata/subcmd-project/detect.sh not found"
+            local detect_args=("$@")
+            [[ "$OPT_JSON" == true ]] && detect_args+=("--json")
+            exec bash "$path" "${detect_args[@]}"
+            ;;
+        *)
+            arg_error "Unknown project subcommand \"$subcmd\" (expected: detect)"
+            ;;
+    esac
+}
+
 #══════════════════════════════════════════════════════════════════════════════
 # Help
 #══════════════════════════════════════════════════════════════════════════════
@@ -2153,6 +2184,7 @@ show_help() {
     printf '  %s%-16s%s %s\n' "$C_OK" "doctor" "$C_RST" "Report resolved paths, state and tooling"
     printf '  %s%-16s%s %s\n' "$C_OK" "hyprset" "$C_RST" "Write a Hyprland key/animation"
     printf '  %s%-16s%s %s\n' "$C_OK" "hyprmerge" "$C_RST" "Merge a Hyprland config into the local one"
+    printf '  %s%-16s%s %s\n' "$C_OK" "project detect" "$C_RST" "Show detected languages/frameworks/tooling (read-only)"
     printf '  %s%-16s%s Remove the %s symlink\n' "$C_OK" "remove-cli" "$C_RST" "$CLI_NAME"
     printf '  %s%-16s%s %s\n' "$C_OK" "help, version" "$C_RST" "This message / the version"
     printf '  %s%-16s%s %s\n' "$C_OK" "demo" "$C_RST" "Render every UI primitive and exit"
@@ -2179,6 +2211,7 @@ show_help() {
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-log" "$C_RST" "Do not write a run log"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --ascii" "$C_RST" "ASCII glyphs only"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-color" "$C_RST" "Strip ANSI colour"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --json" "$C_RST" "Emit JSON (currently used by: project detect)"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --demo" "$C_RST" "Render every UI primitive and exit"
     printf '\n'
 
@@ -2395,7 +2428,13 @@ parse_args() {
             PASSTHRU_ARGS=("${positional[@]}" "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}")
             ;;
         project)
-            # project detect [--json] - subcommand and flags handled later
+            # positional is local to this function and goes out of scope the
+            # moment parse_args returns, so the subcommand ("detect", etc.)
+            # must be captured into a global here — same pattern as
+            # PASSTHRU_ARGS above. Leaving this empty (as it previously was)
+            # meant main() could never see what the user actually typed and
+            # silently always ran "detect".
+            PROJECT_ARGS=("${positional[@]}")
             ;;
         *)
             if ((${#positional[@]} > 0)); then
@@ -2443,22 +2482,7 @@ main() {
             ;;
         hyprset) cmd_hypr hyprset "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}" ;;
         hyprmerge) cmd_hypr hyprmerge "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}" ;;
-        project)
-            # Handle project subcommands
-            local subcmd="${positional[0]:-detect}"
-            case "$subcmd" in
-                detect)
-                    # Pass remaining args to detect script
-                    shift
-                    local detect_args=("$@")
-                    [[ "$OPT_JSON" == true ]] && detect_args+=("--json")
-                    exec "$SCRIPT_DIR/sdata/subcmd-project/detect.sh" "${detect_args[@]}"
-                    ;;
-                *)
-                    arg_error "Unknown project subcommand: $subcmd (expected: detect)"
-                    ;;
-            esac
-            ;;
+        project) cmd_project "${PROJECT_ARGS[@]+"${PROJECT_ARGS[@]}"}" ;;
     esac
 
     open_log
