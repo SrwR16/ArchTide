@@ -444,6 +444,23 @@ detect_capabilities() {
         add_evidence "dune-project"
     fi
 
+    # === Lua ===
+    if compgen -G "$root/*.lua" >/dev/null 2>&1 || [[ -f "$root/rockspec" ]] || compgen -G "$root/*.rockspec" >/dev/null 2>&1; then
+        add_cap languages "lua" "high" "*.lua / rockspec"
+        add_evidence "Lua project file"
+        [[ -f "$root/lua-lsp.toml" ]] && add_cap frameworks "lua-lsp" "medium" "lua-lsp.toml"
+        grep -q 'luv' "$root"/*.rockspec 2>/dev/null && add_cap frameworks "luv" "medium" "rockspec dependency"
+    fi
+
+    # === QML / Qt Quick ===
+    if compgen -G "$root/*.qml" >/dev/null 2>&1; then
+        add_cap languages "qml" "high" "*.qml"
+        add_evidence "QML file"
+        grep -ql 'import QtQuick' "$root"/*.qml 2>/dev/null && add_cap frameworks "qt-quick" "high" "*.qml QtQuick import"
+        grep -ql 'import QtQuick.Controls' "$root"/*.qml 2>/dev/null && add_cap frameworks "qt-quick-controls" "high" "*.qml QtQuick.Controls import"
+        [[ -f "$root/CMakeLists.txt" ]] && grep -q 'qt_add_qml_module\|qt6_add_qml_module' "$root/CMakeLists.txt" 2>/dev/null && add_cap frameworks "qt6-qml-module" "high" "CMakeLists.txt qt_add_qml_module"
+    fi
+
     # === C / C++ ===
     if [[ -f "$root/CMakeLists.txt" ]]; then
         add_cap languages "cpp" "medium" "CMakeLists.txt"
