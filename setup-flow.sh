@@ -161,6 +161,7 @@ OPT_SDDM="" # "" = ask on install only (and -y declines), true/false = explicit
 OPT_EXTRAS="" # "" = ask on install only (and -y declines), true/false = explicit
 OPT_ASCII=false
 OPT_NO_COLOR=false
+OPT_JSON=false
 OPT_LOG=true
 LOG_FILE="$DEFAULT_LOG_FILE"
 LOG_READY=false
@@ -2329,6 +2330,10 @@ parse_args() {
                 OPT_NO_COLOR=true
                 shift
                 ;;
+            --json)
+                OPT_JSON=true
+                shift
+                ;;
             --demo)
                 COMMAND="demo"
                 shift
@@ -2377,7 +2382,7 @@ parse_args() {
     if ((${#positional[@]} > 0)); then
         local first="${positional[0]}"
         case "$first" in
-            apply | install | update | switch | restart | run | doctor | remove-cli | hyprset | hyprmerge | help | version | demo)
+            apply | install | update | switch | restart | run | doctor | remove-cli | hyprset | hyprmerge | help | version | demo | project)
                 COMMAND="$first"
                 positional=("${positional[@]:1}")
                 ;;
@@ -2388,6 +2393,9 @@ parse_args() {
     case "$COMMAND" in
         hyprset | hyprmerge)
             PASSTHRU_ARGS=("${positional[@]}" "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}")
+            ;;
+        project)
+            # project detect [--json] - subcommand and flags handled later
             ;;
         *)
             if ((${#positional[@]} > 0)); then
@@ -2435,6 +2443,22 @@ main() {
             ;;
         hyprset) cmd_hypr hyprset "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}" ;;
         hyprmerge) cmd_hypr hyprmerge "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}" ;;
+        project)
+            # Handle project subcommands
+            local subcmd="${positional[0]:-detect}"
+            case "$subcmd" in
+                detect)
+                    # Pass remaining args to detect script
+                    shift
+                    local detect_args=("$@")
+                    [[ "$OPT_JSON" == true ]] && detect_args+=("--json")
+                    exec "$SCRIPT_DIR/sdata/subcmd-project/detect.sh" "${detect_args[@]}"
+                    ;;
+                *)
+                    arg_error "Unknown project subcommand: $subcmd (expected: detect)"
+                    ;;
+            esac
+            ;;
     esac
 
     open_log
