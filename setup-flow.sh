@@ -2157,8 +2157,22 @@ cmd_project() {
             [[ "$OPT_JSON" == true ]] && detect_args+=("--json")
             exec bash "$path" "${detect_args[@]}"
             ;;
+        profile)
+            local path="" d
+            for d in "$SCRIPT_DIR" "$MIRROR_DIR"; do
+                [[ -f "$d/sdata/subcmd-project/profile.sh" ]] && {
+                    path="$d/sdata/subcmd-project/profile.sh"
+                    break
+                }
+            done
+            [[ -n "$path" ]] || ui_die "Missing helper" "sdata/subcmd-project/profile.sh not found"
+            local profile_args=("$@")
+            [[ "$OPT_JSON" == true ]] && profile_args+=("--json")
+            [[ "$OPT_VERBOSE" == true ]] && profile_args+=("-v")
+            exec bash "$path" "${profile_args[@]}"
+            ;;
         *)
-            arg_error "Unknown project subcommand \"$subcmd\" (expected: detect)"
+            arg_error "Unknown project subcommand \"$subcmd\" (expected: detect, profile)"
             ;;
     esac
 }
@@ -2185,6 +2199,7 @@ show_help() {
     printf '  %s%-16s%s %s\n' "$C_OK" "hyprset" "$C_RST" "Write a Hyprland key/animation"
     printf '  %s%-16s%s %s\n' "$C_OK" "hyprmerge" "$C_RST" "Merge a Hyprland config into the local one"
     printf '  %s%-16s%s %s\n' "$C_OK" "project detect" "$C_RST" "Show detected languages/frameworks/tooling (read-only)"
+    printf '  %s%-16s%s %s\n' "$C_OK" "project profile" "$C_RST" "Manage project profiles (list, create, use, set-default, status, delete)"
     printf '  %s%-16s%s Remove the %s symlink\n' "$C_OK" "remove-cli" "$C_RST" "$CLI_NAME"
     printf '  %s%-16s%s %s\n' "$C_OK" "help, version" "$C_RST" "This message / the version"
     printf '  %s%-16s%s %s\n' "$C_OK" "demo" "$C_RST" "Render every UI primitive and exit"
@@ -2211,7 +2226,7 @@ show_help() {
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-log" "$C_RST" "Do not write a run log"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --ascii" "$C_RST" "ASCII glyphs only"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-color" "$C_RST" "Strip ANSI colour"
-    printf '  %s%-24s%s %s\n' "$C_STEP" "    --json" "$C_RST" "Emit JSON (currently used by: project detect)"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --json" "$C_RST" "Emit JSON (used by: project detect, project profile)"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --demo" "$C_RST" "Render every UI primitive and exit"
     printf '\n'
 
