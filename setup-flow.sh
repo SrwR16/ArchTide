@@ -2166,13 +2166,27 @@ cmd_project() {
                 }
             done
             [[ -n "$path" ]] || ui_die "Missing helper" "sdata/subcmd-project/profile.sh not found"
-            local profile_args=("$@")
+            local profile_args=("$@" "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}")
             [[ "$OPT_JSON" == true ]] && profile_args+=("--json")
             [[ "$OPT_VERBOSE" == true ]] && profile_args+=("-v")
             exec bash "$path" "${profile_args[@]}"
             ;;
+        env)
+            local path="" d
+            for d in "$SCRIPT_DIR" "$MIRROR_DIR"; do
+                [[ -f "$d/sdata/subcmd-project/env.sh" ]] && {
+                    path="$d/sdata/subcmd-project/env.sh"
+                    break
+                }
+            done
+            [[ -n "$path" ]] || ui_die "Missing helper" "sdata/subcmd-project/env.sh not found"
+            local env_args=("$@" "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}")
+            [[ "$OPT_JSON" == true ]] && env_args+=("--json")
+            [[ "$OPT_VERBOSE" == true ]] && env_args+=("-v")
+            exec bash "$path" "${env_args[@]}"
+            ;;
         *)
-            arg_error "Unknown project subcommand \"$subcmd\" (expected: detect, profile)"
+            arg_error "Unknown project subcommand \"$subcmd\" (expected: detect, profile, env)"
             ;;
     esac
 }
@@ -2200,6 +2214,7 @@ show_help() {
     printf '  %s%-16s%s %s\n' "$C_OK" "hyprmerge" "$C_RST" "Merge a Hyprland config into the local one"
     printf '  %s%-16s%s %s\n' "$C_OK" "project detect" "$C_RST" "Show detected languages/frameworks/tooling (read-only)"
     printf '  %s%-16s%s %s\n' "$C_OK" "project profile" "$C_RST" "Manage project profiles (list, create, use, set-default, status, delete)"
+    printf '  %s%-16s%s %s\n' "$C_OK" "project env" "$C_RST" "Environment resolution & selection (list, show, set, clear)"
     printf '  %s%-16s%s Remove the %s symlink\n' "$C_OK" "remove-cli" "$C_RST" "$CLI_NAME"
     printf '  %s%-16s%s %s\n' "$C_OK" "help, version" "$C_RST" "This message / the version"
     printf '  %s%-16s%s %s\n' "$C_OK" "demo" "$C_RST" "Render every UI primitive and exit"

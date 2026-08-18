@@ -608,16 +608,25 @@ cmd_status() {
         print_human "Profiles"
         local default_profile
         default_profile=$(printf '%s' "$state_json" | jq -r '.default_profile // ""')
-        local profile_name profile_type profile_scope
+        local profile_name profile_type profile_scope saved_strategy saved_target
         while IFS= read -r profile_name; do
             profile_type=$(printf '%s' "$state_json" | jq -r ".profiles[\"$profile_name\"].type // \"\"")
             profile_scope=$(printf '%s' "$state_json" | jq -r ".profiles[\"$profile_name\"].scope // \".\"")
+            saved_strategy=$(printf '%s' "$state_json" | jq -r ".profiles[\"$profile_name\"].environment.strategy // \"unconfigured\"")
+            saved_target=$(printf '%s' "$state_json" | jq -r ".profiles[\"$profile_name\"].environment.target // \"\"")
             if [[ "$profile_name" == "$default_profile" ]]; then
                 print_human "  ${C_GREEN}●${C_RESET} $profile_name ${C_DIM}($profile_type)${C_RESET} ${C_BLUE}[default]${C_RESET}"
             else
                 print_human "  $profile_name ${C_DIM}($profile_type)${C_RESET}"
             fi
             print_human "    scope: $profile_scope"
+            if [[ "$saved_strategy" != "unconfigured" && -n "$saved_target" && "$saved_target" != "null" ]]; then
+                print_human "    env: $saved_strategy ($saved_target)"
+            elif [[ "$saved_strategy" != "unconfigured" ]]; then
+                print_human "    env: $saved_strategy"
+            else
+                print_human "    env: ${C_DIM}not configured${C_RESET}"
+            fi
         done < <(printf '%s' "$state_json" | jq -r '.profiles | keys[]')
     else
         print_human "Profiles"
@@ -632,7 +641,7 @@ cmd_status() {
     print_human "  $default_profile"
     print_human ""
 
-    # Environment candidates
+    # Environment candidates from detector
     local py_envs node_pm node_vf
     py_envs=$(printf '%s' "$detect_json" | jq -r '.environment_candidates[]? | select(.language=="python") | .environments[]?.path' 2>/dev/null | paste -sd ", " -)
     node_pm=$(printf '%s' "$detect_json" | jq -r '.environment_candidates[]? | select(.language=="node") | .package_manager' 2>/dev/null)
