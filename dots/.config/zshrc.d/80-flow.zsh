@@ -19,27 +19,25 @@ if [[ "$TERM" == "xterm-kitty" ]] || [[ -n "$KITTY_WINDOW_ID" ]]; then
 fi
 
 # Flow Project Activation (Phase 3C)
-# Shell function that wraps the activation command
+# Shell functions that wrap the activation command
 # This ensures activation affects the parent shell via eval
 
+# Resolve activate.sh location (once, at source time)
+_flow_activate_script=""
+if [[ -n "${FLOW_BASE_DIR:-}" && -f "${FLOW_BASE_DIR}/sdata/subcmd-project/activate.sh" ]]; then
+  _flow_activate_script="${FLOW_BASE_DIR}/sdata/subcmd-project/activate.sh"
+elif [[ -f "${HOME}/.local/share/flow/sdata/subcmd-project/activate.sh" ]]; then
+  _flow_activate_script="${HOME}/.local/share/flow/sdata/subcmd-project/activate.sh"
+fi
+
 flow_activate() {
-  local flow_cmd="${FLOW_CMD:-flow}"
-  local activate_script="${0:A:h}/../../sdata/subcmd-project/activate.sh"
-  
-  # Find the activate.sh script
-  if [[ ! -f "$activate_script" ]]; then
-    # Try the installed location
-    activate_script="${HOME}/.local/share/flow/sdata/subcmd-project/activate.sh"
-  fi
-  
-  if [[ ! -f "$activate_script" ]]; then
-    echo "Flow: activate.sh not found" >&2
+  if [[ -z "$_flow_activate_script" ]]; then
+    echo "Flow: activate.sh not found (set FLOW_BASE_DIR or install Flow)" >&2
     return 1
   fi
   
-  # Generate activation commands and eval them
   local commands
-  commands=$(bash "$activate_script" activate "$@")
+  commands=$(bash "$_flow_activate_script" activate "$@")
   if [[ $? -eq 0 ]]; then
     eval "$commands"
   else
@@ -47,25 +45,14 @@ flow_activate() {
   fi
 }
 
-# Flow Deactivation
 flow_deactivate() {
-  local flow_cmd="${FLOW_CMD:-flow}"
-  local activate_script="${0:A:h}/../../sdata/subcmd-project/activate.sh"
-  
-  # Find the activate.sh script
-  if [[ ! -f "$activate_script" ]]; then
-    # Try the installed location
-    activate_script="${HOME}/.local/share/flow/sdata/subcmd-project/activate.sh"
-  fi
-  
-  if [[ ! -f "$activate_script" ]]; then
-    echo "Flow: activate.sh not found" >&2
+  if [[ -z "$_flow_activate_script" ]]; then
+    echo "Flow: activate.sh not found (set FLOW_BASE_DIR or install Flow)" >&2
     return 1
   fi
   
-  # Generate deactivation commands and eval them
   local commands
-  commands=$(bash "$activate_script" deactivate "$@")
+  commands=$(bash "$_flow_activate_script" deactivate "$@")
   if [[ $? -eq 0 ]]; then
     eval "$commands"
   else
@@ -73,23 +60,13 @@ flow_deactivate() {
   fi
 }
 
-# Flow Status
 flow_status() {
-  local flow_cmd="${FLOW_CMD:-flow}"
-  local activate_script="${0:A:h}/../../sdata/subcmd-project/activate.sh"
-  
-  # Find the activate.sh script
-  if [[ ! -f "$activate_script" ]]; then
-    # Try the installed location
-    activate_script="${HOME}/.local/share/flow/sdata/subcmd-project/activate.sh"
-  fi
-  
-  if [[ ! -f "$activate_script" ]]; then
-    echo "Flow: activate.sh not found" >&2
+  if [[ -z "$_flow_activate_script" ]]; then
+    echo "Flow: activate.sh not found (set FLOW_BASE_DIR or install Flow)" >&2
     return 1
   fi
   
-  bash "$activate_script" status "$@"
+  bash "$_flow_activate_script" status "$@"
 }
 
 # Aliases
