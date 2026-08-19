@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 #
 # flow project env — environment resolution & selection
-# Part of Flow Terminal Phase 3B.1 (Environment Model Hardening)
+# Part of Flow Terminal Phase 3B.2 (Final Hardening)
 #
 # Model:
 #   RUNTIME = the interpreter/toolchain (system, mise, nvm, .python-version, .nvmrc)
 #   ENVIRONMENT = where dependencies live (existing .venv, uv-managed .venv, none)
 #
-# node_modules is NOT an environment — it's a dependency tree.
-# nvm/.node-version are runtime selectors, not environments.
+# Key principles:
+#   1. Language is determined by scope contents, NOT profile type
+#   2. node_modules is a dependency tree, NOT an environment
+#   3. nvm/.node-version are runtime selectors, NOT environments
+#   4. Validation uses resolved language, not profile type
 #
 
 set -Eeuo pipefail
@@ -23,8 +26,8 @@ done
 SCRIPT_DIR="$(cd -P "$(dirname "$_source")" >/dev/null 2>&1 && pwd)"
 unset _source _dir
 
-SCRIPT_VERSION="2.0.0"
-SCHEMA_VERSION=2
+SCRIPT_VERSION="2.1.0"
+SCHEMA_VERSION=3
 
 # Colors
 if [[ -t 1 ]]; then
@@ -245,7 +248,6 @@ discover_python_envs() {
 # Discover Node environments in project/profile scope
 # Returns: strategy|path|version|scope
 # NOTE: node_modules is NOT an environment — it's a dependency tree.
-# nvm/.node-version are runtime selectors, not environments.
 discover_node_envs() {
     local root="$1"
     local scope="$2"
@@ -256,17 +258,6 @@ discover_node_envs() {
     fi
 
     local candidates=()
-
-    # Check for package.json (indicates Node project, but not an environment)
-    # The actual environment is system/mise/nvm
-
-    # Check for package-lock.json or similar
-    if [[ -f "$search_dir/package-lock.json" ]] || [[ -f "$search_dir/pnpm-lock.yaml" ]] || \
-       [[ -f "$search_dir/yarn.lock" ]] || [[ -f "$search_dir/bun.lock" ]]; then
-        # Node project with dependencies installed — but the environment is still system/mise/nvm
-        # No "existing" environment candidate here
-        :
-    fi
 
     # Node projects don't have "existing" environments like Python does.
     # The environment is always system, mise, or nvm (runtime selector).
@@ -314,7 +305,7 @@ discover_runtime_hints() {
 }
 
 # Discover runtime selectors for a scope
-# Returns: strategy|path|version|scope
+# Returns: strategy|language|path|version|scope
 # Runtime selectors indicate which runtime to use, not where dependencies live
 discover_runtime_selectors() {
     local root="$1"
@@ -448,7 +439,7 @@ rank_python_candidates() {
     printf '%s\n' "${ranked[@]}"
 }
 
-# Rank Node environment candidates
+# Rank Node runtime candidates
 # Input: scope, array of candidates, array of hints
 # Returns: ranked candidates with priority and reason
 rank_node_candidates() {
@@ -629,21 +620,86 @@ discover_languages_in_scope() {
         languages+=("javascript")
     fi
 
-    # Runtime selectors (indicate which runtime to use)
-    if [[ -f "$search_dir/.nvmrc" ]] || [[ -f "$search_dir/.node-version" ]]; then
-        # Already covered by javascript above, but ensure it's there
-        :
-    fi
-
     printf '%s\n' "${languages[@]}"
 }
 
-# Validate existing environment based on profile type
+# Resolve the primary language for a profile scope
+# This is determined by actual scope contents, NOT profile type
+# Returns: python|node|go|rust|java|php|ruby|terraform|generic
+resolve_language_for_scope() {
+    local root="$1"
+    local scope="$2"
+
+    local search_dir="$root"
+    if [[ "$scope" != "." ]]; then
+        search_dir="$root/$scope"
+    fi
+
+    # Priority order: check most specific markers first
+    # Python
+    if [[ -f "$search_dir/manage.py" ]] || [[ -f "$search_dir/pyproject.toml" ]] || \
+       [[ -f "$search_dir/requirements.txt" ]] || [[ -d "$search_dir/requirements" ]] || \
+       [[ -f "$search_dir/Pipfile" ]] || [[ -f "$search_dir/poetry.lock" ]] || \
+       [[ -f "$search_dir/setup.py" ]] || [[ -f "$search_dir/setup.cfg" ]] || \
+       [[ -f "$search_dir/uv.lock" ]] || [[ -f "$search_dir/.python-version" ]] || \
+       [[ -d "$search_dir/.venv" ]] || [[ -d "$search_dir/venv" ]] || [[ -d "$search_dir/env" ]]; then
+        printf 'python'
+        return 0
+    fi
+
+    # Node/JavaScript
+    if [[ -f "$search_dir/package.json" ]]; then
+        printf 'node'
+        return 0
+    fi
+
+    # Go
+    if [[ -f "$search_dir/go.mod" ]]; then
+        printf 'go'
+        return 0
+    fi
+
+    # Rust
+    if [[ -f "$search_dir/Cargo.toml" ]]; then
+        printf 'rust'
+        return 0
+    fi
+
+    # Java
+    if [[ -f "$search_dir/pom.xml" ]] || [[ -f "$search_dir/build.gradle" ]] || [[ -f "$search_dir/build.gradle.kts" ]]; then
+        printf 'java'
+        return 0
+    fi
+
+    # PHP
+    if [[ -f "$search_dir/composer.json" ]]; then
+        printf 'php'
+        return 0
+    fi
+
+    # Ruby
+    if [[ -f "$search_dir/Gemfile" ]]; then
+        printf 'ruby'
+        return 0
+    fi
+
+    # Terraform
+    if compgen -G "$search_dir/*.tf" >/dev/null 2>&1 || compgen -G "$search_dir/*.tf.json" >/dev/null 2>&1; then
+        printf 'terraform'
+        return 0
+    fi
+
+    # Generic/unknown
+    printf 'generic'
+    return 0
+}
+
+# Validate existing environment based on resolved language
 # Returns 0 if valid, 1 if invalid
 validate_existing_env() {
     local strategy="$1"
     local target="$2"
-    local profile_type="$3"
+    local resolved_language="$3"
     local root="$4"
 
     local target_path="$root/$target"
@@ -651,10 +707,10 @@ validate_existing_env() {
     # Must exist
     [[ -d "$target_path" ]] || return 1
 
-    # Language-aware validation based on profile type
-    case "$profile_type" in
-        python|backend|ml|data)
-            # Python profiles: validate bin/python exists and is executable
+    # Language-aware validation based on RESOLVED language (not profile type)
+    case "$resolved_language" in
+        python)
+            # Python: validate bin/python exists and is executable
             [[ -x "$target_path/bin/python" ]] || return 1
             # Verify it's actually Python
             local version
@@ -662,8 +718,8 @@ validate_existing_env() {
             [[ -n "$version" ]] || return 1
             return 0
             ;;
-        node|frontend|javascript|typescript)
-            # Node profiles: validate bin/node exists and is executable
+        node)
+            # Node: validate bin/node exists and is executable
             [[ -x "$target_path/bin/node" ]] || return 1
             # Verify it's actually Node
             local version
@@ -671,28 +727,28 @@ validate_existing_env() {
             [[ -n "$version" ]] || return 1
             return 0
             ;;
-        go|golang)
-            # Go profiles: validate bin/go exists
+        go)
+            # Go: validate bin/go exists
             [[ -x "$target_path/bin/go" ]] || return 1
             return 0
             ;;
-        rust|rustlang)
-            # Rust profiles: validate bin/cargo exists
+        rust)
+            # Rust: validate bin/cargo exists
             [[ -x "$target_path/bin/cargo" ]] || return 1
             return 0
             ;;
-        ruby|rails)
-            # Ruby profiles: validate bin/ruby exists
+        ruby)
+            # Ruby: validate bin/ruby exists
             [[ -x "$target_path/bin/ruby" ]] || return 1
             return 0
             ;;
-        java|kotlin|jvm)
-            # Java profiles: validate bin/java exists
+        java)
+            # Java: validate bin/java exists
             [[ -x "$target_path/bin/java" ]] || return 1
             return 0
             ;;
-        php|laravel)
-            # PHP profiles: validate bin/php exists
+        php)
+            # PHP: validate bin/php exists
             [[ -x "$target_path/bin/php" ]] || return 1
             return 0
             ;;
@@ -716,14 +772,14 @@ validate_existing_env() {
 validate_strategy() {
     local strategy="$1"
     local target="$2"
-    local profile_type="$3"
+    local resolved_language="$3"
     local root="$4"
 
     case "$strategy" in
         existing)
             [[ -n "$target" ]] || { print_human "${C_RED}--target required for existing strategy${C_RESET}"; return 1; }
-            validate_existing_env "$strategy" "$target" "$profile_type" "$root" || {
-                print_human "${C_RED}Target is not a valid $profile_type environment: $target${C_RESET}"
+            validate_existing_env "$strategy" "$target" "$resolved_language" "$root" || {
+                print_human "${C_RED}Target is not a valid $resolved_language environment: $target${C_RESET}"
                 print_human "${C_DIM}  Expected: bin/python, bin/node, bin/go, etc.${C_RESET}"
                 return 1
             }
@@ -764,6 +820,10 @@ cmd_list() {
     local profile_type profile_scope
     profile_type=$(printf '%s' "$profile_json" | jq -r '.type // "custom"')
     profile_scope=$(printf '%s' "$profile_json" | jq -r '.scope // "."')
+
+    # Resolve language from scope contents (NOT profile type)
+    local resolved_language
+    resolved_language=$(resolve_language_for_scope "$root" "$profile_scope")
 
     # Get detector output
     local detect_json
@@ -861,6 +921,7 @@ cmd_list() {
             --arg profile_name "$profile_name" \
             --arg profile_type "$profile_type" \
             --arg profile_scope "$profile_scope" \
+            --arg resolved_language "$resolved_language" \
             --argjson detect "$detect_json" \
             --argjson python "$python_json" \
             --argjson node "$node_json" \
@@ -869,6 +930,7 @@ cmd_list() {
             '{
                 project: $detect.project,
                 profile: {name: $profile_name, type: $profile_type, scope: $profile_scope},
+                resolved_language: $resolved_language,
                 detection: $detect,
                 runtime_selectors: $runtime,
                 environments: {python: $python, node: $node, generic: $generic}
@@ -885,13 +947,14 @@ cmd_list() {
     print_human "  $profile_name"
     print_human "  type: $profile_type"
     print_human "  scope: $profile_scope"
+    print_human "  resolved language: $resolved_language"
     print_human ""
 
     # Detected languages
     local lang_names
-    lang_names=$(printf '%s' "$detect_json" | jq -r '.languages[].name' 2>/dev/null | sort -u | paste -sd ", " -)
+    lang_names=$(printf '%s\n' "${scope_languages[@]}" | sort -u | paste -sd ", " -)
     if [[ -n "$lang_names" ]]; then
-        print_human "Detected:"
+        print_human "Languages in scope:"
         print_human "  $lang_names"
         print_human ""
     fi
@@ -932,9 +995,9 @@ cmd_list() {
         done
     fi
 
-    # Node environments
+    # Node runtimes
     if [[ ${#ranked_node[@]} -gt 0 ]]; then
-        print_human "${C_BOLD}Node Environments:${C_RESET}"
+        print_human "${C_BOLD}Node Runtimes:${C_RESET}"
         local i=1
         for c in "${ranked_node[@]}"; do
             IFS='|' read -r strategy path version cand_scope priority reason <<< "$c"
@@ -959,7 +1022,7 @@ cmd_list() {
 
     # Generic candidates (Go, Rust, Terraform, etc.)
     if [[ ${#ranked_generic[@]} -gt 0 ]]; then
-        print_human "${C_BOLD}Other Environments:${C_RESET}"
+        print_human "${C_BOLD}Other Runtimes:${C_RESET}"
         local i=1
         for c in "${ranked_generic[@]}"; do
             IFS='|' read -r strategy path version cand_scope priority reason <<< "$c"
@@ -1026,6 +1089,10 @@ cmd_show() {
     saved_target=$(printf '%s' "$profile_json" | jq -r '.environment.target // ""')
     saved_auto=$(printf '%s' "$profile_json" | jq -r '.environment.auto_activate // false')
 
+    # Resolve language from scope contents
+    local resolved_language
+    resolved_language=$(resolve_language_for_scope "$root" "$profile_scope")
+
     print_human "${C_BOLD}${C_CYAN}Flow Environment Status${C_RESET}"
     print_human "${C_DIM}────────────────────────────────────────${C_RESET}"
     print_human ""
@@ -1033,6 +1100,7 @@ cmd_show() {
     print_human "  $profile_name"
     print_human "  type: $profile_type"
     print_human "  scope: $profile_scope"
+    print_human "  resolved language: $resolved_language"
     print_human ""
     print_human "Environment:"
     print_human "  strategy: $saved_strategy"
@@ -1040,30 +1108,30 @@ cmd_show() {
     print_human "  auto_activate: $saved_auto"
     print_human ""
 
-    # Validate saved environment
+    # Validate saved environment using resolved language
     if [[ "$saved_strategy" == "existing" && -n "$saved_target" && "$saved_target" != "null" ]]; then
         local target_path="$root/$saved_target"
         if [[ -d "$target_path" ]]; then
-            # Language-aware validation
-            if validate_existing_env "$saved_strategy" "$saved_target" "$profile_type" "$root"; then
+            # Language-aware validation using resolved language
+            if validate_existing_env "$saved_strategy" "$saved_target" "$resolved_language" "$root"; then
                 print_human "${C_GREEN}Status: ready${C_RESET}"
                 # Show runtime version
-                case "$profile_type" in
-                    python|backend|ml|data)
+                case "$resolved_language" in
+                    python)
                         if [[ -x "$target_path/bin/python" ]]; then
                             local version
                             version=$("$target_path/bin/python" --version 2>/dev/null)
                             print_human "  $version"
                         fi
                         ;;
-                    node|frontend|javascript|typescript)
+                    node)
                         if [[ -x "$target_path/bin/node" ]]; then
                             local version
                             version=$("$target_path/bin/node" --version 2>/dev/null)
                             print_human "  Node $version"
                         fi
                         ;;
-                    go|golang)
+                    go)
                         if [[ -x "$target_path/bin/go" ]]; then
                             local version
                             version=$("$target_path/bin/go" --version 2>/dev/null | head -1)
@@ -1076,7 +1144,7 @@ cmd_show() {
                 esac
             else
                 print_human "${C_RED}Status: INVALID${C_RESET}"
-                print_human "  Target exists but is not a valid $profile_type environment: $saved_target"
+                print_human "  Target exists but is not a valid $resolved_language environment: $saved_target"
             fi
         else
             print_human "${C_RED}Status: MISSING${C_RESET}"
@@ -1126,11 +1194,15 @@ cmd_set() {
     profile_json=$(printf '%s' "$state_json" | jq -r ".profiles[\"$profile_name\"] // empty")
     [[ -n "$profile_json" ]] || { print_human "${C_RED}Profile '$profile_name' does not exist.${C_RESET}"; release_lock; return 1; }
 
-    local profile_type
-    profile_type=$(printf '%s' "$profile_json" | jq -r '.type // "custom"')
+    local profile_scope
+    profile_scope=$(printf '%s' "$profile_json" | jq -r '.scope // "."')
 
-    # Validate strategy (language-aware)
-    validate_strategy "$strategy" "$target" "$profile_type" "$root" || { release_lock; return 1; }
+    # Resolve language from scope contents (NOT profile type)
+    local resolved_language
+    resolved_language=$(resolve_language_for_scope "$root" "$profile_scope")
+
+    # Validate strategy using resolved language
+    validate_strategy "$strategy" "$target" "$resolved_language" "$root" || { release_lock; return 1; }
 
     # Update profile environment
     local env_json
@@ -1151,12 +1223,14 @@ cmd_set() {
             --arg strategy "$strategy" \
             --arg target "$target" \
             --argjson auto "$auto_activate" \
-            '{saved: true, profile: $name, environment: {strategy: $strategy, target: $target, auto_activate: $auto}}'
+            --arg language "$resolved_language" \
+            '{saved: true, profile: $name, resolved_language: $language, environment: {strategy: $strategy, target: $target, auto_activate: $auto}}'
     else
         print_human "${C_GREEN}Environment set for '$profile_name'${C_RESET}"
         print_human "  strategy: $strategy"
         [[ -n "$target" ]] && print_human "  target: $target"
         print_human "  auto_activate: $auto_activate"
+        print_human "  resolved language: $resolved_language"
     fi
 }
 
@@ -1222,6 +1296,13 @@ EXAMPLES:
     flow project env set frontend --strategy system
     flow project env clear backend
 
+LANGUAGE RESOLUTION:
+    The language is determined by scope contents, NOT profile type:
+    - backend/ with manage.py → Python
+    - backend/ with package.json → Node
+    - frontend/ with package.json → Node
+    - frontend/ with pyproject.toml → Python
+
 ENVIRONMENT STRATEGIES:
     existing    Use existing virtual environment (--target required, language-validated)
     uv          Use uv for environment management
@@ -1231,14 +1312,6 @@ ENVIRONMENT STRATEGIES:
     none        No automatic environment
     nvm         Use nvm (Node Version Manager)
     node-version Use node-version
-
-LANGUAGE-AWARE VALIDATION:
-    When using "existing" strategy, the target is validated against the profile type:
-    - python/backend: validates bin/python exists
-    - node/frontend: validates bin/node exists
-    - go: validates bin/go exists
-    - rust: validates bin/cargo exists
-    - generic: validates any recognized runtime binary
 
 MODEL:
     RUNTIME = the interpreter/toolchain (system, mise, nvm, .python-version, .nvmrc)
