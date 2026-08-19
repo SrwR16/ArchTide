@@ -42,9 +42,8 @@ format = "[╭─ $user]($style)"
 
 [hostname]
 ssh_only = false
-format = "[@](fg:flow_metadata)[$hostname]($style)"
+format = "[@](fg:flow_metadata)[$hostname](fg:flow_identity)"
 trim_at = ".local"
-style = "fg:flow_host_fg"
 
 [directory]
 home_symbol = "~"
