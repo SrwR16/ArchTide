@@ -36,15 +36,15 @@ style = "bold fg:flow_metadata"
 
 [username]
 show_always = true
-style_user = "bold fg:flow_identity"
+style_user = "fg:flow_identity"
 style_root = "bold fg:flow_error"
 format = "[╭─ $user]($style)"
 
 [hostname]
 ssh_only = false
-format = "[@$hostname]($style)"
+format = "[@](fg:flow_metadata)[$hostname]($style)"
 trim_at = ".local"
-style = "bold bg:flow_host_bg fg:flow_host_fg"
+style = "bg:flow_host_bg fg:flow_host_fg"
 
 [directory]
 home_symbol = "~"
