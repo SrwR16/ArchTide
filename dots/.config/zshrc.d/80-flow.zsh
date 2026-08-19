@@ -42,7 +42,7 @@ flow_activate() {
   local prev_root="${FLOW_ENV_ROOT:-}" prev_activated="${FLOW_ENV_ACTIVATED:-}"
   local prev_venv="${FLOW_ENV_VENV:-}" prev_node_version="${FLOW_ENV_NODE_VERSION:-}"
   local prev_mise_node="${FLOW_ENV_MISE_NODE:-}" prev_mise_python="${FLOW_ENV_MISE_PYTHON:-}"
-  local prev_path="$PATH"
+  local prev_path="$PATH" prev_virtual_env="${VIRTUAL_ENV:-}" prev_ps1="${PS1:-}"
 
   # Generate activation commands (without env vars)
   local commands
@@ -60,6 +60,8 @@ flow_activate() {
   # If activation failed, rollback
   if [[ "${_flow_activate_failed:-0}" == "1" ]]; then
     export PATH="$prev_path"
+    [[ -n "$prev_virtual_env" ]] && export VIRTUAL_ENV="$prev_virtual_env" || unset VIRTUAL_ENV
+    [[ -n "${prev_ps1:-}" ]] && PS1="$prev_ps1"
     FLOW_ENV_PROFILE="$prev_profile" FLOW_ENV_LANGUAGE="$prev_language"
     FLOW_ENV_STRATEGY="$prev_strategy" FLOW_ENV_TARGET="$prev_target"
     FLOW_ENV_ROOT="$prev_root" FLOW_ENV_ACTIVATED="$prev_activated"
@@ -85,23 +87,29 @@ flow_activate() {
   local profile_name="${1:-}"
   local root git_root
   root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-  local state_file="${HOME}/.local/state/flow/projects/$(printf '%s' "$root" | sha256sum | cut -c1-16).json"
+  local xdg_state="${XDG_STATE_HOME:-$HOME/.local/state}"
+  local state_file="$xdg_state/flow/projects/$(printf '%s' "$root" | sha256sum | cut -c1-16).json"
 
-  if [[ -f "$state_file" && -n "$profile_name" ]]; then
+  if [[ -f "$state_file" ]]; then
     local p_json
-    p_json=$(jq -r ".profiles[\"$profile_name\"] // empty" "$state_file" 2>/dev/null)
-    if [[ -n "$p_json" ]]; then
-      local p_type p_scope p_strategy p_target p_lang
-      p_type=$(jq -r '.type // "custom"' <<< "$p_json")
+    # If no profile name given, use default or first available
+    if [[ -z "$profile_name" ]]; then
+      profile_name=$(jq -r '.default_profile // .profiles | keys[0] // ""' "$state_file" 2>/dev/null)
+    fi
+    if [[ -n "$profile_name" ]]; then
+      p_json=$(jq -r --arg name "$profile_name" '.profiles[$name] // empty' "$state_file" 2>/dev/null)
+    fi
+    if [[ -n "${p_json:-}" ]]; then
+      local p_scope p_strategy p_target p_lang
       p_scope=$(jq -r '.scope // "."' <<< "$p_json")
       p_strategy=$(jq -r '.environment.strategy // "unconfigured"' <<< "$p_json")
       p_target=$(jq -r '.environment.target // ""' <<< "$p_json")
-      # Resolve language from scope (same logic as activate.sh)
+      # Resolve language from scope (matches activate.sh markers)
       local search_dir="$root"
       [[ "$p_scope" != "." ]] && search_dir="$root/$p_scope"
       p_lang=""
-      [[ -f "$search_dir/manage.py" || -f "$search_dir/requirements.txt" || -f "$search_dir/Pipfile" || -f "$search_dir/pyproject.toml" ]] && p_lang="python"
-      [[ -z "$p_lang" ]] && { [[ -f "$search_dir/package.json" || -f "$search_dir/node_modules" ]] && p_lang="node"; }
+      [[ -f "$search_dir/manage.py" || -f "$search_dir/requirements.txt" || -f "$search_dir/Pipfile" || -f "$search_dir/pyproject.toml" || -f "$search_dir/setup.py" || -f "$search_dir/setup.cfg" || -f "$search_dir/uv.lock" || -f "$search_dir/poetry.lock" || -f "$search_dir/.python-version" ]] && p_lang="python"
+      [[ -z "$p_lang" ]] && { [[ -f "$search_dir/package.json" || -d "$search_dir/node_modules" ]] && p_lang="node"; }
       [[ -z "$p_lang" ]] && { [[ -f "$search_dir/go.mod" ]] && p_lang="go"; }
       [[ -z "$p_lang" ]] && { [[ -f "$search_dir/Cargo.toml" ]] && p_lang="rust"; }
       [[ -z "$p_lang" ]] && p_lang="unknown"

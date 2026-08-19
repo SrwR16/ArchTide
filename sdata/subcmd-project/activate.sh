@@ -297,17 +297,6 @@ discover_python_envs() {
     fi
 }
 
-# Validate Python environment
-validate_python_env() {
-    local env_path="$1"
-    local python_bin="$env_path/bin/python"
-    [[ -x "$python_bin" ]] || return 1
-    local version
-    version=$("$python_bin" --version 2>/dev/null | sed 's/Python //')
-    printf '%s' "$version"
-    return 0
-}
-
 # Validate existing environment based on resolved language
 validate_existing_env() {
     local target="$1"
@@ -403,7 +392,7 @@ activate_python_venv() {
 
     # Pre-validate: test activate script in subshell (catches exit 1, syntax errors)
     local test_output
-    test_output=$(bash -c "source '$full_path/bin/activate'" 2>&1)
+    test_output=$(bash -c "$(printf 'source %q' "$full_path/bin/activate")" 2>&1)
     local test_rc=$?
     if [[ $test_rc -ne 0 ]]; then
         printf 'echo "Flow: activate script failed validation: %%s (rc=%%d)" "%s" %d\n' "$venv_path" "$test_rc"
@@ -419,8 +408,9 @@ activate_python_venv() {
     printf 'else\n'
     printf '  # Deactivate previous Flow-managed venv if any\n'
     printf '  if [[ -n "${FLOW_ENV_VENV:-}" && -f "${FLOW_ENV_VENV}/bin/deactivate" ]]; then\n'
-    printf '    unset FLOW_ENV_VENV\n'
-    printf '    source "${FLOW_ENV_VENV}/bin/deactivate" 2>/dev/null || true\n'
+    printf '    _flow_prev_venv="${FLOW_ENV_VENV}"\n'
+    printf '    source "${_flow_prev_venv}/bin/deactivate" 2>/dev/null || true\n'
+    printf '    unset FLOW_ENV_VENV _flow_prev_venv\n'
     printf '  fi\n'
     printf '  # Activate new venv\n'
     printf '  export FLOW_ENV_VENV="%s"\n' "$full_path"
@@ -449,14 +439,20 @@ activate_node_runtime() {
             printf 'fi\n'
             ;;
         mise)
-            # mise activation
+            # mise activation — use eval mise env (activate only, no install)
             printf '# Flow: Activate Node via mise\n'
             printf 'if command -v mise >/dev/null 2>&1; then\n'
             printf '  if [[ "${FLOW_ENV_MISE_NODE:-}" == "%s" ]]; then\n' "$version"
             printf '    : # Already activated, no-op\n'
             printf '  else\n'
-            printf '    export FLOW_ENV_MISE_NODE="%s"\n' "$version"
-            printf '    mise use node@"%s" 2>/dev/null || echo "Flow: mise use node@%s failed"\n' "$version" "$version"
+            printf '    mise ls --installed 2>/dev/null | grep -q "node@%s" || {\n' "$version"
+            printf '      echo "Flow: node@%%s not installed, run: mise install node@%%s" "%s" "%s"\n' "$version" "$version"
+            printf '      _flow_activate_failed=1\n'
+            printf '    }\n'
+            printf '    if [[ "${_flow_activate_failed:-0}" == "0" ]]; then\n'
+            printf '      eval "$(mise env "node@%s")" 2>/dev/null || echo "Flow: mise env node@%%s failed" "%s"\n' "$version" "$version"
+            printf '      export FLOW_ENV_MISE_NODE="%s"\n' "$version"
+            printf '    fi\n'
             printf '  fi\n'
             printf 'else\n'
             printf '  echo "Flow: mise not found, cannot activate Node %s"\n' "$version"
@@ -490,14 +486,20 @@ activate_python_runtime() {
 
     case "$strategy" in
         mise)
-            # mise activation
+            # mise activation — use eval mise env (activate only, no install)
             printf '# Flow: Activate Python via mise\n'
             printf 'if command -v mise >/dev/null 2>&1; then\n'
             printf '  if [[ "${FLOW_ENV_MISE_PYTHON:-}" == "%s" ]]; then\n' "$version"
             printf '    : # Already activated, no-op\n'
             printf '  else\n'
-            printf '    export FLOW_ENV_MISE_PYTHON="%s"\n' "$version"
-            printf '    mise use python@"%s" 2>/dev/null || echo "Flow: mise use python@%s failed"\n' "$version" "$version"
+            printf '    mise ls --installed 2>/dev/null | grep -q "python@%s" || {\n' "$version"
+            printf '      echo "Flow: python@%%s not installed, run: mise install python@%%s" "%s" "%s"\n' "$version" "$version"
+            printf '      _flow_activate_failed=1\n'
+            printf '    }\n'
+            printf '    if [[ "${_flow_activate_failed:-0}" == "0" ]]; then\n'
+            printf '      eval "$(mise env "python@%s")" 2>/dev/null || echo "Flow: mise env python@%%s failed" "%s"\n' "$version" "$version"
+            printf '      export FLOW_ENV_MISE_PYTHON="%s"\n' "$version"
+            printf '    fi\n'
             printf '  fi\n'
             printf 'else\n'
             printf '  echo "Flow: mise not found, cannot activate Python %s"\n' "$version"
@@ -516,10 +518,21 @@ activate_go_runtime() {
 
     case "$strategy" in
         mise)
-            # mise activation for Go
+            # mise activation for Go — activate only, no install
             printf '# Flow: Activate Go via mise\n'
             printf 'if command -v mise >/dev/null 2>&1; then\n'
-            printf '  mise use go 2>/dev/null || echo "Flow: mise use go failed"\n'
+            printf '  if [[ "${FLOW_ENV_MISE_GO:-}" == "active" ]]; then\n'
+            printf '    : # Already activated, no-op\n'
+            printf '  else\n'
+            printf '    mise ls --installed 2>/dev/null | grep -q "^go" || {\n'
+            printf '      echo "Flow: go not installed, run: mise install go"\n'
+            printf '      _flow_activate_failed=1\n'
+            printf '    }\n'
+            printf '    if [[ "${_flow_activate_failed:-0}" == "0" ]]; then\n'
+            printf '      eval "$(mise env go)" 2>/dev/null || echo "Flow: mise env go failed"\n'
+            printf '      export FLOW_ENV_MISE_GO="active"\n'
+            printf '    fi\n'
+            printf '  fi\n'
             printf 'else\n'
             printf '  echo "Flow: mise not found, cannot activate Go"\n'
             printf 'fi\n'
@@ -537,10 +550,21 @@ activate_rust_runtime() {
 
     case "$strategy" in
         mise)
-            # mise activation for Rust
+            # mise activation for Rust — activate only, no install
             printf '# Flow: Activate Rust via mise\n'
             printf 'if command -v mise >/dev/null 2>&1; then\n'
-            printf '  mise use rust 2>/dev/null || echo "Flow: mise use rust failed"\n'
+            printf '  if [[ "${FLOW_ENV_MISE_RUST:-}" == "active" ]]; then\n'
+            printf '    : # Already activated, no-op\n'
+            printf '  else\n'
+            printf '    mise ls --installed 2>/dev/null | grep -q "^rust" || {\n'
+            printf '      echo "Flow: rust not installed, run: mise install rust"\n'
+            printf '      _flow_activate_failed=1\n'
+            printf '    }\n'
+            printf '    if [[ "${_flow_activate_failed:-0}" == "0" ]]; then\n'
+            printf '      eval "$(mise env rust)" 2>/dev/null || echo "Flow: mise env rust failed"\n'
+            printf '      export FLOW_ENV_MISE_RUST="active"\n'
+            printf '    fi\n'
+            printf '  fi\n'
             printf 'else\n'
             printf '  echo "Flow: mise not found, cannot activate Rust"\n'
             printf 'fi\n'
@@ -641,9 +665,9 @@ cmd_activate() {
         return 1
     }
 
-    # Get profile
+    # Get profile (safe jq with --arg)
     local profile_json
-    profile_json=$(printf '%s' "$state_json" | jq -r ".profiles[\"$profile_name\"] // empty")
+    profile_json=$(printf '%s' "$state_json" | jq -r --arg name "$profile_name" '.profiles[$name] // empty')
     [[ -n "$profile_json" ]] || {
         printf 'Flow: profile "%s" does not exist\n' "$profile_name" >&2
         return 1
