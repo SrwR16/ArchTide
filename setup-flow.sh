@@ -12,10 +12,11 @@
 # ── Commands ─────────────────────────────────────────────────────────────────
 #
 #   apply                   Apply the Quickshell config (the default)
-#   install                 Install Flow dependencies and apply config
+#   install                 Install Flow dependencies, deploy config, bootstrap the shell
 #   update                  Refresh the Flow config from GitHub
 #   restart                 Restart Quickshell (alias: run)
-#   doctor                  Report resolved paths, active state and tooling
+#   doctor                  Report shell, dependencies, terminal, Flow state (read-only)
+#   shell                   Shell status (default: status); `shell default zsh` opts in
 #   hyprset <args>          Write a Hyprland key or animation
 #   hyprmerge <args>        Merge a Hyprland config into the local one
 #   project detect          Show detected languages/frameworks/tooling (read-only)
@@ -36,11 +37,12 @@
 #       --keep-config         Never reset ~/.config/flow/config.json
 #       --reset-config        Always reset it (a backup is kept)
 #       --no-restart          Leave Quickshell alone when finished
+#       --no-bootstrap        install: deploy config only, skip dependency/shell setup
 #       --hypr                Install the fork's ~/.config/hypr files
 #       --no-hypr             Never install them, never ask
 #       --sddm                Install the Flow SDDM greeter + its matugen template
 #       --no-sddm             Never install them, never ask
-#       --extras              Install the fork's extra configs (mpv, kitty, zshrc.d, starship)
+#       --extras              Install the fork's extra configs (mpv, kitty, zshrc.d, starship, zsh)
 #       --no-extras           Never install them, never ask
 #       --rebuild-quickshell  Rebuild Quickshell from source first
 #       --log-file <path>     Write the run log elsewhere
@@ -73,9 +75,23 @@
 # installer's own sudo prompts still appear.
 #
 # `install` also offers the Flow's extra dotfile configs (mpv, kitty, zshrc.d,
-# starship.toml) on top of the configs. Same -y/"no" rule; --extras is the
+# starship.toml, zsh) on top of the configs. Same -y/"no" rule; --extras is the
 # explicit yes. Install or update a single one by name: `install kitty`,
 # `update zshrc.d starship.toml`.
+#
+# `install` finishes with the terminal bootstrap: it detects the missing core
+# stack (zsh, git, starship, mise, direnv, atuin, fzf, fd, ripgrep, zoxide),
+# installs them in one transaction, wires the Flow managed block into ~/.zshrc
+# (a user rc file is preserved, never overwritten), checks the Nerd Font, and
+# reports the default-shell situation without touching it. Tiers:
+#
+#   flow install               core stack + config deploy (full setup)
+#   flow install missing       install only the missing core dependencies
+#   flow install ux            recommended UX tools (bat, eza, lazygit)
+#   flow install devops        DevOps profile (docker, kubectl, helm, ...)
+#
+# Dependency detection runs in install and doctor only — never at shell startup.
+# --no-bootstrap deploys the config without touching packages or the shell.
 #
 # Options take --flag=value as well as --flag value, and everything after a
 # bare -- is passed through to hyprset/hyprmerge.
@@ -118,6 +134,32 @@ BIN_DIR="$HOME/.local/bin"
 CLI_NAME="flow"
 
 BACKUPS_TO_KEEP=3
+
+# ── Bootstrap libraries ───────────────────────────────────────────────────────
+# Loaded from the checkout when present, else from the mirrored install.
+# The libs are sourced (never executed) and use the ui_*/run_logged/have
+# helpers defined later in this file at call time.
+_flow_bootstrap_lib_path() {
+    local name="$1" c
+    for c in "$SCRIPT_DIR/sdata/lib/$name.sh" "$MIRROR_DIR/sdata/lib/$name.sh"; do
+        if [[ -f "$c" ]]; then
+            printf '%s' "$c"
+            return 0
+        fi
+    done
+    return 1
+}
+
+for _flow_lib in pkgmgr deps conflict zsh-bootstrap doctor; do
+    _flow_lib_path="$(_flow_bootstrap_lib_path "$_flow_lib")"
+    if [[ -z "$_flow_lib_path" ]]; then
+        printf 'flow: missing bootstrap library sdata/lib/%s.sh\n' "$_flow_lib" >&2
+        exit 1
+    fi
+    # shellcheck source=/dev/null
+    source "$_flow_lib_path"
+done
+unset _flow_lib _flow_lib_path
 
 # ── Flow upstream ────────────────────────────────────────────────────────
 # Single source of truth — no fork switching, no upstream cache required.
@@ -167,11 +209,14 @@ OPT_ASCII=false
 OPT_NO_COLOR=false
 OPT_JSON=false
 OPT_LOG=true
+OPT_NO_BOOTSTRAP=false
 LOG_FILE="$DEFAULT_LOG_FILE"
 LOG_READY=false
 PASSTHRU_ARGS=()
 PROJECT_ARGS=()
+SHELL_ARGS=()
 DEPLOY_TARGETS=() # extras to install individually: install kitty, update starship.toml, ...
+BOOTSTRAP_TIERS=() # install tiers requested on the command line: core, ux, devops, missing
 
 # ── Run state (used by the exit trap) ────────────────────────────────────────
 STAGE_DIR=""
@@ -1676,6 +1721,7 @@ EXTRA_DOTFILES=(
     kitty
     zshrc.d
     starship.toml
+    zsh
 )
 
 # install_extras_config <repo_root> <verb>
@@ -1740,7 +1786,22 @@ install_extras_config() {
         fi
         src="$repo_root/dots/.config/$name"
         if [[ -f "$src" ]]; then
-            cp -f "$src" "$HOME/.config/$name"
+            local dest="$HOME/.config/$name"
+            if [[ -e "$dest" || -L "$dest" ]] && ! cmp -s "$src" "$dest"; then
+                # User file in the way: the conflict menu decides. A fresh
+                # `install` defaults to overwrite-with-backup (the user asked
+                # for this config); update/apply default to keep.
+                local tmp dflt
+                tmp="$(mktemp "${TMPDIR:-/tmp}/flow-extras-XXXXXX")"
+                cp -a "$src" "$tmp"
+                dflt="keep"
+                [[ "$verb" == "install" ]] && dflt="overwrite"
+                conflict_resolve "$dest" "$tmp" "$(tilde "$dest")" "$dflt"
+                conflict_apply "$dest" "$tmp"
+                rm -f "$tmp"
+            elif [[ ! -e "$dest" && ! -L "$dest" ]]; then
+                cp -f "$src" "$dest"
+            fi
             deployed=$((deployed + 1))
             ui_verbose "wrote $name"
             continue
@@ -1765,6 +1826,186 @@ install_extras_config() {
         return 0
     fi
     ui_ok "Extras" "$deployed config(s) deployed"
+    return 0
+}
+
+#══════════════════════════════════════════════════════════════════════════════
+# Terminal bootstrap
+#══════════════════════════════════════════════════════════════════════════════
+#
+# Dependency detection lives here and in doctor — never in shell startup. Zsh
+# startup stays <100 ms; it must not run pacman, atuin, mise or friends merely
+# to find out whether they exist.
+
+# partition_bootstrap_tiers — moves tier targets (core/ux/devops/missing) out of
+# DEPLOY_TARGETS into BOOTSTRAP_TIERS so they are never mistaken for config
+# names.
+partition_bootstrap_tiers() {
+    local -a cfg=()
+    local t
+    for t in "${DEPLOY_TARGETS[@]:-}"; do
+        case "$t" in
+            core | ux | devops | missing) BOOTSTRAP_TIERS+=("$t") ;;
+            *) cfg+=("$t") ;;
+        esac
+    done
+    DEPLOY_TARGETS=("${cfg[@]+"${cfg[@]}"}")
+}
+
+# bootstrap_deps <tier...> — detect missing binaries in a tier, show one plan,
+# install in a single transaction.
+bootstrap_deps() {
+    local -a missing=()
+    local tier k
+    for tier in "$@"; do
+        while IFS= read -r k; do
+            [[ -n "$k" ]] && missing+=("$k")
+        done < <(deps_missing "$tier")
+    done
+
+    if ((${#missing[@]} == 0)); then
+        ui_ok "Dependencies" "$(deps_tier_label "$1") already satisfied"
+        return 0
+    fi
+
+    local -a pkgs=()
+    local -A seen_pkg=()
+    local pkg
+    for k in "${missing[@]}"; do
+        pkg="$(deps_packages "$k")"
+        [[ -n "${seen_pkg[$pkg]:-}" ]] && continue
+        seen_pkg[$pkg]=1
+        pkgs+=("$pkg")
+    done
+
+    ui_frame_open "Install plan"
+    local reason
+    for k in "${missing[@]}"; do
+        reason="$(deps_reason "$k")"
+        ui_kv "$k" "$reason"
+    done
+    ui_kv "package" "$(IFS=' '; printf '%s' "${pkgs[*]}")"
+    ui_kv "transaction" "$(pkgmgr_plan "${pkgs[@]}")"
+    ui_frame_close
+
+    if [[ "$OPT_DRY_RUN" == true ]]; then
+        ui_note "Dry run — would install ${#pkgs[@]} package(s)."
+        return 0
+    fi
+
+    if [[ "$OPT_ASSUME_YES" != true ]]; then
+        ui_confirm "Install ${#pkgs[@]} package(s) with sudo?" yes || {
+            ui_note "Cancelled — dependencies left as they are."
+            return 1
+        }
+    elif ! pkgmgr_sudo_ok; then
+        ui_note "sudo will prompt for a password (non-interactive run)."
+    fi
+
+    pkgmgr_install "${pkgs[@]}" || {
+        ui_fail "Package install failed" "re-run with --verbose or fix it manually"
+        return 1
+    }
+
+    # Report the outcome, then any stragglers.
+    local still=0
+    for k in "${missing[@]}"; do
+        deps_installed "$k" || {
+            ui_warn "$k still not on PATH — install it manually (package: $(deps_packages "$k"))"
+            still=$((still + 1))
+        }
+    done
+    ((still == 0)) && ui_ok "Dependencies" "$(deps_tier_label "$1") installed"
+    return 0
+}
+
+bootstrap_zsh() {
+    local repo_root="${1:-}"
+    if [[ "$OPT_DRY_RUN" == true ]]; then
+        ui_note "Dry run — would add the Flow managed block to $(tilde "$HOME/.zshrc")."
+        return 0
+    fi
+    ui_step "Zsh integration"
+    zsh_install_managed_block "$repo_root"
+}
+
+bootstrap_fonts() {
+    local nerd
+    if nerd="$(font_nerd_detect)"; then
+        ui_ok "Nerd Font" "$nerd"
+        return 0
+    fi
+    ui_warn "No Nerd Font installed — Starship icons and the theme need one."
+    ui_note "Flow expects JetBrains Mono Nerd Font (ttf-jetbrains-mono-nerd)."
+    if [[ "$OPT_ASSUME_YES" == true ]]; then
+        ui_note "Font left alone. Install it later with:  flow install --no-extras ttf-jetbrains-mono-nerd"
+        return 0
+    fi
+    if [[ "$OPT_DRY_RUN" == true ]]; then
+        ui_note "Dry run — would offer ttf-jetbrains-mono-nerd."
+        return 0
+    fi
+    if ui_confirm "Install ttf-jetbrains-mono-nerd? (your terminal font preference stays yours)" yes; then
+        pkgmgr_install ttf-jetbrains-mono-nerd || return 1
+        ui_ok "Nerd Font" "installed ttf-jetbrains-mono-nerd"
+    fi
+}
+
+bootstrap_shell_note() {
+    shell_is_zsh && return 0
+    local zsh_bin
+    zsh_bin="$(command -v zsh 2>/dev/null || printf 'zsh')"
+    ui_frame_open "Default shell"
+    ui_kv "current" "$(shell_current)"
+    ui_kv "wanted" "$zsh_bin"
+    ui_frame_close
+    ui_note "Zsh is installed but is not your login shell. It stays that way"
+    ui_note "until you ask — nothing is changed silently."
+    ui_note "To opt in:  flow shell default zsh"
+}
+
+# bootstrap_run <tier...> — the terminal bootstrap for one install run.
+# `missing` resolves to core; `ux`/`devops` install only their own tier.
+bootstrap_run() {
+    local -a tiers=()
+    local t
+    for t in "$@"; do
+        [[ "$t" == "missing" ]] && t="core"
+        tiers+=("$t")
+    done
+    ((${#tiers[@]} == 0)) && tiers=(core)
+
+    ui_banner "Flow" "bootstrap"
+    local mgr
+    mgr="$(detect_package_manager)"
+    ui_frame_open "Bootstrap"
+    ui_kv "package manager" "$mgr"
+    ui_kv "tiers" "$(IFS=','; printf '%s' "${tiers[*]}")"
+    ui_frame_close
+
+    if [[ "$mgr" == "none" ]]; then
+        ui_warn "No supported package manager found — cannot install dependencies."
+        ui_note "Detected tools will be reused; missing ones must be installed manually."
+    else
+        bootstrap_deps "${tiers[@]}" || return 1
+    fi
+
+    # Shell integration and fonts belong to the core experience; `ux` and
+    # `devops` are pure dependency tiers on top of an already-wired shell.
+    case "${tiers[0]}" in
+        core)
+            bootstrap_zsh "$LOCAL_SRC"
+            bootstrap_fonts
+            bootstrap_shell_note
+            ;;
+    esac
+
+    [[ "$OPT_DRY_RUN" == true ]] ||
+        bootstrap_state_write "$(IFS=','; printf '%s' "${tiers[*]}")" "$(zsh_bootstrap_status)"
+
+    ui_result ok "Flow shell configuration installed." \
+        "Zsh / Starship / Atuin / mise / direnv wire up through the existing zshrc.d modules." \
+        "Start using it in a new shell, or run:  exec zsh"
     return 0
 }
 
@@ -1805,7 +2046,7 @@ apply_config() {
     ui_kv "backup" "$([[ "$OPT_BACKUP" == true ]] && printf '%s' "$(tilde "$BACKUP_BASE_DIR")" || printf 'disabled')"
     ui_frame_close
 
-    if [[ "$OPT_ASSUME_YES" != true ]]; then
+    if [[ "$OPT_ASSUME_YES" != true && "$OPT_DRY_RUN" != true ]]; then
         local with="$fork/$branch"
         [[ -n "$LOCAL_SRC" ]] && with="$(tilde "$LOCAL_SRC")"
         ui_confirm "Replace $(tilde "$TARGET_DIR") with $with?" yes || {
@@ -2021,6 +2262,26 @@ cmd_install() {
         exit 1
     fi
 
+    # `install core|ux|devops|missing` are bootstrap tiers, not config names.
+    partition_bootstrap_tiers
+
+    # A bare tier request (`flow install ux`) is a light, dependency-only run:
+    # no Quickshell redeploy, no extras prompt, just that tier plus the core
+    # shell wiring when the tier is core itself.
+    if ((${#BOOTSTRAP_TIERS[@]} > 0 && ${#DEPLOY_TARGETS[@]} == 0)); then
+        ui_banner "Flow" "install"
+        ui_note "Bootstrap tier: ${BOOTSTRAP_TIERS[*]}"
+        printf '\n'
+        if [[ "$OPT_ASSUME_YES" != true && "$OPT_DRY_RUN" != true ]]; then
+            ui_confirm "Run the ${BOOTSTRAP_TIERS[*]} bootstrap now?" yes || {
+                ui_note "Cancelled."
+                return 0
+            }
+        fi
+        bootstrap_run "${BOOTSTRAP_TIERS[@]}"
+        return 0
+    fi
+
     ui_banner "Flow" "install"
     ui_note "Installs Flow dependencies and applies Flow's Quickshell config."
     printf '\n'
@@ -2042,7 +2303,7 @@ cmd_install() {
     ui_kv "runs" "flow install"
     ui_frame_close
 
-    if [[ "$OPT_ASSUME_YES" != true ]]; then
+    if [[ "$OPT_ASSUME_YES" != true && "$OPT_DRY_RUN" != true ]]; then
         ui_confirm "Install Flow now? This installs system packages." || {
             ui_note "Cancelled."
             return 0
@@ -2054,6 +2315,28 @@ cmd_install() {
     ensure_quickshell_git
 
     apply_config "$url" "$branch" "$fork" "install"
+
+    # Fresh-machine bootstrap: the core terminal stack, Zsh integration, and a
+    # font check. A tier named on the command line (`install ux kitty`) wins;
+    # otherwise the core tier is bootstrapped. Skipped under --dry-run (the
+    # config dry-run already returned) and --no-bootstrap.
+    local -a boot=()
+    if ((${#BOOTSTRAP_TIERS[@]} > 0)); then
+        boot=("${BOOTSTRAP_TIERS[@]}")
+    else
+        boot=(core)
+    fi
+    if [[ "$OPT_DRY_RUN" == true ]]; then
+        ui_banner "Flow" "dry-run"
+        bootstrap_deps "${boot[@]}"
+        bootstrap_zsh "$LOCAL_SRC"
+        bootstrap_fonts
+        ui_note "Dry run complete — no changes made"
+        return 0
+    fi
+    if [[ "$OPT_NO_BOOTSTRAP" != true ]]; then
+        bootstrap_run "${boot[@]}"
+    fi
 }
 
 cmd_update() {
@@ -2148,13 +2431,9 @@ cmd_doctor() {
     ui_kv "log" "$(tilde "$LOG_FILE")"
     ui_frame_close
 
-    ui_frame_open "Tooling"
-    local t
-    for t in git rsync qs quickshell hyprctl fc-list; do
-        ui_kv "$t" "$(command -v "$t" 2>/dev/null || printf 'not found')"
-    done
     ui_kv "cli" "$([[ -L "$BIN_DIR/$CLI_NAME" ]] && readlink "$BIN_DIR/$CLI_NAME" || printf 'not linked')"
-    ui_frame_close
+
+    doctor_report
 
     ui_frame_open "Renderer"
     ui_kv "glyphs" "$UI_GLYPHS"
@@ -2162,6 +2441,36 @@ cmd_doctor() {
     ui_kv "tty" "$UI_TTY"
     ui_kv "width" "$UI_WIDTH"
     ui_frame_close
+}
+
+# cmd_shell — Zsh default-shell status and explicit opt-in.
+cmd_shell() {
+    local sub="${SHELL_ARGS[0]:-status}"
+    case "$sub" in
+        status)
+            ui_banner "Flow" "shell"
+            ui_frame_open "Shell"
+            ui_kv "default shell" "$(shell_current)"
+            ui_kv "zsh" "$(have zsh && command -v zsh || printf 'not installed')"
+            ui_kv "flow integration" "$(zsh_bootstrap_status)"
+            ui_frame_close
+            if ! shell_is_zsh; then
+                ui_note "To make Zsh your login shell:  flow shell default zsh"
+            fi
+            return 0
+            ;;
+        default)
+            [[ "${SHELL_ARGS[1]:-}" == "zsh" ]] || {
+                ui_fail "Usage" "flow shell default zsh"
+                return 1
+            }
+            shell_default_zsh
+            return 0
+            ;;
+        *)
+            arg_error "Unknown shell subcommand \"$sub\" (expected: status, default)"
+            ;;
+    esac
 }
 
 cmd_hypr() {
@@ -2264,10 +2573,14 @@ show_help() {
 
     ui_rule "Commands"
     printf '  %s%-16s%s %s\n' "$C_OK" "apply" "$C_RST" "Apply the Quickshell config (default)"
-    printf '  %s%-16s%s %s\n' "$C_OK" "install" "$C_RST" "Install Flow dependencies and apply config"
+    printf '  %s%-16s%s %s\n' "$C_OK" "install" "$C_RST" "Install deps, deploy config, bootstrap the shell"
+    printf '  %s%-16s%s %s\n' "$C_OK" "install missing" "$C_RST" "Install only the missing core dependencies"
+    printf '  %s%-16s%s %s\n' "$C_OK" "install ux" "$C_RST" "Install recommended UX tools (bat, eza, lazygit)"
+    printf '  %s%-16s%s %s\n' "$C_OK" "install devops" "$C_RST" "Install the DevOps profile (docker, kubectl, helm, ...)"
     printf '  %s%-16s%s %s\n' "$C_OK" "update" "$C_RST" "Refresh Flow config from GitHub"
     printf '  %s%-16s%s %s\n' "$C_OK" "restart" "$C_RST" "Restart Quickshell (alias: run)"
-    printf '  %s%-16s%s %s\n' "$C_OK" "doctor" "$C_RST" "Report resolved paths, state and tooling"
+    printf '  %s%-16s%s %s\n' "$C_OK" "doctor" "$C_RST" "Report shell, deps, terminal and Flow state"
+    printf '  %s%-16s%s %s\n' "$C_OK" "shell" "$C_RST" "Shell status; shell default zsh opts in"
     printf '  %s%-16s%s %s\n' "$C_OK" "hyprset" "$C_RST" "Write a Hyprland key/animation"
     printf '  %s%-16s%s %s\n' "$C_OK" "hyprmerge" "$C_RST" "Merge a Hyprland config into the local one"
     printf '  %s%-16s%s %s\n' "$C_OK" "project detect" "$C_RST" "Show detected languages/frameworks/tooling (read-only)"
@@ -2295,8 +2608,9 @@ show_help() {
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-hypr" "$C_RST" "Never install them, never ask"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --sddm" "$C_RST" "Install the Flow SDDM greeter + its matugen template"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-sddm" "$C_RST" "Never install them, never ask"
-    printf '  %s%-24s%s %s\n' "$C_STEP" "    --extras" "$C_RST" "Install the fork's extra configs (mpv, kitty, zshrc.d, starship)"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --extras" "$C_RST" "Install the fork's extra configs (mpv, kitty, zshrc.d, starship, zsh)"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-extras" "$C_RST" "Never install them, never ask"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-bootstrap" "$C_RST" "Deploy config without touching packages or the shell"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --rebuild-quickshell" "$C_RST" "Rebuild Quickshell from source first"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --log-file <path>" "$C_RST" "Write the run log elsewhere"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-log" "$C_RST" "Do not write a run log"
@@ -2323,9 +2637,14 @@ show_help() {
     printf '  %smatugen template + the sddm service). Same -y/no rule; --sddm is%s\n' "$C_SUB" "$C_RST"
     printf '  %sthe explicit yes. SDDM needs root, so its sudo prompts still appear.%s\n' "$C_SUB" "$C_RST"
     printf '  %sinstall also offers the fork'"'"'s extra configs (mpv, kitty, zshrc.d,%s\n' "$C_SUB" "$C_RST"
-    printf '  %sstarship.toml; folders may carry a fetch-extras.sh/install.sh). Same%s\n' "$C_SUB" "$C_RST"
-    printf '  %s-y/no rule; --extras is the explicit yes. Pass names to deploy only%s\n' "$C_SUB" "$C_RST"
-    printf '  %sthose: "install kitty zshrc.d" or "update starship.toml".%s\n' "$C_SUB" "$C_RST"
+    printf '  %sstarship.toml, zsh; folders may carry a fetch-extras.sh/install.sh).%s\n' "$C_SUB" "$C_RST"
+    printf '  %sSame -y/no rule; --extras is the explicit yes. Pass names to deploy%s\n' "$C_SUB" "$C_RST"
+    printf '  %sonly those: "install kitty zshrc.d" or "update starship.toml".%s\n' "$C_SUB" "$C_RST"
+    printf '  %sinstall then bootstraps the shell: missing core deps in one%s\n' "$C_SUB" "$C_RST"
+    printf '  %stransaction, a Flow managed block appended to ~/.zshrc (your file%s\n' "$C_SUB" "$C_RST"
+    printf '  %sis never overwritten), a Nerd Font check, and a default-shell%s\n' "$C_SUB" "$C_RST"
+    printf '  %snotice. Zsh is never chsh'"'"'d silently — opt in with%s\n' "$C_SUB" "$C_RST"
+    printf '  %s"flow shell default zsh". --no-bootstrap skips all of that.%s\n' "$C_SUB" "$C_RST"
     printf '  %sOptions take --flag=value as well as --flag value, and everything after%s\n' "$C_SUB" "$C_RST"
     printf '  %sa bare -- is passed through to hyprset/hyprmerge.%s\n' "$C_SUB" "$C_RST"
     printf '  %sAliases: --no-confirm/--noconfirm (-y), --preserve-config (--keep-config),%s\n' "$C_SUB" "$C_RST"
@@ -2335,7 +2654,11 @@ show_help() {
 
     ui_rule "Examples"
     printf '  %s%s install%s                  %sfirst-time setup on a bare machine%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
-    printf '  %s%s install kitty zshrc.d%s     %sdeploy just those extra configs%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
+    printf '  %s%s install ux%s               %sinstall recommended UX tools only%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
+    printf '  %s%s install devops%s           %sinstall the DevOps profile only%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
+    printf '  %s%s install kitty zshrc.d%s    %sdeploy just those extra configs%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
+    printf '  %s%s doctor%s                   %sread-only system state report%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
+    printf '  %s%s shell default zsh%s        %sopt in to making Zsh the login shell%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
     printf '  %s%s update%s                   %spull the latest from Flow upstream%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
     printf '  %s%s update starship.toml%s     %supdate just that config%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
     printf '  %s%s apply --local .%s          %sdeploy the checkout you stand in%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
@@ -2450,6 +2773,10 @@ parse_args() {
                 OPT_LOG=false
                 shift
                 ;;
+            --no-bootstrap)
+                OPT_NO_BOOTSTRAP=true
+                shift
+                ;;
             --ascii)
                 OPT_ASCII=true
                 shift
@@ -2510,7 +2837,7 @@ parse_args() {
     if ((${#positional[@]} > 0)); then
         local first="${positional[0]}"
         case "$first" in
-            apply | install | update | switch | restart | run | doctor | remove-cli | hyprset | hyprmerge | help | version | demo | project)
+            apply | install | update | switch | restart | run | doctor | remove-cli | hyprset | hyprmerge | help | version | demo | project | shell)
                 COMMAND="$first"
                 positional=("${positional[@]:1}")
                 ;;
@@ -2530,6 +2857,9 @@ parse_args() {
             # meant main() could never see what the user actually typed and
             # silently always ran "detect".
             PROJECT_ARGS=("${positional[@]}")
+            ;;
+        shell)
+            SHELL_ARGS=("${positional[@]}")
             ;;
         install | update | apply | switch)
             # Individual extra-config targets: `install kitty zshrc.d`.
@@ -2603,6 +2933,7 @@ main() {
             remove_cli
             ;;
         doctor) cmd_doctor ;;
+        shell) cmd_shell ;;
         apply | install | update | switch)
             if [[ "$OPT_REBUILD_QS" == true ]]; then
                 build_quickshell || exit 1
