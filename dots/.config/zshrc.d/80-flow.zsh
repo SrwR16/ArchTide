@@ -20,12 +20,17 @@ if [[ "$TERM" == "xterm-kitty" ]] || [[ -n "$KITTY_WINDOW_ID" ]]; then
 fi
 
 # Load Flow state for Starship prompt integration
+# Uses Zsh-compatible path resolution (no BASH_SOURCE)
 _flow_state_file=""
-if [[ -n "${FLOW_BASE_DIR:-}" && -f "${FLOW_BASE_DIR}/sdata/lib/flow_state.sh" ]]; then
-  _flow_state_file="${FLOW_BASE_DIR}/sdata/lib/flow_state.sh"
-elif [[ -f "${HOME}/.local/share/flow/sdata/lib/flow_state.sh" ]]; then
-  _flow_state_file="${HOME}/.local/share/flow/sdata/lib/flow_state.sh"
-fi
+for _flow_candidate in \
+  "${FLOW_BASE_DIR:-}/sdata/lib/flow_state.sh" \
+  "${HOME}/.local/share/flow/sdata/lib/flow_state.sh" \
+  "${0:A:h}/../../sdata/lib/flow_state.sh"; do
+  if [[ -f "$_flow_candidate" ]]; then
+    _flow_state_file="$_flow_candidate"
+    break
+  fi
+done
 
 if [[ -n "$_flow_state_file" ]]; then
   source "$_flow_state_file"

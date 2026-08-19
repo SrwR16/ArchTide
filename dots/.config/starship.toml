@@ -1,64 +1,67 @@
 # Flow Terminal — Starship Configuration
 # Phase 5: Broad, Context-Rich Starship Prompt
-# Information-dense, icon-driven, professional DevOps workstation aesthetic
+# Two-line structure: identity → info → prompt character
+# All icons from sdata/lib/starship-icons.sh (verified Nerd Font codepoints)
+# NOTE: custom modules MUST be referenced as ${custom.<name>} in 1.26
 
-# Two-line prompt structure
 format = """
-$username$hostname$directory \
-$git_status$git_branch$custom.flow_profile$custom.flow_target$custom.flow_root$custom.flow_python$custom.flow_node$custom.flow_go$custom.flow_rust$custom.flow_docker$custom.flow_terraform$custom.flow_kubernetes$custom.flow_ansible$custom.flow_aws$custom.flow_gcp$custom.flow_azure
+$username$hostname $directory
+│  $git_branch$git_status${custom.flow_profile}${custom.flow_target}${custom.flow_python}${custom.flow_node}${custom.flow_go}${custom.flow_rust}${custom.flow_docker}${custom.flow_terraform}${custom.flow_kubernetes}${custom.flow_ansible}${custom.flow_aws}${custom.flow_gcp}${custom.flow_azure}${custom.flow_remote}${custom.flow_prod_warning}
 $character"""
 
-# Prompt character with production awareness
+# ─── Prompt Character ──────────────────────────────────────────
 [character]
-success_symbol = "[·❯](bold fg:40)"
-error_symbol = "[⚠❯](bold fg:196)"
+success_symbol = "[╰─❯](bold fg:40)"
+error_symbol = "[╰─⚠❯](bold fg:196)"
 
-# Disable package module
 [package]
 disabled = true
 
-# ─── Layer 1: Identity / Location ───
+[cmd_duration]
+min_time = 2_000
+format = "[ 󰔚 $duration]($style)"
+style = "bold fg:235"
+
+# ─── Layer 1: Identity / Location ──────────────────────────────
 
 [username]
+show_always = true
 style_user = "bold fg:235"
 style_root = "bold fg:196"
-format = "[ 󰍹 $user]($style)"
-disabled = false
-show_always = true
+format = "[╭─ 󰍹 $user]($style)"
 
 [hostname]
 ssh_only = false
-format = "[@ $hostname]($style)"
+format = "[@$hostname]($style)"
 trim_at = ".local"
-disabled = false
 style = "bold bg:242 fg:255"
 
 [directory]
 home_symbol = "~"
-read_only = " 🔒"
+read_only = " 󰍾"
 style = "bold fg:235"
 truncation_length = 4
 truncation_symbol = "…/"
 format = "[ $path]($style)"
 
 [directory.substitutions]
-"Desktop" = " 󰍹 "
-"Documents" = " 󰈙 "
-"Downloads" = " 󰉚 "
-"Music" = " 󰎈 "
-"Pictures" = " 󰉏 "
-"Videos" = " 󰨣 "
-"GitHub" = " 󰊤 "
-"Projects" = " 󰲋 "
+"Desktop" = "󰍹"
+"Documents" = "󰈙"
+"Downloads" = "󰉚"
+"Music" = "󰎈"
+"Pictures" = "󰉏"
+"Videos" = "󰨣"
+"GitHub" = "󰊤"
+"Projects" = "󰲋"
 
-# ─── Layer 2: Git ───
+# ─── Layer 2: Git ──────────────────────────────────────────────
 
 [git_branch]
 symbol = "󰘬"
 style = "bold fg:235"
 truncation_length = 24
 truncation_symbol = "…"
-format = " 󰘬 [$branch]($style)"
+format = "$symbol [$branch]($style)"
 
 [git_status]
 format = '([$all_status$ahead_behind]($style))'
@@ -81,7 +84,7 @@ format = "[ 󰜯 $hash]($style)"
 format = "[\\($state( $progress_current of $progress_total)\\)]($style)"
 cherry_pick = "[ PICKING](bold red)"
 
-# ─── Flow State Modules ───
+# ─── Layer 3: Flow State Modules ───────────────────────────────
 
 [custom.flow_profile]
 description = "Flow active profile"
@@ -109,20 +112,7 @@ style = "bold fg:35"
 format = "[ $output]($style)"
 disabled = false
 
-[custom.flow_root]
-description = "Flow project root"
-command = """
-if [ -n "$FLOW_STARSHIP_ROOT" ]; then
-  echo "· 󰉋 $FLOW_STARSHIP_ROOT"
-fi
-"""
-when = '[ -n "$FLOW_STARSHIP_ROOT" ]'
-shell = ["bash"]
-style = "bold fg:35"
-format = "[ $output]($style)"
-disabled = false
-
-# ─── Layer 3: Active Runtimes (custom modules) ───
+# ─── Layer 4: Active Runtimes (Flow state only — no CLI calls) ─
 
 [custom.flow_python]
 description = "Python runtime"
@@ -157,14 +147,11 @@ disabled = false
 [custom.flow_go]
 description = "Go runtime"
 command = """
-if command -v go &>/dev/null; then
-  GO_VERSION=$(go version 2>/dev/null | awk '{print $3}' | sed 's/go//')
-  if [ -n "$GO_VERSION" ]; then
-    echo "· 󰟓 $GO_VERSION"
-  fi
+if [ -n "$FLOW_STARSHIP_MISE_GO" ]; then
+  echo "· 󰟓 $FLOW_STARSHIP_MISE_GO"
 fi
 """
-when = 'command -v go &>/dev/null'
+when = '[ -n "$FLOW_STARSHIP_MISE_GO" ]'
 shell = ["bash"]
 style = "bold fg:35"
 format = "[ $output]($style)"
@@ -173,20 +160,17 @@ disabled = false
 [custom.flow_rust]
 description = "Rust runtime"
 command = """
-if command -v rustc &>/dev/null; then
-  RUST_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}')
-  if [ -n "$RUST_VERSION" ]; then
-    echo "· 󱘗 $RUST_VERSION"
-  fi
+if [ -n "$FLOW_STARSHIP_MISE_RUST" ]; then
+  echo "· 󱘗 $FLOW_STARSHIP_MISE_RUST"
 fi
 """
-when = 'command -v rustc &>/dev/null'
+when = '[ -n "$FLOW_STARSHIP_MISE_RUST" ]'
 shell = ["bash"]
 style = "bold fg:35"
 format = "[ $output]($style)"
 disabled = false
 
-# ─── Layer 4: Development Tools ───
+# ─── Layer 5: Development Tools (cheap file checks) ────────────
 
 [custom.flow_docker]
 description = "Docker tools"
@@ -206,11 +190,11 @@ disabled = false
 [custom.flow_terraform]
 description = "Terraform"
 command = """
-if [ -d ".terraform" ] || ls ./*.tf &>/dev/null; then
+if [ -d ".terraform" ] || ls ./*.tf &>/dev/null 2>&1; then
   echo "· 󱁢 Terraform"
 fi
 """
-when = '[ -d ".terraform" ] || ls ./*.tf &>/dev/null'
+when = '[ -d ".terraform" ] || ls ./*.tf &>/dev/null 2>&1'
 shell = ["bash"]
 style = "bold fg:35"
 format = "[ $output]($style)"
@@ -244,7 +228,7 @@ style = "bold fg:35"
 format = "[ $output]($style)"
 disabled = false
 
-# ─── Layer 5: Infrastructure Context (provider slots for Phase 7) ───
+# ─── Layer 6: Infrastructure Context (provider slots for Phase 7) ───
 
 [custom.flow_aws]
 description = "AWS context"
@@ -285,22 +269,22 @@ style = "bold fg:35"
 format = "[ $output]($style)"
 disabled = false
 
-# ─── Auxiliary ───
+# ─── Layer 7: Risk / Remote Visual Treatment ───────────────────
 
-[cmd_duration]
-min_time = 2_000
-format = "[ 󰔚 $duration]($style)"
-style = "bold fg:235"
-
-[line_break]
+[custom.flow_remote]
+description = "Remote shell indicator"
+command = "echo '·  󰣀 remote'"
+when = '[ "$FLOW_STARSHIP_REMOTE" = "1" ]'
+shell = ["bash"]
+style = "bold fg:208"
+format = "[ $output]($style)"
 disabled = false
 
-[memory_usage]
-disabled = true
-
-[time]
-disabled = true
-
-[fill]
-symbol = "·"
-style = "fg:245"
+[custom.flow_prod_warning]
+description = "Production context warning"
+command = "echo '· ⚠ production'"
+when = '[ "$FLOW_STARSHIP_PROD" = "1" ]'
+shell = ["bash"]
+style = "bold fg:196"
+format = "[ $output]($style)"
+disabled = false
