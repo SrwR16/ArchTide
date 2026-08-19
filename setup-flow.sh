@@ -40,7 +40,7 @@
 #       --no-hypr             Never install them, never ask
 #       --sddm                Install the Flow SDDM greeter + its matugen template
 #       --no-sddm             Never install them, never ask
-#       --extras              Install the fork's extra configs (mpv + setup scripts)
+#       --extras              Install the fork's extra configs (mpv, kitty, zshrc.d, starship)
 #       --no-extras           Never install them, never ask
 #       --rebuild-quickshell  Rebuild Quickshell from source first
 #       --log-file <path>     Write the run log elsewhere
@@ -72,8 +72,10 @@
 # --sddm is the explicit yes. SDDM writes to /usr/share and /etc, so the
 # installer's own sudo prompts still appear.
 #
-# `install` also offers the Flow's extra dotfile folders (currently mpv) on top
-# of the configs. Same -y/"no" rule; --extras is the explicit yes.
+# `install` also offers the Flow's extra dotfile configs (mpv, kitty, zshrc.d,
+# starship.toml) on top of the configs. Same -y/"no" rule; --extras is the
+# explicit yes. Install or update a single one by name: `install kitty`,
+# `update zshrc.d starship.toml`.
 #
 # Options take --flag=value as well as --flag value, and everything after a
 # bare -- is passed through to hyprset/hyprmerge.
@@ -169,6 +171,7 @@ LOG_FILE="$DEFAULT_LOG_FILE"
 LOG_READY=false
 PASSTHRU_ARGS=()
 PROJECT_ARGS=()
+DEPLOY_TARGETS=() # extras to install individually: install kitty, update starship.toml, ...
 
 # ── Run state (used by the exit trap) ────────────────────────────────────────
 STAGE_DIR=""
@@ -1666,22 +1669,35 @@ install_sddm_config() {
 # overlaid on ~/.config/<name> during install. A folder may carry a setup
 # script — fetch-*.sh or install.sh — that deploys the folder itself and pulls
 # in external, unversioned dependencies (mpv's Anime4K shaders, material-osc,
-# thumbfast). To ship another folder, add its name here.
+# thumbfast). A single-file config (starship.toml) is copied onto ~/.config
+# as-is. To ship another config, add its name here.
 EXTRA_DOTFILES=(
     mpv
+    kitty
+    zshrc.d
+    starship.toml
 )
 
 # install_extras_config <repo_root> <verb>
 #
-# Deploys the fork's extra dotfile folders (EXTRA_DOTFILES) onto ~/.config.
+# Deploys the fork's extra dotfile configs (EXTRA_DOTFILES) onto ~/.config.
 # Offered on `install` only, like the Hyprland overlay; -y declines it and
 # --extras is the explicit yes. A folder with a fetch-*/install.sh runs that
 # script (it self-locates and deploys itself); otherwise the folder is copied
-# over. Safe to re-run — copies are idempotent overlays.
+# over; a single file (starship.toml) is copied onto ~/.config/<name>. Safe to
+# re-run — copies are idempotent overlays.
+#
+# Individual configs can be targeted by passing their names on the command
+# line (install kitty zshrc.d), which forces --extras and deploys only those.
 install_extras_config() {
     local repo_root="${1:-}" verb="${2:-}"
 
     [[ "$OPT_EXTRAS" == false ]] && return 0
+
+    if ((${#DEPLOY_TARGETS[@]} > 0)); then
+        # Targeted install: no prompt, only the requested configs.
+        OPT_EXTRAS=true
+    fi
 
     if [[ -z "$OPT_EXTRAS" ]]; then
         # Same rule as hypr/sddm: offered on a fresh install, -y says no, and
@@ -1697,10 +1713,38 @@ install_extras_config() {
         }
     fi
 
+    # Reject unknown targets before touching anything.
+    if ((${#DEPLOY_TARGETS[@]} > 0)); then
+        local t n ok
+        for t in "${DEPLOY_TARGETS[@]}"; do
+            ok=false
+            for n in "${EXTRA_DOTFILES[@]}"; do
+                [[ "$n" == "$t" ]] && ok=true
+            done
+            if [[ "$ok" != true ]]; then
+                ui_fail "Unknown config \"$t\"" "available: ${EXTRA_DOTFILES[*]}"
+                return 1
+            fi
+        done
+    fi
+
     ui_step "Extras"
     local name src script deployed=0
     for name in "${EXTRA_DOTFILES[@]}"; do
+        if ((${#DEPLOY_TARGETS[@]} > 0)); then
+            local wanted=false t
+            for t in "${DEPLOY_TARGETS[@]}"; do
+                [[ "$t" == "$name" ]] && wanted=true
+            done
+            [[ "$wanted" == true ]] || continue
+        fi
         src="$repo_root/dots/.config/$name"
+        if [[ -f "$src" ]]; then
+            cp -f "$src" "$HOME/.config/$name"
+            deployed=$((deployed + 1))
+            ui_verbose "wrote $name"
+            continue
+        fi
         [[ -d "$src" ]] || continue
         script=""
         [[ -f "$src/fetch-extras.sh" ]] && script="fetch-extras.sh"
@@ -1720,7 +1764,7 @@ install_extras_config() {
         ui_note "No extras found in the source."
         return 0
     fi
-    ui_ok "Extras" "$deployed folder(s) deployed"
+    ui_ok "Extras" "$deployed config(s) deployed"
     return 0
 }
 
@@ -2251,7 +2295,7 @@ show_help() {
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-hypr" "$C_RST" "Never install them, never ask"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --sddm" "$C_RST" "Install the Flow SDDM greeter + its matugen template"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-sddm" "$C_RST" "Never install them, never ask"
-    printf '  %s%-24s%s %s\n' "$C_STEP" "    --extras" "$C_RST" "Install the fork's extra configs (mpv + setup scripts)"
+    printf '  %s%-24s%s %s\n' "$C_STEP" "    --extras" "$C_RST" "Install the fork's extra configs (mpv, kitty, zshrc.d, starship)"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --no-extras" "$C_RST" "Never install them, never ask"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --rebuild-quickshell" "$C_RST" "Rebuild Quickshell from source first"
     printf '  %s%-24s%s %s\n' "$C_STEP" "    --log-file <path>" "$C_RST" "Write the run log elsewhere"
@@ -2278,8 +2322,10 @@ show_help() {
     printf '  %sinstall also offers the fork'"'"'s SDDM greeter (Flow theme + its%s\n' "$C_SUB" "$C_RST"
     printf '  %smatugen template + the sddm service). Same -y/no rule; --sddm is%s\n' "$C_SUB" "$C_RST"
     printf '  %sthe explicit yes. SDDM needs root, so its sudo prompts still appear.%s\n' "$C_SUB" "$C_RST"
-    printf '  %sinstall also offers the fork'"'"'s extra configs (currently mpv, with its%s\n' "$C_SUB" "$C_RST"
-    printf '  %sfetch-extras.sh). Same -y/no rule; --extras is the explicit yes.%s\n' "$C_SUB" "$C_RST"
+    printf '  %sinstall also offers the fork'"'"'s extra configs (mpv, kitty, zshrc.d,%s\n' "$C_SUB" "$C_RST"
+    printf '  %sstarship.toml; folders may carry a fetch-extras.sh/install.sh). Same%s\n' "$C_SUB" "$C_RST"
+    printf '  %s-y/no rule; --extras is the explicit yes. Pass names to deploy only%s\n' "$C_SUB" "$C_RST"
+    printf '  %sthose: "install kitty zshrc.d" or "update starship.toml".%s\n' "$C_SUB" "$C_RST"
     printf '  %sOptions take --flag=value as well as --flag value, and everything after%s\n' "$C_SUB" "$C_RST"
     printf '  %sa bare -- is passed through to hyprset/hyprmerge.%s\n' "$C_SUB" "$C_RST"
     printf '  %sAliases: --no-confirm/--noconfirm (-y), --preserve-config (--keep-config),%s\n' "$C_SUB" "$C_RST"
@@ -2289,7 +2335,9 @@ show_help() {
 
     ui_rule "Examples"
     printf '  %s%s install%s                  %sfirst-time setup on a bare machine%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
+    printf '  %s%s install kitty zshrc.d%s     %sdeploy just those extra configs%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
     printf '  %s%s update%s                   %spull the latest from Flow upstream%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
+    printf '  %s%s update starship.toml%s     %supdate just that config%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
     printf '  %s%s apply --local .%s          %sdeploy the checkout you stand in%s\n' "$C_ACC" "$me" "$C_RST" "$C_SUB" "$C_RST"
     printf '\n'
     printf '%sLog: %s%s\n' "$C_SUB" "$(tilde "$DEFAULT_LOG_FILE")" "$C_RST"
@@ -2482,6 +2530,10 @@ parse_args() {
             # meant main() could never see what the user actually typed and
             # silently always ran "detect".
             PROJECT_ARGS=("${positional[@]}")
+            ;;
+        install | update | apply | switch)
+            # Individual extra-config targets: `install kitty zshrc.d`.
+            DEPLOY_TARGETS=("${positional[@]}")
             ;;
         *)
             if ((${#positional[@]} > 0)); then
