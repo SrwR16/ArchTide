@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 #
 # flow project env — environment resolution & selection
-# Part of Flow Terminal Phase 3B
+# Part of Flow Terminal Phase 3B.1 (Environment Model Hardening)
+#
+# Model:
+#   RUNTIME = the interpreter/toolchain (system, mise, nvm, .python-version, .nvmrc)
+#   ENVIRONMENT = where dependencies live (existing .venv, uv-managed .venv, none)
+#
+# node_modules is NOT an environment — it's a dependency tree.
+# nvm/.node-version are runtime selectors, not environments.
 #
 
 set -Eeuo pipefail
@@ -16,8 +23,8 @@ done
 SCRIPT_DIR="$(cd -P "$(dirname "$_source")" >/dev/null 2>&1 && pwd)"
 unset _source _dir
 
-SCRIPT_VERSION="1.0.0"
-SCHEMA_VERSION=1
+SCRIPT_VERSION="2.0.0"
+SCHEMA_VERSION=2
 
 # Colors
 if [[ -t 1 ]]; then
@@ -180,12 +187,21 @@ get_project_context() {
     printf '%s|%s|%s\n' "$root" "$name" "$git_root"
 }
 
-# Validate Python environment
+# Get project root and state file
+get_project_state() {
+    local project_context root name git_root
+    project_context=$(get_project_context)
+    IFS='|' read -r root name git_root <<< "$project_context"
+    local state_file
+    state_file=$(project_state_file "$root")
+    printf '%s|%s|%s|%s\n' "$root" "$name" "$git_root" "$state_file"
+}
+
+# Validate Python environment (checks bin/python exists and is executable)
 validate_python_env() {
     local env_path="$1"
     local python_bin="$env_path/bin/python"
     [[ -x "$python_bin" ]] || return 1
-    # Get version if possible
     local version
     version=$("$python_bin" --version 2>/dev/null | sed 's/Python //')
     printf '%s' "$version"
@@ -193,6 +209,7 @@ validate_python_env() {
 }
 
 # Discover Python environments in project/profile scope
+# Returns: strategy|path|version|scope
 discover_python_envs() {
     local root="$1"
     local scope="$2"
@@ -216,14 +233,19 @@ discover_python_envs() {
             else
                 rel_path="$env_dir"
             fi
-            candidates+=("existing|$rel_path|$version")
+            candidates+=("existing|$rel_path|$version|$scope")
         fi
     done
 
-    printf '%s\n' "${candidates[@]}"
+    if [[ ${#candidates[@]} -gt 0 ]]; then
+        printf '%s\n' "${candidates[@]}"
+    fi
 }
 
-# Discover Node environments
+# Discover Node environments in project/profile scope
+# Returns: strategy|path|version|scope
+# NOTE: node_modules is NOT an environment — it's a dependency tree.
+# nvm/.node-version are runtime selectors, not environments.
 discover_node_envs() {
     local root="$1"
     local scope="$2"
@@ -235,43 +257,24 @@ discover_node_envs() {
 
     local candidates=()
 
-    # Check for .nvmrc or .node-version
-    if [[ -f "$search_dir/.nvmrc" ]]; then
-        local version
-        version=$(cat "$search_dir/.nvmrc" 2>/dev/null | xargs)
-        local rel_path
-        if [[ "$scope" != "." ]]; then
-            rel_path="$scope/.nvmrc"
-        else
-            rel_path=".nvmrc"
-        fi
-        candidates+=("nvm|$rel_path|$version")
+    # Check for package.json (indicates Node project, but not an environment)
+    # The actual environment is system/mise/nvm
+
+    # Check for package-lock.json or similar
+    if [[ -f "$search_dir/package-lock.json" ]] || [[ -f "$search_dir/pnpm-lock.yaml" ]] || \
+       [[ -f "$search_dir/yarn.lock" ]] || [[ -f "$search_dir/bun.lock" ]]; then
+        # Node project with dependencies installed — but the environment is still system/mise/nvm
+        # No "existing" environment candidate here
+        :
     fi
 
-    if [[ -f "$search_dir/.node-version" ]]; then
-        local version
-        version=$(cat "$search_dir/.node-version" 2>/dev/null | xargs)
-        local rel_path
-        if [[ "$scope" != "." ]]; then
-            rel_path="$scope/.node-version"
-        else
-            rel_path=".node-version"
-        fi
-        candidates+=("node-version|$rel_path|$version")
-    fi
+    # Node projects don't have "existing" environments like Python does.
+    # The environment is always system, mise, or nvm (runtime selector).
+    # node_modules is NOT an environment.
 
-    # Check for node_modules (existing but not a full env)
-    if [[ -d "$search_dir/node_modules" ]]; then
-        local rel_path
-        if [[ "$scope" != "." ]]; then
-            rel_path="$scope/node_modules"
-        else
-            rel_path="node_modules"
-        fi
-        candidates+=("existing|$rel_path|system Node")
+    if [[ ${#candidates[@]} -gt 0 ]]; then
+        printf '%s\n' "${candidates[@]}"
     fi
-
-    printf '%s\n' "${candidates[@]}"
 }
 
 # Discover runtime hints from project files
@@ -300,6 +303,8 @@ discover_runtime_hints() {
     [[ -f "$search_dir/pnpm-lock.yaml" ]] && hints+=("pnpm-lock.yaml")
     [[ -f "$search_dir/yarn.lock" ]] && hints+=("yarn.lock")
     [[ -f "$search_dir/bun.lock" ]] && hints+=("bun.lock")
+    [[ -f "$search_dir/.nvmrc" ]] && hints+=(".nvmrc")
+    [[ -f "$search_dir/.node-version" ]] && hints+=(".node-version")
 
     # Mise/asdf
     [[ -f "$search_dir/mise.toml" ]] && hints+=("mise.toml")
@@ -308,101 +313,183 @@ discover_runtime_hints() {
     printf '%s\n' "${hints[@]}"
 }
 
+# Discover runtime selectors for a scope
+# Returns: strategy|path|version|scope
+# Runtime selectors indicate which runtime to use, not where dependencies live
+discover_runtime_selectors() {
+    local root="$1"
+    local scope="$2"
+
+    local search_dir="$root"
+    if [[ "$scope" != "." ]]; then
+        search_dir="$root/$scope"
+    fi
+
+    local selectors=()
+
+    # Python runtime selectors
+    if [[ -f "$search_dir/.python-version" ]]; then
+        local version
+        version=$(cat "$search_dir/.python-version" 2>/dev/null | xargs)
+        local rel_path
+        if [[ "$scope" != "." ]]; then
+            rel_path="$scope/.python-version"
+        else
+            rel_path=".python-version"
+        fi
+        selectors+=("mise|python|$rel_path|$version|$scope")
+    fi
+
+    # Node runtime selectors
+    if [[ -f "$search_dir/.nvmrc" ]]; then
+        local version
+        version=$(cat "$search_dir/.nvmrc" 2>/dev/null | xargs)
+        local rel_path
+        if [[ "$scope" != "." ]]; then
+            rel_path="$scope/.nvmrc"
+        else
+            rel_path=".nvmrc"
+        fi
+        selectors+=("nvm|node|$rel_path|$version|$scope")
+    fi
+
+    if [[ -f "$search_dir/.node-version" ]]; then
+        local version
+        version=$(cat "$search_dir/.node-version" 2>/dev/null | xargs)
+        local rel_path
+        if [[ "$scope" != "." ]]; then
+            rel_path="$scope/.node-version"
+        else
+            rel_path=".node-version"
+        fi
+        selectors+=("mise|node|$rel_path|$version|$scope")
+    fi
+
+    # Mise/asdf
+    if [[ -f "$search_dir/mise.toml" ]] || [[ -f "$search_dir/.tool-versions" ]]; then
+        selectors+=("mise|multi|mise config|available|$scope")
+    fi
+
+    if [[ ${#selectors[@]} -gt 0 ]]; then
+        printf '%s\n' "${selectors[@]}"
+    fi
+}
+
 # Rank Python environment candidates
+# Input: scope, array of candidates, array of hints
+# Returns: ranked candidates with priority and reason
 rank_python_candidates() {
     local scope="$1"
     local -n cand_ref=$2
+    local -n hints_ref=$3
 
     local ranked=()
+    local added_paths=()
 
-    # 1. Existing env matching profile scope exactly
+    # 1. Existing env matching profile scope exactly (highest priority)
     for c in "${cand_ref[@]}"; do
         IFS='|' read -r strategy path version cand_scope <<< "$c"
         if [[ "$strategy" == "existing" && "$cand_scope" == "$scope" ]]; then
             ranked+=("$c|high|scope match")
+            added_paths+=("$path")
         fi
     done
 
-    # 2. Existing .venv at project/profile root
+    # 2. Existing .venv at project/profile root (if not already added)
     for c in "${cand_ref[@]}"; do
         IFS='|' read -r strategy path version cand_scope <<< "$c"
-        if [[ "$strategy" == "existing" && "$path" == *.venv ]]; then
+        local already_added=false
+        for p in "${added_paths[@]}"; do
+            [[ "$p" == "$path" ]] && { already_added=true; break; }
+        done
+        if [[ "$already_added" == false && "$strategy" == "existing" && "$path" == *.venv ]]; then
             ranked+=("$c|high|.venv preferred")
+            added_paths+=("$path")
         fi
     done
 
-    # 3. Existing venv at project/profile root
+    # 3. Existing venv at project/profile root (not .venv, if not already added)
     for c in "${cand_ref[@]}"; do
         IFS='|' read -r strategy path version cand_scope <<< "$c"
-        if [[ "$strategy" == "existing" && "$path" == *venv && "$path" != *.venv ]]; then
+        local already_added=false
+        for p in "${added_paths[@]}"; do
+            [[ "$p" == "$path" ]] && { already_added=true; break; }
+        done
+        if [[ "$already_added" == false && "$strategy" == "existing" && "$path" == *venv && "$path" != *.venv ]]; then
             ranked+=("$c|medium|venv")
+            added_paths+=("$path")
         fi
     done
 
     # 4. uv candidate if uv.lock exists
     local has_uv_lock=false
-    for hint in "${hints[@]}"; do
+    for hint in "${hints_ref[@]}"; do
         [[ "$hint" == "uv.lock" ]] && has_uv_lock=true
     done
     if [[ "$has_uv_lock" == true ]]; then
-        ranked+=("uv||uv available|medium|uv.lock present")
+        ranked+=("uv||uv available|$scope|medium|uv.lock present")
     fi
 
     # 5. mise candidate if mise.toml/.tool-versions exists
     local has_mise=false
-    for hint in "${hints[@]}"; do
+    for hint in "${hints_ref[@]}"; do
         [[ "$hint" == "mise.toml" || "$hint" == ".tool-versions" ]] && has_mise=true
     done
     if [[ "$has_mise" == true ]]; then
-        ranked+=("mise||mise available|medium|mise config present")
+        ranked+=("mise||mise available|$scope|medium|mise config present")
     fi
 
     # 6. system Python
-    ranked+=("system||system Python|low|system Python")
+    ranked+=("system||system Python|$scope|low|system Python")
 
     # 7. none
-    ranked+=("none||none|low|no environment")
+    ranked+=("none||none|$scope|low|no environment")
 
     printf '%s\n' "${ranked[@]}"
 }
 
 # Rank Node environment candidates
+# Input: scope, array of candidates, array of hints
+# Returns: ranked candidates with priority and reason
 rank_node_candidates() {
     local scope="$1"
     local -n cand_ref=$2
+    local -n hints_ref=$3
 
     local ranked=()
 
-    # 1. Version file matching scope
-    for c in "${cand_ref[@]}"; do
-        IFS='|' read -r strategy path version cand_scope <<< "$c"
-        if [[ ("$strategy" == "nvm" || "$strategy" == "node-version") && "$cand_scope" == "$scope" ]]; then
-            ranked+=("$c|high|version file matches scope")
-        fi
-    done
-
-    # 2. Existing node_modules
-    for c in "${cand_ref[@]}"; do
-        IFS='|' read -r strategy path version cand_scope <<< "$c"
-        if [[ "$strategy" == "existing" ]]; then
-            ranked+=("$c|medium|existing node_modules")
-        fi
-    done
-
-    # 3. mise
+    # 1. Mise candidate if mise.toml/.tool-versions exists (highest priority for Node)
     local has_mise=false
-    for hint in "${hints[@]}"; do
+    for hint in "${hints_ref[@]}"; do
         [[ "$hint" == "mise.toml" || "$hint" == ".tool-versions" ]] && has_mise=true
     done
     if [[ "$has_mise" == true ]]; then
-        ranked+=("mise||mise available|medium|mise config present")
+        ranked+=("mise||mise available|$scope|high|mise config present")
+    fi
+
+    # 2. nvm if .nvmrc exists
+    local has_nvmrc=false
+    for hint in "${hints_ref[@]}"; do
+        [[ "$hint" == ".nvmrc" ]] && has_nvmrc=true
+    done
+    if [[ "$has_nvmrc" == true ]]; then
+        ranked+=("nvm||nvm available|$scope|high|.nvmrc present")
+    fi
+
+    # 3. node-version if .node-version exists
+    local has_node_version=false
+    for hint in "${hints_ref[@]}"; do
+        [[ "$hint" == ".node-version" ]] && has_node_version=true
+    done
+    if [[ "$has_node_version" == true ]]; then
+        ranked+=("node-version||node-version available|$scope|medium|.node-version present")
     fi
 
     # 4. system Node
-    ranked+=("system||system Node|low|system Node")
+    ranked+=("system||system Node|$scope|low|system Node")
 
     # 5. none
-    ranked+=("none||none|low|no environment")
+    ranked+=("none||none|$scope|low|no environment")
 
     printf '%s\n' "${ranked[@]}"
 }
@@ -411,19 +498,20 @@ rank_node_candidates() {
 rank_go_candidates() {
     local scope="$1"
     local -n cand_ref=$2
+    local -n hints_ref=$3
 
     local ranked=()
 
     local has_mise=false
-    for hint in "${hints[@]}"; do
+    for hint in "${hints_ref[@]}"; do
         [[ "$hint" == "mise.toml" || "$hint" == ".tool-versions" ]] && has_mise=true
     done
     if [[ "$has_mise" == true ]]; then
-        ranked+=("mise||mise available|medium|mise config present")
+        ranked+=("mise||mise available|$scope|high|mise config present")
     fi
 
-    ranked+=("system||system Go|low|system Go")
-    ranked+=("none||none|low|no environment")
+    ranked+=("system||system Go|$scope|low|system Go")
+    ranked+=("none||none|$scope|low|no environment")
 
     printf '%s\n' "${ranked[@]}"
 }
@@ -432,40 +520,42 @@ rank_go_candidates() {
 rank_rust_candidates() {
     local scope="$1"
     local -n cand_ref=$2
+    local -n hints_ref=$3
 
     local ranked=()
 
     local has_mise=false
-    for hint in "${hints[@]}"; do
+    for hint in "${hints_ref[@]}"; do
         [[ "$hint" == "mise.toml" || "$hint" == ".tool-versions" ]] && has_mise=true
     done
     if [[ "$has_mise" == true ]]; then
-        ranked+=("mise||mise available|medium|mise config present")
+        ranked+=("mise||mise available|$scope|high|mise config present")
     fi
 
-    ranked+=("system||system Rust|low|system Rust")
-    ranked+=("none||none|low|no environment")
+    ranked+=("system||system Rust|$scope|low|system Rust")
+    ranked+=("none||none|$scope|low|no environment")
 
     printf '%s\n' "${ranked[@]}"
 }
 
-# Rank generic candidates (infrastructure, etc.)
+# Rank generic candidates (infrastructure, Java, PHP, Ruby, Terraform, etc.)
 rank_generic_candidates() {
     local scope="$1"
     local -n cand_ref=$2
+    local -n hints_ref=$3
 
     local ranked=()
 
     local has_mise=false
-    for hint in "${hints[@]}"; do
+    for hint in "${hints_ref[@]}"; do
         [[ "$hint" == "mise.toml" || "$hint" == ".tool-versions" ]] && has_mise=true
     done
     if [[ "$has_mise" == true ]]; then
-        ranked+=("mise|mise|mise available")
+        ranked+=("mise||mise available|$scope|high|mise config present")
     fi
 
-    ranked+=("system|system|system runtime")
-    ranked+=("none|none|no environment")
+    ranked+=("system||system runtime|$scope|low|system runtime")
+    ranked+=("none||none|$scope|low|no environment")
 
     printf '%s\n' "${ranked[@]}"
 }
@@ -534,22 +624,120 @@ discover_languages_in_scope() {
         languages+=("python")
     fi
 
-    # Node env markers
-    if [[ -d "$search_dir/node_modules" ]] || [[ -f "$search_dir/.nvmrc" ]] || [[ -f "$search_dir/.node-version" ]]; then
+    # Node env markers (node_modules indicates Node project, not an environment)
+    if [[ -d "$search_dir/node_modules" ]]; then
         languages+=("javascript")
+    fi
+
+    # Runtime selectors (indicate which runtime to use)
+    if [[ -f "$search_dir/.nvmrc" ]] || [[ -f "$search_dir/.node-version" ]]; then
+        # Already covered by javascript above, but ensure it's there
+        :
     fi
 
     printf '%s\n' "${languages[@]}"
 }
 
-# Get project root and state file
-get_project_state() {
-    local project_context root name git_root
-    project_context=$(get_project_context)
-    IFS='|' read -r root name git_root <<< "$project_context"
-    local state_file
-    state_file=$(project_state_file "$root")
-    printf '%s|%s|%s|%s\n' "$root" "$name" "$git_root" "$state_file"
+# Validate existing environment based on profile type
+# Returns 0 if valid, 1 if invalid
+validate_existing_env() {
+    local strategy="$1"
+    local target="$2"
+    local profile_type="$3"
+    local root="$4"
+
+    local target_path="$root/$target"
+
+    # Must exist
+    [[ -d "$target_path" ]] || return 1
+
+    # Language-aware validation based on profile type
+    case "$profile_type" in
+        python|backend|ml|data)
+            # Python profiles: validate bin/python exists and is executable
+            [[ -x "$target_path/bin/python" ]] || return 1
+            # Verify it's actually Python
+            local version
+            version=$("$target_path/bin/python" --version 2>/dev/null | sed 's/Python //')
+            [[ -n "$version" ]] || return 1
+            return 0
+            ;;
+        node|frontend|javascript|typescript)
+            # Node profiles: validate bin/node exists and is executable
+            [[ -x "$target_path/bin/node" ]] || return 1
+            # Verify it's actually Node
+            local version
+            version=$("$target_path/bin/node" --version 2>/dev/null | sed 's/v//')
+            [[ -n "$version" ]] || return 1
+            return 0
+            ;;
+        go|golang)
+            # Go profiles: validate bin/go exists
+            [[ -x "$target_path/bin/go" ]] || return 1
+            return 0
+            ;;
+        rust|rustlang)
+            # Rust profiles: validate bin/cargo exists
+            [[ -x "$target_path/bin/cargo" ]] || return 1
+            return 0
+            ;;
+        ruby|rails)
+            # Ruby profiles: validate bin/ruby exists
+            [[ -x "$target_path/bin/ruby" ]] || return 1
+            return 0
+            ;;
+        java|kotlin|jvm)
+            # Java profiles: validate bin/java exists
+            [[ -x "$target_path/bin/java" ]] || return 1
+            return 0
+            ;;
+        php|laravel)
+            # PHP profiles: validate bin/php exists
+            [[ -x "$target_path/bin/php" ]] || return 1
+            return 0
+            ;;
+        *)
+            # Generic/unknown: accept if it has any recognized runtime binary
+            if [[ -x "$target_path/bin/python" ]] || \
+               [[ -x "$target_path/bin/node" ]] || \
+               [[ -x "$target_path/bin/go" ]] || \
+               [[ -x "$target_path/bin/cargo" ]] || \
+               [[ -x "$target_path/bin/ruby" ]] || \
+               [[ -x "$target_path/bin/java" ]] || \
+               [[ -x "$target_path/bin/php" ]]; then
+                return 0
+            fi
+            return 1
+            ;;
+    esac
+}
+
+# Validate environment strategy
+validate_strategy() {
+    local strategy="$1"
+    local target="$2"
+    local profile_type="$3"
+    local root="$4"
+
+    case "$strategy" in
+        existing)
+            [[ -n "$target" ]] || { print_human "${C_RED}--target required for existing strategy${C_RESET}"; return 1; }
+            validate_existing_env "$strategy" "$target" "$profile_type" "$root" || {
+                print_human "${C_RED}Target is not a valid $profile_type environment: $target${C_RESET}"
+                print_human "${C_DIM}  Expected: bin/python, bin/node, bin/go, etc.${C_RESET}"
+                return 1
+            }
+            ;;
+        uv|mise|venv|system|none|nvm|node-version)
+            # These are intent declarations, no target validation needed
+            ;;
+        *)
+            print_human "${C_RED}Invalid strategy: $strategy${C_RESET}"
+            print_human "${C_DIM}Valid strategies: existing, uv, mise, venv, system, none, nvm, node-version${C_RESET}"
+            return 1
+            ;;
+    esac
+    return 0
 }
 
 # List environment candidates for a profile
@@ -585,82 +773,90 @@ cmd_list() {
     local scope_languages=()
     mapfile -t scope_languages < <(discover_languages_in_scope "$root" "$profile_scope")
 
-    # Discover candidates based on detected languages in scope
-    local python_candidates=()
-    local node_candidates=()
+    # Discover runtime hints for this scope
     local hints=()
-
-    # Get hints for this scope
-    local search_dir="$root"
-    if [[ "$profile_scope" != "." ]]; then
-        search_dir="$root/$profile_scope"
-    fi
-
     mapfile -t hints < <(discover_runtime_hints "$root" "$profile_scope")
 
-    # Python candidates
+    # Discover runtime selectors
+    local runtime_selectors=()
+    mapfile -t runtime_selectors < <(discover_runtime_selectors "$root" "$profile_scope")
+
+    # Discover environment candidates and rank them
+    local python_candidates=()
+    local node_candidates=()
+    local generic_candidates=()
+    local ranked_python=()
+    local ranked_node=()
+    local ranked_generic=()
+
+    # Python candidates and ranking
     for lang in "${scope_languages[@]}"; do
         if [[ "$lang" == "python" ]]; then
             mapfile -t python_candidates < <(discover_python_envs "$root" "$profile_scope")
-            # Also add uv if available
-            for hint in "${hints[@]}"; do
-                [[ "$hint" == "uv.lock" ]] && python_candidates+=("uv|uv|uv available")
-                [[ "$hint" == "mise.toml" || "$hint" == ".tool-versions" ]] && python_candidates+=("mise|mise|mise available")
-            done
-            python_candidates+=("system|system|system Python")
-            python_candidates+=("none|none|none")
+            mapfile -t ranked_python < <(rank_python_candidates "$profile_scope" python_candidates hints)
             break
         fi
     done
 
-    # Node candidates
+    # Node candidates and ranking
     for lang in "${scope_languages[@]}"; do
         if [[ "$lang" == "javascript" ]] || [[ "$lang" == "typescript" ]]; then
-            mapfile -t node_candidates < <(discover_node_envs "$root" "$profile_scope")
-            for hint in "${hints[@]}"; do
-                [[ "$hint" == "mise.toml" || "$hint" == ".tool-versions" ]] && node_candidates+=("mise|mise|mise available")
-            done
-            node_candidates+=("system|system|system Node")
-            node_candidates+=("none|none|none")
+            mapfile -t ranked_node < <(rank_node_candidates "$profile_scope" node_candidates hints)
             break
         fi
     done
 
-    # Generic candidates for other languages (Go, Rust, Terraform, Java, PHP, Ruby, etc.)
-    local generic_candidates=()
+    # Generic candidates for other languages
     for lang in "${scope_languages[@]}"; do
         case "$lang" in
             python|javascript|typescript) continue ;;
             go|rust|java|php|ruby|terraform|swift|dart|elixir|haskell|ocaml|cpp|csharp)
-                local ranked
-                mapfile -t ranked < <(rank_generic_candidates "$profile_scope" generic_candidates)
-                for r in "${ranked[@]}"; do
-                    generic_candidates+=("$r")
-                done
+                mapfile -t ranked_generic < <(rank_generic_candidates "$profile_scope" generic_candidates hints)
                 break
                 ;;
         esac
     done
 
+    # Determine recommended candidate (first in ranked list)
+    local recommended_python="" recommended_node="" recommended_generic=""
+    [[ ${#ranked_python[@]} -gt 0 ]] && recommended_python="${ranked_python[0]}"
+    [[ ${#ranked_node[@]} -gt 0 ]] && recommended_node="${ranked_node[0]}"
+    [[ ${#ranked_generic[@]} -gt 0 ]] && recommended_generic="${ranked_generic[0]}"
+
     if [[ "$JSON_OUTPUT" == true ]]; then
         local output
-        # Convert candidates arrays to JSON - handle empty arrays
-        local python_json node_json generic_json
-        if [[ ${#python_candidates[@]} -gt 0 ]]; then
-            python_json=$(printf '%s\n' "${python_candidates[@]}" | jq -R 'split("|") | {strategy: .[0], target: .[1], version: .[2]}' | jq -s '.')
+
+        # Convert ranked arrays to JSON with recommendation flag
+        local python_json node_json generic_json runtime_json
+
+        # Python candidates JSON
+        if [[ ${#ranked_python[@]} -gt 0 ]]; then
+            python_json=$(printf '%s\n' "${ranked_python[@]}" | jq -R 'split("|") | {strategy: .[0], target: .[1], version: .[2], scope: .[3], priority: .[4], reason: .[5]}' | jq -s 'map(. + {recommended: false}) | if length > 0 then .[0].recommended = true else . end')
         else
             python_json='[]'
         fi
-        if [[ ${#node_candidates[@]} -gt 0 ]]; then
-            node_json=$(printf '%s\n' "${node_candidates[@]}" | jq -R 'split("|") | {strategy: .[0], target: .[1], version: .[2]}' | jq -s '.')
+
+        # Node candidates JSON
+        if [[ ${#ranked_node[@]} -gt 0 ]]; then
+            node_json=$(printf '%s\n' "${ranked_node[@]}" | jq -R 'split("|") | {strategy: .[0], target: .[1], version: .[2], scope: .[3], priority: .[4], reason: .[5]}' | jq -s 'map(. + {recommended: false}) | if length > 0 then .[0].recommended = true else . end')
         else
             node_json='[]'
         fi
-        if [[ ${#generic_candidates[@]} -gt 0 ]]; then
-            generic_json=$(printf '%s\n' "${generic_candidates[@]}" | jq -R 'split("|") | {strategy: .[0], target: .[1], version: .[2]}' | jq -s '.')
+
+        # Generic candidates JSON
+        if [[ ${#ranked_generic[@]} -gt 0 ]]; then
+            generic_json=$(printf '%s\n' "${ranked_generic[@]}" | jq -R 'split("|") | {strategy: .[0], target: .[1], version: .[2], scope: .[3], priority: .[4], reason: .[5]}' | jq -s 'map(. + {recommended: false}) | if length > 0 then .[0].recommended = true else . end')
         else
             generic_json='[]'
         fi
+
+        # Runtime selectors JSON
+        if [[ ${#runtime_selectors[@]} -gt 0 ]]; then
+            runtime_json=$(printf '%s\n' "${runtime_selectors[@]}" | jq -R 'split("|") | {strategy: .[0], language: .[1], target: .[2], version: .[3], scope: .[4]}' | jq -s '.')
+        else
+            runtime_json='[]'
+        fi
+
         output=$(jq -n \
             --arg profile_name "$profile_name" \
             --arg profile_type "$profile_type" \
@@ -669,16 +865,19 @@ cmd_list() {
             --argjson python "$python_json" \
             --argjson node "$node_json" \
             --argjson generic "$generic_json" \
+            --argjson runtime "$runtime_json" \
             '{
                 project: $detect.project,
                 profile: {name: $profile_name, type: $profile_type, scope: $profile_scope},
                 detection: $detect,
-                candidates: {python: $python, node: $node, generic: $generic}
+                runtime_selectors: $runtime,
+                environments: {python: $python, node: $node, generic: $generic}
             }')
         printf '%s\n' "$output"
         return
     fi
 
+    # Human-readable output
     print_human "${C_BOLD}${C_CYAN}Flow Environment Candidates${C_RESET}"
     print_human "${C_DIM}────────────────────────────────────────${C_RESET}"
     print_human ""
@@ -697,61 +896,81 @@ cmd_list() {
         print_human ""
     fi
 
-    # Python candidates
-    if [[ ${#python_candidates[@]} -gt 0 ]]; then
-        print_human "Python Candidates:"
+    # Runtime selectors (what runtime to use)
+    if [[ ${#runtime_selectors[@]} -gt 0 ]]; then
+        print_human "${C_BOLD}Runtime Selectors:${C_RESET}"
         local i=1
-        for c in "${python_candidates[@]}"; do
-            IFS='|' read -r strategy path version <<< "$c"
+        for c in "${runtime_selectors[@]}"; do
+            IFS='|' read -r strategy lang rel_path version cand_scope <<< "$c"
+            print_human "  $i. ${C_CYAN}●${C_RESET} $rel_path"
+            print_human "     strategy: $strategy"
+            print_human "     language: $lang"
+            [[ -n "$version" && "$version" != "" ]] && print_human "     version: $version"
+            print_human ""
+            ((i++))
+        done
+    fi
+
+    # Python environments
+    if [[ ${#ranked_python[@]} -gt 0 ]]; then
+        print_human "${C_BOLD}Python Environments:${C_RESET}"
+        local i=1
+        for c in "${ranked_python[@]}"; do
+            IFS='|' read -r strategy path version cand_scope priority reason <<< "$c"
             local status="available"
             [[ "$strategy" == "existing" ]] && status="ready"
             local recommended=""
             [[ $i -eq 1 ]] && recommended=" ${C_GREEN}[recommended]${C_RESET}"
-            print_human "  $i. ${C_GREEN}●${C_RESET} $path${recommended}"
+            print_human "  $i. ${C_GREEN}●${C_RESET} ${path:-$strategy}${recommended}"
             print_human "     strategy: $strategy"
             [[ -n "$version" && "$version" != "" ]] && print_human "     version: $version"
+            print_human "     priority: $priority"
+            print_human "     reason: $reason"
             print_human "     status: $status"
             print_human ""
             ((i++))
         done
     fi
 
-    # Node candidates
-    if [[ ${#node_candidates[@]} -gt 0 ]]; then
-        print_human "Node Candidates:"
+    # Node environments
+    if [[ ${#ranked_node[@]} -gt 0 ]]; then
+        print_human "${C_BOLD}Node Environments:${C_RESET}"
         local i=1
-        for c in "${node_candidates[@]}"; do
-            IFS='|' read -r strategy path version <<< "$c"
-            local status="available"
-            [[ "$strategy" == "existing" || "$strategy" == "nvm" || "$strategy" == "node-version" ]] && status="ready"
-            local recommended=""
-            [[ $i -eq 1 ]] && recommended=" ${C_GREEN}[recommended]${C_RESET}"
-            print_human "  $i. ${C_GREEN}●${C_RESET} $path${recommended}"
-            print_human "     strategy: $strategy"
-            [[ -n "$version" && "$version" != "" ]] && print_human "     version: $version"
-            print_human "     status: $status"
-            print_human ""
-            ((i++))
-        done
-    fi
-
-    if [[ ${#python_candidates[@]} -eq 0 && ${#node_candidates[@]} -eq 0 && ${#generic_candidates[@]} -eq 0 ]]; then
-        print_human "  ${C_DIM}No environment candidates for detected languages${C_RESET}"
-        print_human ""
-    fi
-
-    # Generic candidates
-    if [[ ${#generic_candidates[@]} -gt 0 ]]; then
-        print_human "Other Candidates:"
-        local i=1
-        for c in "${generic_candidates[@]}"; do
-            IFS='|' read -r strategy path version <<< "$c"
+        for c in "${ranked_node[@]}"; do
+            IFS='|' read -r strategy path version cand_scope priority reason <<< "$c"
             local status="available"
             local recommended=""
             [[ $i -eq 1 ]] && recommended=" ${C_GREEN}[recommended]${C_RESET}"
             print_human "  $i. ${C_GREEN}●${C_RESET} ${path:-$strategy}${recommended}"
             print_human "     strategy: $strategy"
             [[ -n "$version" && "$version" != "" ]] && print_human "     version: $version"
+            print_human "     priority: $priority"
+            print_human "     reason: $reason"
+            print_human "     status: $status"
+            print_human ""
+            ((i++))
+        done
+    fi
+
+    if [[ ${#ranked_python[@]} -eq 0 && ${#ranked_node[@]} -eq 0 && ${#ranked_generic[@]} -eq 0 ]]; then
+        print_human "  ${C_DIM}No environment candidates for detected languages${C_RESET}"
+        print_human ""
+    fi
+
+    # Generic candidates (Go, Rust, Terraform, etc.)
+    if [[ ${#ranked_generic[@]} -gt 0 ]]; then
+        print_human "${C_BOLD}Other Environments:${C_RESET}"
+        local i=1
+        for c in "${ranked_generic[@]}"; do
+            IFS='|' read -r strategy path version cand_scope priority reason <<< "$c"
+            local status="available"
+            local recommended=""
+            [[ $i -eq 1 ]] && recommended=" ${C_GREEN}[recommended]${C_RESET}"
+            print_human "  $i. ${C_GREEN}●${C_RESET} ${path:-$strategy}${recommended}"
+            print_human "     strategy: $strategy"
+            [[ -n "$version" && "$version" != "" ]] && print_human "     version: $version"
+            print_human "     priority: $priority"
+            print_human "     reason: $reason"
             print_human "     status: $status"
             print_human ""
             ((i++))
@@ -759,16 +978,18 @@ cmd_list() {
     fi
 
     # Saved environment
-    local saved_strategy saved_target
+    local saved_strategy saved_target saved_auto_activate
     saved_strategy=$(printf '%s' "$profile_json" | jq -r '.environment.strategy // "unconfigured"')
     saved_target=$(printf '%s' "$profile_json" | jq -r '.environment.target // ""')
+    saved_auto_activate=$(printf '%s' "$profile_json" | jq -r '.environment.auto_activate // false')
 
-    print_human "Saved:"
-    if [[ "$saved_strategy" == "unconfigured" || -z "$saved_target" ]]; then
+    print_human "${C_BOLD}Saved:${C_RESET}"
+    if [[ "$saved_strategy" == "unconfigured" ]]; then
         print_human "  ${C_DIM}none${C_RESET}"
     else
         print_human "  strategy: $saved_strategy"
-        print_human "  target: $saved_target"
+        [[ -n "$saved_target" && "$saved_target" != "null" ]] && print_human "  target: $saved_target"
+        print_human "  auto_activate: $saved_auto_activate"
     fi
     print_human ""
 }
@@ -819,16 +1040,43 @@ cmd_show() {
     print_human "  auto_activate: $saved_auto"
     print_human ""
 
-    # Validate saved target
+    # Validate saved environment
     if [[ "$saved_strategy" == "existing" && -n "$saved_target" && "$saved_target" != "null" ]]; then
         local target_path="$root/$saved_target"
         if [[ -d "$target_path" ]]; then
-            print_human "${C_GREEN}Status: ready${C_RESET}"
-            # Check Python version if applicable
-            if [[ -x "$target_path/bin/python" ]]; then
-                local version
-                version=$("$target_path/bin/python" --version 2>/dev/null)
-                print_human "  $version"
+            # Language-aware validation
+            if validate_existing_env "$saved_strategy" "$saved_target" "$profile_type" "$root"; then
+                print_human "${C_GREEN}Status: ready${C_RESET}"
+                # Show runtime version
+                case "$profile_type" in
+                    python|backend|ml|data)
+                        if [[ -x "$target_path/bin/python" ]]; then
+                            local version
+                            version=$("$target_path/bin/python" --version 2>/dev/null)
+                            print_human "  $version"
+                        fi
+                        ;;
+                    node|frontend|javascript|typescript)
+                        if [[ -x "$target_path/bin/node" ]]; then
+                            local version
+                            version=$("$target_path/bin/node" --version 2>/dev/null)
+                            print_human "  Node $version"
+                        fi
+                        ;;
+                    go|golang)
+                        if [[ -x "$target_path/bin/go" ]]; then
+                            local version
+                            version=$("$target_path/bin/go" --version 2>/dev/null | head -1)
+                            print_human "  $version"
+                        fi
+                        ;;
+                    *)
+                        print_human "  ${C_DIM}runtime available${C_RESET}"
+                        ;;
+                esac
+            else
+                print_human "${C_RED}Status: INVALID${C_RESET}"
+                print_human "  Target exists but is not a valid $profile_type environment: $saved_target"
             fi
         else
             print_human "${C_RED}Status: MISSING${C_RESET}"
@@ -837,6 +1085,7 @@ cmd_show() {
     elif [[ "$saved_strategy" == "unconfigured" ]]; then
         print_human "${C_YELLOW}Status: not configured${C_RESET}"
     else
+        # uv, mise, venv, system, none — intent only
         print_human "${C_DIM}Status: $saved_strategy${C_RESET}"
     fi
 }
@@ -877,27 +1126,11 @@ cmd_set() {
     profile_json=$(printf '%s' "$state_json" | jq -r ".profiles[\"$profile_name\"] // empty")
     [[ -n "$profile_json" ]] || { print_human "${C_RED}Profile '$profile_name' does not exist.${C_RESET}"; release_lock; return 1; }
 
-    # Validate strategy
-    case "$strategy" in
-        existing)
-            [[ -n "$target" ]] || { print_human "${C_RED}--target required for existing strategy${C_RESET}"; release_lock; return 1; }
-            local target_path="$root/$target"
-            [[ -d "$target_path" ]] || { print_human "${C_RED}Target does not exist: $target${C_RESET}"; release_lock; return 1; }
-            # Validate it's a valid environment
-            if [[ -x "$target_path/bin/python" ]] || [[ -x "$target_path/bin/node" ]] || [[ -d "$target_path/node_modules" ]]; then
-                : # valid
-            else
-                print_human "${C_RED}Target is not a valid environment: $target${C_RESET}"; release_lock; return 1
-            fi
-            ;;
-        uv|mise|venv|system|none|nvm|node-version)
-            # These are intent declarations, no target validation needed
-            target=""
-            ;;
-        *)
-            print_human "${C_RED}Invalid strategy: $strategy${C_RESET}"; release_lock; return 1
-            ;;
-    esac
+    local profile_type
+    profile_type=$(printf '%s' "$profile_json" | jq -r '.type // "custom"')
+
+    # Validate strategy (language-aware)
+    validate_strategy "$strategy" "$target" "$profile_type" "$root" || { release_lock; return 1; }
 
     # Update profile environment
     local env_json
@@ -960,10 +1193,10 @@ cmd_clear() {
 
 print_help() {
     cat <<'EOF'
-flow project profile env — environment resolution & selection
+flow project env — environment resolution & selection
 
 USAGE:
-    flow project profile env <subcommand> [options]
+    flow project env <subcommand> [options]
 
 SUBCOMMANDS:
     list <profile>        List environment candidates for a profile
@@ -978,24 +1211,39 @@ OPTIONS:
     --version            Show version
 
 SET OPTIONS:
-    --strategy STRATEGY  existing|uv|mise|venv|system|none
+    --strategy STRATEGY  existing|uv|mise|venv|system|none|nvm|node-version
     --target PATH        Target path (required for existing)
     --auto-activate      Enable auto-activation (Phase 3C)
 
 EXAMPLES:
-    flow project profile env list backend
-    flow project profile env show backend
-    flow project profile env set backend --strategy existing --target backend/.venv
-    flow project profile env set frontend --strategy system
-    flow project profile env clear backend
+    flow project env list backend
+    flow project env show backend
+    flow project env set backend --strategy existing --target backend/.venv
+    flow project env set frontend --strategy system
+    flow project env clear backend
 
 ENVIRONMENT STRATEGIES:
-    existing    Use existing virtual environment (--target required)
+    existing    Use existing virtual environment (--target required, language-validated)
     uv          Use uv for environment management
     mise        Use mise for runtime management
     venv        Use python -m venv
     system      Use system runtime
     none        No automatic environment
+    nvm         Use nvm (Node Version Manager)
+    node-version Use node-version
+
+LANGUAGE-AWARE VALIDATION:
+    When using "existing" strategy, the target is validated against the profile type:
+    - python/backend: validates bin/python exists
+    - node/frontend: validates bin/node exists
+    - go: validates bin/go exists
+    - rust: validates bin/cargo exists
+    - generic: validates any recognized runtime binary
+
+MODEL:
+    RUNTIME = the interpreter/toolchain (system, mise, nvm, .python-version, .nvmrc)
+    ENVIRONMENT = where dependencies live (existing .venv, uv-managed .venv, none)
+    NOTE: node_modules is NOT an environment — it's a dependency tree.
 EOF
 }
 
