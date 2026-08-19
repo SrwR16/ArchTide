@@ -35,13 +35,84 @@ flow_activate() {
     echo "Flow: activate.sh not found (set FLOW_BASE_DIR or install Flow)" >&2
     return 1
   fi
-  
+
+  # Save previous state for rollback
+  local prev_profile="${FLOW_ENV_PROFILE:-}" prev_language="${FLOW_ENV_LANGUAGE:-}"
+  local prev_strategy="${FLOW_ENV_STRATEGY:-}" prev_target="${FLOW_ENV_TARGET:-}"
+  local prev_root="${FLOW_ENV_ROOT:-}" prev_activated="${FLOW_ENV_ACTIVATED:-}"
+  local prev_venv="${FLOW_ENV_VENV:-}" prev_node_version="${FLOW_ENV_NODE_VERSION:-}"
+  local prev_mise_node="${FLOW_ENV_MISE_NODE:-}" prev_mise_python="${FLOW_ENV_MISE_PYTHON:-}"
+  local prev_path="$PATH"
+
+  # Generate activation commands (without env vars)
   local commands
-  commands=$(bash "$_flow_activate_script" activate "$@")
-  if [[ $? -eq 0 ]]; then
-    eval "$commands"
-  else
-    return $?
+  commands=$(bash "$_flow_activate_script" activate --no-env "$@")
+  local rc=$?
+
+  if [[ $rc -ne 0 ]]; then
+    return $rc
+  fi
+
+  # Eval the activation commands, tracking failure
+  _flow_activate_failed=0
+  eval "$commands"
+
+  # If activation failed, rollback
+  if [[ "${_flow_activate_failed:-0}" == "1" ]]; then
+    export PATH="$prev_path"
+    FLOW_ENV_PROFILE="$prev_profile" FLOW_ENV_LANGUAGE="$prev_language"
+    FLOW_ENV_STRATEGY="$prev_strategy" FLOW_ENV_TARGET="$prev_target"
+    FLOW_ENV_ROOT="$prev_root" FLOW_ENV_ACTIVATED="$prev_activated"
+    FLOW_ENV_VENV="$prev_venv" FLOW_ENV_NODE_VERSION="$prev_node_version"
+    FLOW_ENV_MISE_NODE="$prev_mise_node" FLOW_ENV_MISE_PYTHON="$prev_mise_python"
+    [[ -z "$prev_profile" ]] && unset FLOW_ENV_PROFILE
+    [[ -z "$prev_language" ]] && unset FLOW_ENV_LANGUAGE
+    [[ -z "$prev_strategy" ]] && unset FLOW_ENV_STRATEGY
+    [[ -z "$prev_target" ]] && unset FLOW_ENV_TARGET
+    [[ -z "$prev_root" ]] && unset FLOW_ENV_ROOT
+    [[ -z "$prev_activated" ]] && unset FLOW_ENV_ACTIVATED
+    [[ -z "$prev_venv" ]] && unset FLOW_ENV_VENV
+    [[ -z "$prev_node_version" ]] && unset FLOW_ENV_NODE_VERSION
+    [[ -z "$prev_mise_node" ]] && unset FLOW_ENV_MISE_NODE
+    [[ -z "$prev_mise_python" ]] && unset FLOW_ENV_MISE_PYTHON
+    unset _flow_activate_failed
+    echo "Flow: activation failed, rolled back" >&2
+    return 1
+  fi
+
+  # Activation succeeded — set env vars now (only on success)
+  unset _flow_activate_failed
+  local profile_name="${1:-}"
+  local root git_root
+  root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  local state_file="${HOME}/.local/state/flow/projects/$(printf '%s' "$root" | sha256sum | cut -c1-16).json"
+
+  if [[ -f "$state_file" && -n "$profile_name" ]]; then
+    local p_json
+    p_json=$(jq -r ".profiles[\"$profile_name\"] // empty" "$state_file" 2>/dev/null)
+    if [[ -n "$p_json" ]]; then
+      local p_type p_scope p_strategy p_target p_lang
+      p_type=$(jq -r '.type // "custom"' <<< "$p_json")
+      p_scope=$(jq -r '.scope // "."' <<< "$p_json")
+      p_strategy=$(jq -r '.environment.strategy // "unconfigured"' <<< "$p_json")
+      p_target=$(jq -r '.environment.target // ""' <<< "$p_json")
+      # Resolve language from scope (same logic as activate.sh)
+      local search_dir="$root"
+      [[ "$p_scope" != "." ]] && search_dir="$root/$p_scope"
+      p_lang=""
+      [[ -f "$search_dir/manage.py" || -f "$search_dir/requirements.txt" || -f "$search_dir/Pipfile" || -f "$search_dir/pyproject.toml" ]] && p_lang="python"
+      [[ -z "$p_lang" ]] && { [[ -f "$search_dir/package.json" || -f "$search_dir/node_modules" ]] && p_lang="node"; }
+      [[ -z "$p_lang" ]] && { [[ -f "$search_dir/go.mod" ]] && p_lang="go"; }
+      [[ -z "$p_lang" ]] && { [[ -f "$search_dir/Cargo.toml" ]] && p_lang="rust"; }
+      [[ -z "$p_lang" ]] && p_lang="unknown"
+
+      export FLOW_ENV_PROFILE="$profile_name"
+      export FLOW_ENV_LANGUAGE="$p_lang"
+      export FLOW_ENV_STRATEGY="$p_strategy"
+      export FLOW_ENV_TARGET="$p_target"
+      export FLOW_ENV_ROOT="$root"
+      export FLOW_ENV_ACTIVATED="$(date -Iseconds)"
+    fi
   fi
 }
 

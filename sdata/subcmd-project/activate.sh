@@ -389,19 +389,30 @@ activate_python_venv() {
 
     # Validate the environment exists
     if [[ ! -d "$full_path" ]]; then
-        printf 'echo "Flow: Python environment not found: %s"\n' "$venv_path"
-        printf 'return 1 2>/dev/null || exit 1\n'
+        printf 'echo "Flow: Python environment not found: %%s" "%s"\n' "$venv_path"
+        printf '_flow_activate_failed=1\n'
         return 1
     fi
 
     # Check for bin/activate
     if [[ ! -f "$full_path/bin/activate" ]]; then
-        printf 'echo "Flow: Python environment missing bin/activate: %s"\n' "$venv_path"
-        printf 'return 1 2>/dev/null || exit 1\n'
+        printf 'echo "Flow: Python environment missing bin/activate: %%s" "%s"\n' "$venv_path"
+        printf '_flow_activate_failed=1\n'
+        return 1
+    fi
+
+    # Pre-validate: test activate script in subshell (catches exit 1, syntax errors)
+    local test_output
+    test_output=$(bash -c "source '$full_path/bin/activate'" 2>&1)
+    local test_rc=$?
+    if [[ $test_rc -ne 0 ]]; then
+        printf 'echo "Flow: activate script failed validation: %%s (rc=%%d)" "%s" %d\n' "$venv_path" "$test_rc"
+        printf '_flow_activate_failed=1\n'
         return 1
     fi
 
     # Generate activation commands
+    printf '_flow_activate_failed=0\n'
     printf '# Flow: Activate Python virtual environment\n'
     printf 'if [[ -n "${FLOW_ENV_VENV:-}" && "${FLOW_ENV_VENV}" == "%s" ]]; then\n' "$full_path"
     printf '  : # Already activated, no-op\n'
@@ -585,11 +596,14 @@ cmd_activate() {
     local profile_name="${1:-}"
     shift || true
 
+    local NO_ENV=false
+
     # Parse args
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --json) JSON_OUTPUT=true ;;
             --dry-run) DRY_RUN=true ;;
+            --no-env) NO_ENV=true ;;
             -v|--verbose) VERBOSE=true ;;
             -h|--help) print_help; exit 0 ;;
             --version) printf 'activate.sh %s\n' "1.0.0"; exit 0 ;;
@@ -814,9 +828,11 @@ cmd_activate() {
             ;;
     esac
 
-    # 3. Set Flow environment variables
-    activation_commands+=$'\n'
-    activation_commands+=$(set_flow_env_vars "$profile_name" "$resolved_language" "$saved_strategy" "$saved_target" "$root")
+    # 3. Set Flow environment variables (unless --no-env for shell integration)
+    if [[ "$NO_ENV" == false ]]; then
+        activation_commands+=$'\n'
+        activation_commands+=$(set_flow_env_vars "$profile_name" "$resolved_language" "$saved_strategy" "$saved_target" "$root")
+    fi
 
     # Output activation commands
     if [[ "$DRY_RUN" == true ]]; then
