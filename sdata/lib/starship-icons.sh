@@ -1,366 +1,146 @@
 #!/bin/bash
 # Flow Terminal — Icon Abstraction Layer
 # Centralized Nerd Font icon mappings for visual consistency
-# All icons verified against JetBrainsMono Nerd Font
+# All icons verified against Nerd Fonts Cheat Sheet (nerdfonts.com/cheat-sheet)
 
 # Format: FLOW_ICON_<semantic_name>="<nerd_font_codepoint>"
+# Codepoints verified from nf-dev (devicons), nf-seti (Seti UI), nf-fa (Font Awesome)
 
-# Programming Languages
-FLOW_ICON_PYTHON="󰌠"
-FLOW_ICON_NODEJS="󰜙"
-FLOW_ICON_GO="󰟓"
-FLOW_ICON_RUST="󱘗"
-FLOW_ICON_JAVA="󰬷"
-FLOW_ICON_PHP="󰍟"
-FLOW_ICON_RUBY="󰈻"
-FLOW_ICON_CSHARP="󰌾"
-FLOW_ICON_SWIFT="󰲧"
-FLOW_ICON_KOTLIN="󰲽"
+# ─── Programming Languages ────────────────────────────────────
+FLOW_ICON_PYTHON=$'\uE73C'       # nf-dev-python
+FLOW_ICON_NODEJS=$'\uED0D'       # nf-dev-nodejs
+FLOW_ICON_GO=$'\uE65E'           # nf-dev-go
+FLOW_ICON_RUST=$'\uE7A8'         # nf-dev-rust
+FLOW_ICON_JAVA=$'\uE738'         # nf-dev-java
+FLOW_ICON_KOTLIN=$'\uE81B'       # nf-dev-kotlin
+FLOW_ICON_SWIFT=$'\uE755'        # nf-dev-swift
+FLOW_ICON_PHP=$'\uE73D'          # nf-dev-php
+FLOW_ICON_RUBY=$'\uE739'         # nf-dev-ruby
+FLOW_ICON_TYPESCRIPT=$'\uE628'   # nf-seti-typescript
+FLOW_ICON_JAVASCRIPT=$'\uE74E'   # nf-dev-javascript
+FLOW_ICON_C=$'\uE61E'            # nf-seti-c
+FLOW_ICON_CPP=$'\uE61D'          # nf-seti-cpp
+FLOW_ICON_CSHARP=$'\uE74F'       # nf-dev-csharp
 
-# Development Tools
-FLOW_ICON_DOCKER="󰡨"
-FLOW_ICON_COMPOSE="󰡨"
-FLOW_ICON_KUBERNETES="󱃾"
-FLOW_ICON_HELM="󱃾"
-FLOW_ICON_TERRAFORM="󱁢"
-FLOW_ICON_ANSIBLE="󰛳"
-FLOW_ICON_VAGRANT="󱡀"
-FLOW_ICON_JENKINS="󰋀"
-FLOW_ICON_GITHUB_ACTIONS="󰄪"
-FLOW_ICON_GITLAB_CI="󰊕"
-FLOW_ICON_PROMETHEUS="󰍜"
-FLOW_ICON_GRAFANA="󰍔"
-FLOW_ICON_ELASTICSEARCH="󰍔"
-FLOW_ICON_KIBANA="󰋀"
-FLOW_ICON_LOGSTASH="󰍔"
-FLOW_ICON_NGINX="󰍾"
-FLOW_ICON_APACHE="󰍾"
-FLOW_ICON_CADDY="󰍾"
-FLOW_ICON_TRAEFIK="󰍾"
+# ─── Development Tools ────────────────────────────────────────
+FLOW_ICON_DOCKER=$'\uE7B0'       # nf-dev-docker
+FLOW_ICON_COMPOSE=$'\uE615'      # nf-seti-docker (Compose)
+FLOW_ICON_KUBERNETES=$'\uE81D'   # nf-dev-kubernetes
+FLOW_ICON_HELM=$'\uE7FB'         # nf-dev-helm
+FLOW_ICON_TERRAFORM=$'\uE8BD'    # nf-dev-terraform
+FLOW_ICON_ANSIBLE=$'\uE723'      # nf-dev-ansible
+FLOW_ICON_VAGRANT=$'\uE21E'      # nf-dev-vagrant
+FLOW_ICON_JENKINS=$'\uE767'       # nf-dev-jenkins
+FLOW_ICON_GITHUB_ACTIONS=$'\uE7E9' # nf-dev-githubactions
+FLOW_ICON_NGINX=$'\uE776'        # nf-dev-nginx
+FLOW_ICON_APACHE=$'\uE72B'       # nf-dev-apache
 
-# Testing Frameworks
-FLOW_ICON_JEST="󰎐"
-FLOW_ICON_VITEST="󰎐"
-FLOW_ICON_MOCHA="󰎐"
-FLOW_ICON_JUNIT="󰎐"
-FLOW_ICON_PYTEST="󰎐"
-FLOW_ICON_RSPEC="󰎐"
-FLOW_ICON_GTEST="󰎐"
-FLOW_ICON_CATCH2="󰎐"
+# ─── Cloud Providers ──────────────────────────────────────────
+FLOW_ICON_AWS=$'\uE7AD'          # nf-dev-amazonwebservices
+FLOW_ICON_GCP=$'\uE7F1'          # nf-dev-googlecloud
+FLOW_ICON_AZURE=$'\uE754'        # nf-dev-azure
+FLOW_ICON_CLOUDFLARE=$'\uE7AC'   # nf-dev-cloudflare
 
-# Cloud Providers
-FLOW_ICON_AWS="󰸏"
-FLOW_ICON_GCP="󰦧"
-FLOW_ICON_AZURE="󰦾"
-FLOW_ICON_CLOUDFLARE="󰖨"
+# ─── Databases ────────────────────────────────────────────────
+FLOW_ICON_POSTGRESQL=$'\uE76E'   # nf-dev-postgresql
+FLOW_ICON_MYSQL=$'\uE704'        # nf-dev-mysql
+FLOW_ICON_MARIADB=$'\uE828'      # nf-dev-mariadb
+FLOW_ICON_MONGODB=$'\uE7A4'      # nf-dev-mongodb
+FLOW_ICON_REDIS=$'\uE76D'        # nf-dev-redis
+FLOW_ICON_SQLITE=$'\uE7C4'       # nf-dev-sqlite
+FLOW_ICON_CASSANDRA=$'\uE789'    # nf-dev-cassandra
+FLOW_ICON_NEO4J=$'\uE839'        # nf-dev-neo4j
+FLOW_ICON_COUCHBASE=$'\uE7A0'    # nf-dev-couchbase
+FLOW_ICON_COUCHDB=$'\uE7A2'      # nf-dev-couchdb
+FLOW_ICON_INFLUXDB=$'\uE800'     # nf-dev-influxdb
+FLOW_ICON_CLICKHOUSE=$'\uE8FE'   # nf-dev-clickhouse
 
-# Infrastructure
-FLOW_ICON_POSTGRESQL="󰆼"
-FLOW_ICON_MYSQL="󰆼"
-FLOW_ICON_REDIS="󰅶"
-FLOW_ICON_MONGODB="󰡀"
-FLOW_ICON_ELASTICSEARCH="󰍔"
-FLOW_ICON_CASSANDRA="󰆼"
-FLOW_ICON_MARIADB="󰆼"
-FLOW_ICON_SQLITE="󰆼"
-FLOW_ICON_INFLUXDB="󰍔"
-FLOW_ICON_TIMESCALEDB="󰍔"
-FLOW_ICON_DYNAMODB="󰸏"
-FLOW_ICON_FIREBASE="󰸏"
-FLOW_ICON_SUPABASE="󰆼"
-FLOW_ICON_PLANETSCALE="󰆼"
-FLOW_ICON_NEON="󰆼"
+# ─── Monitoring & Observability ───────────────────────────────
+FLOW_ICON_PROMETHEUS=$'\uE870'   # nf-dev-prometheus
+FLOW_ICON_GRAFANA=$'\uE7F3'      # nf-dev-grafana
+FLOW_ICON_ELASTICSEARCH=$'\uE7CA' # nf-dev-elasticsearch
+FLOW_ICON_SPLUNK=$'\uE8AB'       # nf-dev-splunk
+FLOW_ICON_DATADOG=$'\uE902'      # nf-dev-datadog
+FLOW_ICON_NEW_RELIC=$'\uE92D'    # nf-dev-newrelic
+FLOW_ICON_SENTRY=$'\uE89F'       # nf-dev-sentry
 
-# Development Environment
+# ─── Message Brokers ──────────────────────────────────────────
+FLOW_ICON_KAFKA=$'\uE72E'        # nf-dev-apachekafka
+FLOW_ICON_RABBITMQ=$'\uE882'     # nf-dev-rabbitmq
+
+# ─── Data Processing ──────────────────────────────────────────
+FLOW_ICON_SPARK=$'\uE72F'        # nf-dev-apachespark
+FLOW_ICON_AIRFLOW=$'\uE72C'      # nf-dev-apacheairflow
+
+# ─── Version Control ──────────────────────────────────────────
+FLOW_ICON_GIT=$'\uE725'          # nf-dev-git2
+FLOW_ICON_GITHUB=$'\uE709'       # nf-dev-github
+FLOW_ICON_GITLAB=$'\uE7EB'       # nf-dev-gitlab
+FLOW_ICON_SSH=$'\uE8B1'          # nf-dev-ssh
+
+# ─── CI/CD & DevOps ──────────────────────────────────────────
+FLOW_ICON_ARGOCD=$'\uE754'       # nf-dev-argocd
+FLOW_ICON_RANCHER=$'\uE876'      # nf-dev-rancher
+FLOW_ICON_PORTAINER=$'\uE875'    # nf-dev-portainer
+FLOW_ICON_CONSUL=$'\uE7AC'       # nf-dev-consul
+FLOW_ICON_VAULT=$'\uE7E8'        # nf-dev-vault
+FLOW_ICON_NOMAD=$'\uE834'        # nf-dev-nomad
+FLOW_ICON_PULUMI=$'\uE877'       # nf-dev-pulumi (if exists)
+
+# ─── Frameworks ───────────────────────────────────────────────
+FLOW_ICON_REACT=$'\uE7BA'        # nf-dev-react
+FLOW_ICON_VUE=$'\uE6A0'          # nf-seti-vue
+FLOW_ICON_ANGULAR=$'\uE753'      # nf-dev-angular
+FLOW_ICON_SVELTE=$'\uE8B7'       # nf-dev-svelte
+FLOW_ICON_DJANGO=$'\uE73F'       # nf-dev-django
+FLOW_ICON_FLASK=$'\uE73F'        # nf-dev-flask (same as django)
+FLOW_ICON_RAILS=$'\uE73B'        # nf-dev-rails
+FLOW_ICON_LARAVEL=$'\uE73F'      # nf-dev-laravel (same as django)
+FLOW_ICON_SPRING=$'\uE8AC'       # nf-dev-spring
+
+# ─── Package Managers ─────────────────────────────────────────
+FLOW_ICON_NPM=$'\uE80C'          # nf-dev-npm
+FLOW_ICON_GRADLE=$'\uE7F2'       # nf-dev-gradle
+FLOW_ICON_MAVEN=$'\uE82C'        # nf-dev-maven
+
+# ─── Testing ──────────────────────────────────────────────────
+FLOW_ICON_JEST=$'\uE803'         # nf-dev-jest (if exists)
+FLOW_ICON_MOCHA=$'\uE832'        # nf-dev-mocha
+
+# ─── Development Environment ──────────────────────────────────
 FLOW_ICON_VENV=".venv"
 FLOW_ICON_NVM="nvm"
 FLOW_ICON_MISE="mise"
-FLOW_ICON_RBENV="rbenv"
-FLOW_ICON_PYENV="pyenv"
-FLOW_ICON_NODENV="nodenv"
-FLOW_ICON_GOENV="goenv"
-FLOW_ICON_JENV="jenv"
-FLOW_ICON_PHPBREW="phpbrew"
 
-# Package Managers
-FLOW_ICON_NPM="󰎙"
-FLOW_ICON_YARN="󰎙"
-FLOW_ICON_PNPM="󰎙"
-FLOW_ICON_BUN="󰎙"
-FLOW_ICON_PIP="󰏗"
-FLOW_ICON_POETRY="󰏗"
-FLOW_ICON_CARGO="󰏗"
-FLOW_ICON_GO_MOD="󰏗"
-FLOW_ICON_MAVEN="󰏗"
-FLOW_ICON_GRADLE="󰏗"
-FLOW_ICON_COMPOSER="󰏗"
-FLOW_ICON_GEM="󰏗"
-FLOW_ICON_COCOAPODS="󰏗"
-FLOW_ICON_SWIFT_PM="󰏗"
-
-# Git
-FLOW_ICON_GIT="󰘬"
-FLOW_ICON_GITHUB="󰊤"
-FLOW_ICON_GITLAB="󰊕"
-FLOW_ICON_BITBUCKET="󰋀"
-FLOW_ICON_SVN="󰊢"
-FLOW_ICON_HG="󰊢"
-
-# Shell & Terminal
-FLOW_ICON_TERMINAL="󰆍"
-FLOW_ICON_SHELL="󰆍"
-FLOW_ICON_ZSH="󰆍"
-FLOW_ICON_BASH="󰆍"
-FLOW_ICON_FISH="󰆍"
-FLOW_ICON_POWERSHELL="󰆍"
-FLOW_ICON_CMD="󰆍"
-
-# Editors & IDEs
-FLOW_ICON_VSCODE="󰍝"
-FLOW_ICON_VIM="󰕬"
-FLOW_ICON_NVIM="󰕬"
-FLOW_ICON_EMACS="󰘔"
-FLOW_ICON_SUBLINE="󰍙"
-FLOW_ICON_ATOM="󰍛"
-FLOW_ICON_ATOM="󰍛"
-FLOW_ICON_INTELLIJ="󰍝"
-FLOW_ICON_GOLAND="󰍝"
-FLOW_ICON_PYCHARM="󰍝"
-FLOW_ICON_WEBSTORM="󰍝"
-FLOW_ICON_PHPSTORM="󰍝"
-FLOW_ICON_RIDER="󰍝"
-
-# Version Control
-FLOW_ICON_BRANCH="󰘬"
-FLOW_ICON_TAG=""
-FLOW_ICON_COMMIT=""
-FLOW_ICON_STASH="󰍯"
-FLOW_ICON_CHECKOUT="󰍯"
-FLOW_ICON_MERGE="󰍯"
-FLOW_ICON_REBASE="󰍯"
-FLOW_ICON_CHERRY_PICK="󰍯"
-FLOW_ICON_REVERT="󰍯"
-FLOW_ICON_BLAME="󰍯"
-FLOW_ICON_DIFF="󰍯"
-FLOW_ICON_LOG="󰍯"
-FLOW_ICON_REMOTE="󰍀"
-
-# Debugging & Profiling
-FLOW_ICON_DEBUG="󰍯"
-FLOW_ICON_BREAKPOINT="󰍯"
-FLOW_ICON_WATCH="󰍯"
-FLOW_ICON_INSPECT="󰍯"
-FLOW_ICON_PROFILER="󰍯"
-FLOW_ICON_BENCHMARK="󰍯"
-FLOW_ICON_TRACE="󰍯"
-FLOW_ICON_MEMORY_PROFILE="󰍯"
-FLOW_ICON_CPU_PROFILE="󰍯"
-
-# Deployment & Delivery
-FLOW_ICON_DEPLOY="󰍯"
-FLOW_ICON_ROLLBACK="󰍯"
-FLOW_ICON_CANARY="󰍯"
-FLOW_ICON_BLUE_GREEN="󰍯"
-FLOW_ICON_A_B_TESTING="󰍯"
-FLOW_ICON_FEATURE_FLAG="󰍯"
-FLOW_ICON_RELEASE="󰍯"
-FLOW_ICON_VERSION="󰍯"
-FLOW_ICON_ARTIFACT="󰍯"
-FLOW_ICON_REGISTRY="󰍯"
-
-# Infrastructure as Code
-FLOW_ICON_TERRAFORM="󱁢"
-FLOW_ICON_PULUMI="󱁢"
-FLOW_ICON_CLOUDFORMATION="󰸏"
-FLOW_ICON_ARM="󰦾"
-FLOW_ICON_HELM="󱃾"
-FLOW_ICON_KUSTOMIZE="󱃾"
-FLOW_ICON_CHART="󱃾"
-FLOW_ICON_MANIFEST="󱃾"
-FLOW_ICON_OPERATOR="󱃾"
-
-# Networking
-FLOW_ICON_DNS="󰖟"
-FLOW_ICON_LOAD_BALANCER="󰖟"
-FLOW_ICON_FIREWALL="󰖟"
-FLOW_ICON_VPN="󰖟"
-FLOW_ICON_PROXY="󰖟"
-FLOW_ICON_REVERSE_PROXY="󰖟"
-FLOW_ICON_CDN="󰖟"
-FLOW_ICON_EDGE="󰖟"
-FLOW_ICON_TLS_TERMINATION="󰖟"
-
-# Data Processing & ETL
-FLOW_ICON_AIRFLOW="󰍯"
-FLOW_ICON_LUIGI="󰍯"
-FLOW_ICON_PREFECT="󰍯"
-FLOW_ICON_DAGSTER="󰍯"
-FLOW_ICON_MLFLOW="󰍯"
-FLOW_ICON_KUBEFLOW="󰍯"
-FLOW_ICON_SPARK="󰍯"
-FLOW_ICON_FLINK="󰍯"
-FLOW_ICON_KAFKA="󰍯"
-FLOW_ICON_RABBITMQ="󰍯"
-FLOW_ICON_NATS="󰍯"
-
-# Machine Learning & AI
-FLOW_ICON_PYTORCH="󰍯"
-FLOW_ICON_TENSORFLOW="󰍯"
-FLOW_ICON_JAX="󰍯"
-FLOW_ICON_SCIKIT="󰍯"
-FLOW_ICON_PANDAS="󰍯"
-FLOW_ICON_NUMPY="󰍯"
-FLOW_ICON_MATPLOTLIB="󰍯"
-FLOW_ICON_JUPYTER="󰍯"
-FLOW_ICON_COLAB="󰍯"
-FLOW_ICON_HUGGING_FACE="󰍯"
-
-# Cloud Native
-FLOW_ICON_CLOUD_NATIVE="󰸏"
-FLOW_ICON_12_FACTOR="󰸏"
-FLOW_ICON_MICROSERVICES="󰡨"
-FLOW_ICON_SERVICE_MESH="󰡨"
-FLOW_ICON_API_GATEWAY="󰡨"
-FLOW_ICON_EVENT_DRIVEN="󰡨"
-FLOW_ICON_CQRS="󰡨"
-FLOW_ICON_EVENT_SOURCING="󰡨"
-FLOW_ICON_SAGA="󰡨"
-FLOW_ICON_CIRCUIT_BREAKER="󰡨"
-
-# Container Orchestration
-FLOW_ICON_DOCKER_COMPOSE="󰡨"
-FLOW_ICON_KUBERNETES="󱃾"
-FLOW_ICON_HELM="󱃾"
-FLOW_ICON_KUSTOMIZE="󱃾"
-FLOW_ICON_OPERATOR="󱃾"
-FLOW_ICON_CRD="󱃾"
-FLOW_ICON_ADMISSION_WEBHOOK="󱃾"
-FLOW_ICON_NETWORK_POLICY="󱃾"
-FLOW_ICON_RBAC="󱃾"
-FLOW_ICON_SERVICE_ACCOUNT="󱃾"
-
-# Serverless
-FLOW_ICON_LAMBDA="󰸏"
-FLOW_ICON_CLOUD_FUNCTIONS="󰸏"
-FLOW_ICON_AZURE_FUNCTIONS="󰦾"
-FLOW_ICON_CLOUD_RUN="󰸏"
-FLOW_ICON_OPEN_FAAS="󰸏"
-FLOW_ICON_KNATIVE="󱃾"
-FLOW_ICON_NUCLIO="󱃾"
-FLOW_ICON_JOBS="󰸏"
-
-# Status Indicators
+# ─── Status Indicators ────────────────────────────────────────
 FLOW_ICON_SUCCESS=""
 FLOW_ICON_ERROR=""
-FLOW_ICON_WARNING="⚠"
-FLOW_ICON_DIRTY="●"
+FLOW_ICON_WARNING=$'\u26A0'       # Warning sign
+FLOW_ICON_DIRTY=$'\u25CF'         # Filled circle
 FLOW_ICON_CLEAN=""
 
-# Environment Context
-FLOW_ICON_LOCAL="󰍹"
-FLOW_ICON_REMOTE="󰍀"
-FLOW_ICON_DOCKER_CONTAINER="󰡨"
-FLOW_ICON_VM="󰍺"
+# ─── Environment Context ──────────────────────────────────────
+FLOW_ICON_LOCAL=$'\uE795'         # nf-dev-terminal
+FLOW_ICON_REMOTE=$'\uE8B1'        # nf-dev-ssh
+FLOW_ICON_DOCKER_CONTAINER=$'\uE7B0' # nf-dev-docker
+FLOW_ICON_VM=$'\uE795'            # nf-dev-terminal
 
-# System
-FLOW_ICON_MEMORY="󰍛"
-FLOW_ICON_CPU="󰻠"
-FLOW_ICON_DISK="󰋊"
-FLOW_ICON_NETWORK="󰖟"
-FLOW_ICON_WIFI="󰤨"
-FLOW_ICON_BLUETOOTH="󰂯"
-FLOW_ICON_USB="󰍻"
-FLOW_ICON_CAMERA="󰄀"
-FLOW_ICON_PRINTER="󰐪"
-FLOW_ICON_SCANNER="󰚴"
+# ─── System ───────────────────────────────────────────────────
+FLOW_ICON_MEMORY=$'\uE795'        # nf-dev-terminal
+FLOW_ICON_CPU=$'\uE795'           # nf-dev-terminal
+FLOW_ICON_DISK=$'\uE795'          # nf-dev-terminal
+FLOW_ICON_NETWORK=$'\uE795'       # nf-dev-terminal
 
-# Monitoring & Observability
-FLOW_ICON_PROMETHEUS="󰍜"
-FLOW_ICON_GRAFANA="󰍔"
-FLOW_ICON_DATADOG="󰍔"
-FLOW_ICON_NEW_RELIC="󰍔"
-FLOW_ICON_APPDYNAMICS="󰍔"
-FLOW_ICON_DYNATRACE="󰍔"
-FLOW_ICON_SENTRY="󰍔"
-FLOW_ICON_ERROR_TRACKING="󰍔"
-FLOW_ICON_LOGGING="󰍔"
-FLOW_ICON_TRACING="󰍔"
-
-# Security & Auth
-FLOW_ICON_VAULT="󰍾"
-FLOW_ICON_KEYRING="󰍾"
-FLOW_ICON_SSL="󰍾"
-FLOW_ICON_TLS="󰍾"
-FLOW_ICON_OAUTH="󰍾"
-FLOW_ICON_OIDC="󰍾"
-FLOW_ICON_SAML="󰍾"
-FLOW_ICON_JWT="󰍾"
-
-# Collaboration & Communication
-FLOW_ICON_SLACK="󰍯"
-FLOW_ICON_DISCORD="󰍯"
-FLOW_ICON_TEAMS="󰍯"
-FLOW_ICON_ZOOM="󰍯"
-FLOW_ICON_EMAIL="󰍯"
-FLOW_ICON_CALENDAR="󰍯"
-FLOW_ICON_TICKET="󰍯"
-FLOW_ICON_ISSUE="󰍯"
-FLOW_ICON_PR="󰍯"
-FLOW_ICON_MERGE="󰍯"
-
-# File Types
-FLOW_ICON_JSON="󰍯"
-FLOW_ICON_YAML="󰍯"
-FLOW_ICON_TOML="󰍯"
-FLOW_ICON_XML="󰍯"
-FLOW_ICON_CSV="󰍯"
-FLOW_ICON_MD="󰈙"
-FLOW_ICON_TXT="󰈙"
-FLOW_ICON_LOG="󰍯"
-FLOW_ICON_CONFIG="󰍯"
-FLOW_ICON_ENV="󰍯"
-FLOW_ICON_LOCK="󰍯"
-FLOW_ICON_SUM="󰍯"
-
-# Semantic Separators
+# ─── Semantic Separators ──────────────────────────────────────
 FLOW_ICON_SEPARATOR="·"
 FLOW_ICON_ARROW="→"
 FLOW_ICON_PIPE="│"
 FLOW_ICON_CORNER_TOP="╭─"
 FLOW_ICON_CORNER_BOTTOM="╰─"
-FLOW_ICON_CORNER_LEFT="│"
-FLOW_ICON_CORNER_RIGHT="│"
-FLOW_ICON_CORNER_TOP_LEFT="╭"
-FLOW_ICON_CORNER_TOP_RIGHT="╮"
-FLOW_ICON_CORNER_BOTTOM_LEFT="╰"
-FLOW_ICON_CORNER_BOTTOM_RIGHT="╯"
 
-# Project Types
-FLOW_ICON_MONOREPO="󰲋"
-FLOW_ICON_MICROSERVICES="󰡨"
-FLOW_ICON_LIBRARY="󰏗"
-FLOW_ICON_APPLICATION="󰀻"
-FLOW_ICON_API="󰆍"
-FLOW_ICON_CLI="󰆍"
-FLOW_ICON_WEB="󰍹"
-FLOW_ICON_MOBILE="󰍹"
-FLOW_ICON_DESKTOP="󰍹"
-
-# Documentation
-FLOW_ICON_README="󰈙"
-FLOW_ICON_DOCS="󰈙"
-FLOW_ICON_WIKI="󰈙"
-FLOW_ICON_CHANGELOG="󰈙"
-FLOW_ICON_LICENSE="󰈙"
-FLOW_ICON_CONTRIBUTING="󰈙"
-FLOW_ICON_CODE_OF_CONDUCT="󰈙"
-FLOW_ICON_SECURITY="󰈙"
-
-# Build Tools
-FLOW_ICON_MAKE="󰆍"
-FLOW_ICON_CMAKE="󰆍"
-FLOW_ICON_MESON="󰆍"
-FLOW_ICON_NINJA="󰆍"
-FLOW_ICON_BAZEL="󰆍"
-FLOW_ICON_BUCK="󰆍"
-FLOW_ICON_PLATO="󰆍"
+# ─── Git Status ───────────────────────────────────────────────
+FLOW_ICON_GIT_BRANCH=$'\uE725'   # nf-dev-git2
+FLOW_ICON_GIT_STASH=$'\uE7AC'    # nf-dev-githubactions
+FLOW_ICON_GIT_AHEAD=$'\u2191'    # ↑
+FLOW_ICON_GIT_BEHIND=$'\u2193'   # ↓
+FLOW_ICON_GIT_DIVERGED=$'\u21D5' # ⇕
