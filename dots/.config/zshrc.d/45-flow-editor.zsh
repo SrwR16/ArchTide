@@ -149,16 +149,19 @@ flow_cut() {
 }
 
 flow_paste() {
-  local text
-  text="$(_flow_clipboard_read)" || {
+  local text st
+  _flow_clipboard_read | IFS= read -r -d '' text
+  st=$pipestatus[1]
+  if (( st == 0 )) || [[ -n $text ]]; then
+    if (( REGION_ACTIVE )); then
+      _flow_delete_region
+    fi
+    BUFFER="${BUFFER:0:$CURSOR}${text}${BUFFER:$CURSOR}"
+    CURSOR=$(( CURSOR + ${#text} ))
+  else
     zle -M "Flow: clipboard backend unavailable"
     return 1
-  }
-  if (( REGION_ACTIVE )); then
-    _flow_delete_region
   fi
-  BUFFER="${BUFFER:0:$CURSOR}${text}${BUFFER:$CURSOR}"
-  CURSOR=$(( CURSOR + ${#text} ))
 }
 
 # --- Delete widgets ----------------------------------------------------------
