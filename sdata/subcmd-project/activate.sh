@@ -431,8 +431,8 @@ activate_node_runtime() {
             printf '  if [[ "${FLOW_ENV_NODE_VERSION:-}" == "%s" ]]; then\n' "$version"
             printf '    : # Already activated, no-op\n'
             printf '  else\n'
-            printf '    export FLOW_ENV_NODE_VERSION="%s"\n' "$version"
-            printf '    nvm use "%s" 2>/dev/null || echo "Flow: nvm use %s failed"\n' "$version" "$version"
+            printf '    nvm use "%s" 2>/dev/null || { echo "Flow: nvm use %s failed"; _flow_activate_failed=1; }\n' "$version" "$version"
+            printf '    [[ "${_flow_activate_failed:-0}" == "0" ]] && export FLOW_ENV_NODE_VERSION="%s"\n' "$version"
             printf '  fi\n'
             printf 'else\n'
             printf '  echo "Flow: nvm not found, cannot activate Node %s"\n' "$version"
@@ -450,8 +450,14 @@ activate_node_runtime() {
             printf '      _flow_activate_failed=1\n'
             printf '    }\n'
             printf '    if [[ "${_flow_activate_failed:-0}" == "0" ]]; then\n'
-            printf '      eval "$(mise env "node@%s")" 2>/dev/null || echo "Flow: mise env node@%%s failed" "%s"\n' "$version" "$version"
-            printf '      export FLOW_ENV_MISE_NODE="%s"\n' "$version"
+            printf '      _flow_mise_out=$(mise env "node@%s" 2>/dev/null)\n' "$version"
+            printf '      if [[ $? -ne 0 ]]; then\n'
+            printf '        echo "Flow: mise env node@%%s failed" "%s"\n' "$version"
+            printf '        _flow_activate_failed=1\n'
+            printf '      else\n'
+            printf '        eval "$_flow_mise_out"\n'
+            printf '        export FLOW_ENV_MISE_NODE="%s"\n' "$version"
+            printf '      fi\n'
             printf '    fi\n'
             printf '  fi\n'
             printf 'else\n'
@@ -497,8 +503,14 @@ activate_python_runtime() {
             printf '      _flow_activate_failed=1\n'
             printf '    }\n'
             printf '    if [[ "${_flow_activate_failed:-0}" == "0" ]]; then\n'
-            printf '      eval "$(mise env "python@%s")" 2>/dev/null || echo "Flow: mise env python@%%s failed" "%s"\n' "$version" "$version"
-            printf '      export FLOW_ENV_MISE_PYTHON="%s"\n' "$version"
+            printf '      _flow_mise_out=$(mise env "python@%s" 2>/dev/null)\n' "$version"
+            printf '      if [[ $? -ne 0 ]]; then\n'
+            printf '        echo "Flow: mise env python@%%s failed" "%s"\n' "$version"
+            printf '        _flow_activate_failed=1\n'
+            printf '      else\n'
+            printf '        eval "$_flow_mise_out"\n'
+            printf '        export FLOW_ENV_MISE_PYTHON="%s"\n' "$version"
+            printf '      fi\n'
             printf '    fi\n'
             printf '  fi\n'
             printf 'else\n'
@@ -529,8 +541,14 @@ activate_go_runtime() {
             printf '      _flow_activate_failed=1\n'
             printf '    }\n'
             printf '    if [[ "${_flow_activate_failed:-0}" == "0" ]]; then\n'
-            printf '      eval "$(mise env go)" 2>/dev/null || echo "Flow: mise env go failed"\n'
-            printf '      export FLOW_ENV_MISE_GO="active"\n'
+            printf '      _flow_mise_out=$(mise env go 2>/dev/null)\n'
+            printf '      if [[ $? -ne 0 ]]; then\n'
+            printf '        echo "Flow: mise env go failed"\n'
+            printf '        _flow_activate_failed=1\n'
+            printf '      else\n'
+            printf '        eval "$_flow_mise_out"\n'
+            printf '        export FLOW_ENV_MISE_GO="active"\n'
+            printf '      fi\n'
             printf '    fi\n'
             printf '  fi\n'
             printf 'else\n'
@@ -561,8 +579,14 @@ activate_rust_runtime() {
             printf '      _flow_activate_failed=1\n'
             printf '    }\n'
             printf '    if [[ "${_flow_activate_failed:-0}" == "0" ]]; then\n'
-            printf '      eval "$(mise env rust)" 2>/dev/null || echo "Flow: mise env rust failed"\n'
-            printf '      export FLOW_ENV_MISE_RUST="active"\n'
+            printf '      _flow_mise_out=$(mise env rust 2>/dev/null)\n'
+            printf '      if [[ $? -ne 0 ]]; then\n'
+            printf '        echo "Flow: mise env rust failed"\n'
+            printf '        _flow_activate_failed=1\n'
+            printf '      else\n'
+            printf '        eval "$_flow_mise_out"\n'
+            printf '        export FLOW_ENV_MISE_RUST="active"\n'
+            printf '      fi\n'
             printf '    fi\n'
             printf '  fi\n'
             printf 'else\n'
