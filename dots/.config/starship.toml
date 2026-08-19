@@ -57,7 +57,7 @@ format = "[ $path]($style)"
 # ─── Layer 2: Git ──────────────────────────────────────────────
 
 [git_branch]
-symbol = "󰘬"
+symbol = ""
 style = "bold fg:235"
 truncation_length = 24
 truncation_symbol = "…"
@@ -118,9 +118,9 @@ disabled = false
 description = "Python runtime"
 command = """
 if [ -n "$VIRTUAL_ENV" ]; then
-  echo "· 󰌠 $(basename "$VIRTUAL_ENV")"
+  echo "· ${FLOW_ICON_PYTHON:-$'\uE73C'} $(basename "$VIRTUAL_ENV")"
 elif [ -n "$FLOW_STARSHIP_MISE_PYTHON" ]; then
-  echo "· 󰌠 $FLOW_STARSHIP_MISE_PYTHON"
+  echo "· ${FLOW_ICON_PYTHON:-$'\uE73C'} $FLOW_STARSHIP_MISE_PYTHON"
 fi
 """
 when = '[ -n "$VIRTUAL_ENV" ] || [ -n "$FLOW_STARSHIP_MISE_PYTHON" ]'
@@ -133,9 +133,9 @@ disabled = false
 description = "Node.js runtime"
 command = """
 if [ -n "$FLOW_STARSHIP_MISE_NODE" ]; then
-  echo "· 󰜙 $FLOW_STARSHIP_MISE_NODE"
+  echo "· ${FLOW_ICON_NODEJS:-$'\uED0D'} $FLOW_STARSHIP_MISE_NODE"
 elif [ -n "$FLOW_STARSHIP_NODE_VERSION" ]; then
-  echo "· 󰜙 $FLOW_STARSHIP_NODE_VERSION"
+  echo "· ${FLOW_ICON_NODEJS:-$'\uED0D'} $FLOW_STARSHIP_NODE_VERSION"
 fi
 """
 when = '[ -n "$FLOW_STARSHIP_MISE_NODE" ] || [ -n "$FLOW_STARSHIP_NODE_VERSION" ]'
@@ -148,7 +148,7 @@ disabled = false
 description = "Go runtime"
 command = """
 if [ -n "$FLOW_STARSHIP_MISE_GO" ]; then
-  echo "· 󰟓 $FLOW_STARSHIP_MISE_GO"
+  echo "· ${FLOW_ICON_GO:-$'\uE65E'} $FLOW_STARSHIP_MISE_GO"
 fi
 """
 when = '[ -n "$FLOW_STARSHIP_MISE_GO" ]'
@@ -161,7 +161,7 @@ disabled = false
 description = "Rust runtime"
 command = """
 if [ -n "$FLOW_STARSHIP_MISE_RUST" ]; then
-  echo "· 󱘗 $FLOW_STARSHIP_MISE_RUST"
+  echo "· ${FLOW_ICON_RUST:-$'\uE7A8'} $FLOW_STARSHIP_MISE_RUST"
 fi
 """
 when = '[ -n "$FLOW_STARSHIP_MISE_RUST" ]'
@@ -176,9 +176,9 @@ disabled = false
 description = "Docker tools"
 command = """
 if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "compose.yml" ] || [ -f "compose.yaml" ]; then
-  echo "· 󰡨 Compose"
+  echo "· ${FLOW_ICON_COMPOSE:-$'\uE615'} Compose"
 elif [ -f "Dockerfile" ]; then
-  echo "· 󰡨 Docker"
+  echo "· ${FLOW_ICON_DOCKER:-$'\uE7B0'} Docker"
 fi
 """
 when = '[ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "compose.yml" ] || [ -f "compose.yaml" ] || [ -f "Dockerfile" ]'
@@ -191,7 +191,7 @@ disabled = false
 description = "Terraform"
 command = """
 if [ -d ".terraform" ] || ls ./*.tf &>/dev/null 2>&1; then
-  echo "· 󱁢 Terraform"
+  echo "· ${FLOW_ICON_TERRAFORM:-$'\uE8BD'} Terraform"
 fi
 """
 when = '[ -d ".terraform" ] || ls ./*.tf &>/dev/null 2>&1'
@@ -204,9 +204,9 @@ disabled = false
 description = "Kubernetes / Helm"
 command = """
 if [ -d "charts" ] || [ -f "Chart.yaml" ] || [ -f "helmfile.yaml" ]; then
-  echo "· 󱃾 Helm"
+  echo "· ${FLOW_ICON_HELM:-$'\uE7FB'} Helm"
 elif [ -d "k8s" ] || [ -d "kubernetes" ] || [ -d "manifests" ]; then
-  echo "· 󱃾 Kubernetes"
+  echo "· ${FLOW_ICON_KUBERNETES:-$'\uE81D'} Kubernetes"
 fi
 """
 when = '[ -d "charts" ] || [ -f "Chart.yaml" ] || [ -f "helmfile.yaml" ] || [ -d "k8s" ] || [ -d "kubernetes" ] || [ -d "manifests" ]'
@@ -219,7 +219,7 @@ disabled = false
 description = "Ansible"
 command = """
 if [ -f "ansible.cfg" ] || [ -d "playbooks" ] || [ -d "roles" ]; then
-  echo "· 󰛳 Ansible"
+  echo "· ${FLOW_ICON_ANSIBLE:-$'\uE723'} Ansible"
 fi
 """
 when = '[ -f "ansible.cfg" ] || [ -d "playbooks" ] || [ -d "roles" ]'
@@ -234,7 +234,7 @@ disabled = false
 description = "AWS context"
 command = """
 if [ -d ".aws" ] || [ -f "aws.config" ]; then
-  echo "· 󰸏 AWS"
+  echo "· ${FLOW_ICON_AWS:-$'\uE7AD'} AWS"
 fi
 """
 when = '[ -d ".aws" ] || [ -f "aws.config" ]'
@@ -247,7 +247,7 @@ disabled = false
 description = "GCP context"
 command = """
 if [ -d ".gcp" ] || [ -f "gcloud.config" ]; then
-  echo "· 󰦧 GCP"
+  echo "· ${FLOW_ICON_GCP:-$'\uE7F1'} GCP"
 fi
 """
 when = '[ -d ".gcp" ] || [ -f "gcloud.config" ]'
@@ -260,7 +260,7 @@ disabled = false
 description = "Azure context"
 command = """
 if [ -d ".azure" ] || [ -f "azure.config" ]; then
-  echo "· 󰦾 Azure"
+  echo "· ${FLOW_ICON_AZURE:-$'\uE754'} Azure"
 fi
 """
 when = '[ -d ".azure" ] || [ -f "azure.config" ]'
@@ -273,7 +273,7 @@ disabled = false
 
 [custom.flow_remote]
 description = "Remote shell indicator"
-command = "echo '·  󰣀 remote'"
+command = "echo \"· ${FLOW_ICON_REMOTE:-$'\\uE8B1'} remote\""
 when = '[ "$FLOW_STARSHIP_REMOTE" = "1" ]'
 shell = ["bash"]
 style = "bold fg:208"
@@ -282,7 +282,7 @@ disabled = false
 
 [custom.flow_prod_warning]
 description = "Production context warning"
-command = "echo '· ⚠ production'"
+command = "echo \"· ${FLOW_ICON_WARNING:-$'\\u26A0'} production\""
 when = '[ "$FLOW_STARSHIP_PROD" = "1" ]'
 shell = ["bash"]
 style = "bold fg:196"
