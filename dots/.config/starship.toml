@@ -1,103 +1,306 @@
-# Don't print a new line at the start of the prompt
-add_newline = false
-# Pipes ╰─ ╭─
-# Powerline symbols                                     
-# Wedges 🭧🭒 🭣🭧🭓
-# Random noise 🬖🬥🬔🬗
-# Cool stuff 󰜥   
+# Flow Terminal — Starship Configuration
+# Phase 5: Broad, Context-Rich Starship Prompt
+# Information-dense, icon-driven, professional DevOps workstation aesthetic
 
-# format = """
-# $directory $fill $git_branch $cmd_duration
-#  $character"""
+# Two-line prompt structure
 format = """
-$cmd_duration $directory$git_branch
-  $character"""
+$username$hostname$directory \
+$git_status$git_branch$custom.flow_profile$custom.flow_target$custom.flow_root$custom.flow_python$custom.flow_node$custom.flow_go$custom.flow_rust$custom.flow_docker$custom.flow_terraform$custom.flow_kubernetes$custom.flow_ansible$custom.flow_aws$custom.flow_gcp$custom.flow_azure
+$character"""
 
-[fill]
-symbol = '-'
-style = 'fg:245'
+# Prompt character with production awareness
+[character]
+success_symbol = "[·❯](bold fg:40)"
+error_symbol = "[⚠❯](bold fg:196)"
 
-# Replace the "❯" symbol in the prompt with "➜"
-[character]                            # The name of the module we are configuring is "character"
-success_symbol = "[ ](bold fg:255)"
-error_symbol = "[ ](bold fg:249)"
-
-# Disable the package module, hiding it from the prompt completely
+# Disable package module
 [package]
 disabled = true
 
-[git_branch]
-style = "bg: 252"
-symbol = "󰘬"
-truncation_length = 12
-truncation_symbol = ""
-format = " 󰜥 [](bold fg:252)[$symbol $branch(:$remote_branch)](fg:235 bg:252)[ ](bold fg:252)"
+# ─── Layer 1: Identity / Location ───
 
-[git_commit]
-commit_hash_length = 4
-tag_symbol = " "
-
-[git_state]
-format = '[\($state( $progress_current of $progress_total)\)]($style) '
-cherry_pick = "[🍒 PICKING](bold red)"
-
-[git_status]
-conflicted = " 🏳 "
-ahead = " 🏎💨 "
-behind = " 😰 "
-diverged = " 😵 "
-untracked = " 🤷 ‍"
-stashed = " 📦 "
-modified = " 📝 "
-staged = '[++\($count\)](green)'
-renamed = " ✍️ "
-deleted = " 🗑 "
+[username]
+style_user = "bold fg:235"
+style_root = "bold fg:196"
+format = "[ 󰍹 $user]($style)"
+disabled = false
+show_always = true
 
 [hostname]
 ssh_only = false
-format =  "[•$hostname](bg:252 bold fg:235)[](bold fg:252)"
-trim_at = ".companyname.com"
+format = "[@ $hostname]($style)"
+trim_at = ".local"
 disabled = false
+style = "bold bg:242 fg:255"
+
+[directory]
+home_symbol = "~"
+read_only = " 🔒"
+style = "bold fg:235"
+truncation_length = 4
+truncation_symbol = "…/"
+format = "[ $path]($style)"
+
+[directory.substitutions]
+"Desktop" = " 󰍹 "
+"Documents" = " 󰈙 "
+"Downloads" = " 󰉚 "
+"Music" = " 󰎈 "
+"Pictures" = " 󰉏 "
+"Videos" = " 󰨣 "
+"GitHub" = " 󰊤 "
+"Projects" = " 󰲋 "
+
+# ─── Layer 2: Git ───
+
+[git_branch]
+symbol = "󰘬"
+style = "bold fg:235"
+truncation_length = 24
+truncation_symbol = "…"
+format = " 󰘬 [$branch]($style)"
+
+[git_status]
+format = '([$all_status$ahead_behind]($style))'
+ahead = " ↑$count"
+behind = " ↓$count"
+diverged = " ⇕↑$ahead↓$behind"
+conflicted = " !$count"
+untracked = " ?$count"
+modified = " +$count"
+staged = " ●$count"
+renamed = " »$count"
+deleted = " -$count"
+stashed = " ⧉$count"
+
+[git_commit]
+commit_hash_length = 8
+format = "[ 󰜯 $hash]($style)"
+
+[git_state]
+format = "[\\($state( $progress_current of $progress_total)\\)]($style)"
+cherry_pick = "[ PICKING](bold red)"
+
+# ─── Flow State Modules ───
+
+[custom.flow_profile]
+description = "Flow active profile"
+command = """
+if [ -n "$FLOW_STARSHIP_PROFILE" ]; then
+  echo "· 󰷏 $FLOW_STARSHIP_PROFILE"
+fi
+"""
+when = '[ -n "$FLOW_STARSHIP_PROFILE" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_target]
+description = "Flow environment target"
+command = """
+if [ -n "$FLOW_STARSHIP_TARGET" ]; then
+  echo "·  $FLOW_STARSHIP_TARGET"
+fi
+"""
+when = '[ -n "$FLOW_STARSHIP_TARGET" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_root]
+description = "Flow project root"
+command = """
+if [ -n "$FLOW_STARSHIP_ROOT" ]; then
+  echo "· 󰉋 $FLOW_STARSHIP_ROOT"
+fi
+"""
+when = '[ -n "$FLOW_STARSHIP_ROOT" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+# ─── Layer 3: Active Runtimes (custom modules) ───
+
+[custom.flow_python]
+description = "Python runtime"
+command = """
+if [ -n "$VIRTUAL_ENV" ]; then
+  echo "· 󰌠 $(basename "$VIRTUAL_ENV")"
+elif [ -n "$FLOW_STARSHIP_MISE_PYTHON" ]; then
+  echo "· 󰌠 $FLOW_STARSHIP_MISE_PYTHON"
+fi
+"""
+when = '[ -n "$VIRTUAL_ENV" ] || [ -n "$FLOW_STARSHIP_MISE_PYTHON" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_node]
+description = "Node.js runtime"
+command = """
+if [ -n "$FLOW_STARSHIP_MISE_NODE" ]; then
+  echo "· 󰜙 $FLOW_STARSHIP_MISE_NODE"
+elif [ -n "$FLOW_STARSHIP_NODE_VERSION" ]; then
+  echo "· 󰜙 $FLOW_STARSHIP_NODE_VERSION"
+fi
+"""
+when = '[ -n "$FLOW_STARSHIP_MISE_NODE" ] || [ -n "$FLOW_STARSHIP_NODE_VERSION" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_go]
+description = "Go runtime"
+command = """
+if command -v go &>/dev/null; then
+  GO_VERSION=$(go version 2>/dev/null | awk '{print $3}' | sed 's/go//')
+  if [ -n "$GO_VERSION" ]; then
+    echo "· 󰟓 $GO_VERSION"
+  fi
+fi
+"""
+when = 'command -v go &>/dev/null'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_rust]
+description = "Rust runtime"
+command = """
+if command -v rustc &>/dev/null; then
+  RUST_VERSION=$(rustc --version 2>/dev/null | awk '{print $2}')
+  if [ -n "$RUST_VERSION" ]; then
+    echo "· 󱘗 $RUST_VERSION"
+  fi
+fi
+"""
+when = 'command -v rustc &>/dev/null'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+# ─── Layer 4: Development Tools ───
+
+[custom.flow_docker]
+description = "Docker tools"
+command = """
+if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "compose.yml" ] || [ -f "compose.yaml" ]; then
+  echo "· 󰡨 Compose"
+elif [ -f "Dockerfile" ]; then
+  echo "· 󰡨 Docker"
+fi
+"""
+when = '[ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "compose.yml" ] || [ -f "compose.yaml" ] || [ -f "Dockerfile" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_terraform]
+description = "Terraform"
+command = """
+if [ -d ".terraform" ] || ls ./*.tf &>/dev/null; then
+  echo "· 󱁢 Terraform"
+fi
+"""
+when = '[ -d ".terraform" ] || ls ./*.tf &>/dev/null'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_kubernetes]
+description = "Kubernetes / Helm"
+command = """
+if [ -d "charts" ] || [ -f "Chart.yaml" ] || [ -f "helmfile.yaml" ]; then
+  echo "· 󱃾 Helm"
+elif [ -d "k8s" ] || [ -d "kubernetes" ] || [ -d "manifests" ]; then
+  echo "· 󱃾 Kubernetes"
+fi
+"""
+when = '[ -d "charts" ] || [ -f "Chart.yaml" ] || [ -f "helmfile.yaml" ] || [ -d "k8s" ] || [ -d "kubernetes" ] || [ -d "manifests" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_ansible]
+description = "Ansible"
+command = """
+if [ -f "ansible.cfg" ] || [ -d "playbooks" ] || [ -d "roles" ]; then
+  echo "· 󰛳 Ansible"
+fi
+"""
+when = '[ -f "ansible.cfg" ] || [ -d "playbooks" ] || [ -d "roles" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+# ─── Layer 5: Infrastructure Context (provider slots for Phase 7) ───
+
+[custom.flow_aws]
+description = "AWS context"
+command = """
+if [ -d ".aws" ] || [ -f "aws.config" ]; then
+  echo "· 󰸏 AWS"
+fi
+"""
+when = '[ -d ".aws" ] || [ -f "aws.config" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_gcp]
+description = "GCP context"
+command = """
+if [ -d ".gcp" ] || [ -f "gcloud.config" ]; then
+  echo "· 󰦧 GCP"
+fi
+"""
+when = '[ -d ".gcp" ] || [ -f "gcloud.config" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+[custom.flow_azure]
+description = "Azure context"
+command = """
+if [ -d ".azure" ] || [ -f "azure.config" ]; then
+  echo "· 󰦾 Azure"
+fi
+"""
+when = '[ -d ".azure" ] || [ -f "azure.config" ]'
+shell = ["bash"]
+style = "bold fg:35"
+format = "[ $output]($style)"
+disabled = false
+
+# ─── Auxiliary ───
+
+[cmd_duration]
+min_time = 2_000
+format = "[ 󰔚 $duration]($style)"
+style = "bold fg:235"
 
 [line_break]
 disabled = false
 
 [memory_usage]
 disabled = true
-threshold = -1
-symbol = " "
-style = "bold dimmed green"
 
 [time]
 disabled = true
-format = '🕙[\[ $time \]]($style) '
-time_format = "%T"
 
-[username]
-style_user = "bold bg:252 fg:235"
-style_root = "red bold"
-format = "[](bold fg:252)[$user]($style)"
-disabled = false
-show_always = true
-
-[directory]
-home_symbol = " "
-read_only = "  "
-style = "bg:255 fg:black"
-truncation_length = 2
-truncation_symbol = ".../"
-format = '[](bold fg:255)[󰉋 → $path]($style)[](bold fg:255)'
-
-
-[directory.substitutions]
-"Desktop" = "  "
-"Documents" = "  "
-"Downloads" = "  "
-"Music" = " 󰎈 "
-"Pictures" = "  "
-"Videos" = "  "
-"GitHub" = " 󰊤 "
-
-[cmd_duration]
-min_time = 0
-format = '[](bold fg:252)[󰪢 $duration](bold bg:252 fg:235)[](bold fg:252)'
+[fill]
+symbol = "·"
+style = "fg:245"

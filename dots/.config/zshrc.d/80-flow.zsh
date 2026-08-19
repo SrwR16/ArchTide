@@ -1,4 +1,5 @@
 # Flow Terminal Integration
+# Phase 5: Starship Prompt Integration
 # Load generated terminal sequences from Flow/Matugen pipeline
 
 # Generated color sequences (from Matugen via QuickShell)
@@ -18,9 +19,28 @@ if [[ "$TERM" == "xterm-kitty" ]] || [[ -n "$KITTY_WINDOW_ID" ]]; then
   fi
 fi
 
+# Load Flow state for Starship prompt integration
+_flow_state_file=""
+if [[ -n "${FLOW_BASE_DIR:-}" && -f "${FLOW_BASE_DIR}/sdata/lib/flow_state.sh" ]]; then
+  _flow_state_file="${FLOW_BASE_DIR}/sdata/lib/flow_state.sh"
+elif [[ -f "${HOME}/.local/share/flow/sdata/lib/flow_state.sh" ]]; then
+  _flow_state_file="${HOME}/.local/share/flow/sdata/lib/flow_state.sh"
+fi
+
+if [[ -n "$_flow_state_file" ]]; then
+  source "$_flow_state_file"
+fi
+
 # Flow Project Activation (Phase 3C)
 # Shell functions that wrap the activation command
 # This ensures activation affects the parent shell via eval
+
+# Refresh Flow state for Starship (called after activation/deactivation)
+_flow_refresh_starship_state() {
+  if [[ -n "$_flow_state_file" ]]; then
+    source "$_flow_state_file"
+  fi
+}
 
 # Resolve activate.sh location (once, at source time)
 _flow_activate_script=""
@@ -78,6 +98,10 @@ flow_activate() {
     [[ -z "$prev_mise_node" ]] && unset FLOW_ENV_MISE_NODE
     [[ -z "$prev_mise_python" ]] && unset FLOW_ENV_MISE_PYTHON
     unset _flow_activate_failed
+    
+    # Refresh Starship state after rollback
+    _flow_refresh_starship_state
+    
     echo "Flow: activation failed, rolled back" >&2
     return 1
   fi
@@ -120,6 +144,9 @@ flow_activate() {
       export FLOW_ENV_TARGET="$p_target"
       export FLOW_ENV_ROOT="$root"
       export FLOW_ENV_ACTIVATED="$(date -Iseconds)"
+      
+      # Refresh Starship state
+      _flow_refresh_starship_state
     fi
   fi
 }
@@ -134,6 +161,8 @@ flow_deactivate() {
   commands=$(bash "$_flow_activate_script" deactivate "$@")
   if [[ $? -eq 0 ]]; then
     eval "$commands"
+    # Refresh Starship state after deactivation
+    _flow_refresh_starship_state
   else
     return $?
   fi
