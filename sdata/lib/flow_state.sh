@@ -114,3 +114,16 @@ export FLOW_STARSHIP_PROD=""
 if [[ "${FLOW_ENV_TARGET:-}" == "production" ]] || [[ "${FLOW_ENV_PROFILE:-}" =~ prod ]]; then
   export FLOW_STARSHIP_PROD="1"
 fi
+
+# ─── Point Starship at the Generated Material Palette ──────────
+# Phase 6: applycolor regenerates this file from Material tokens on every
+# theme change. When present, Starship reads the generated config (static
+# structure + live [palettes.flow]); otherwise it falls back to the static
+# ~/.config/starship.toml with its offline fallback palette. Only export
+# when the file exists — a missing STARSHIP_CONFIG target would blank the
+# prompt, not fall back.
+_flow_starship_generated="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/user/generated/terminal/starship.toml"
+if [ -z "${STARSHIP_CONFIG:-}" ] && [ -f "$_flow_starship_generated" ]; then
+  export STARSHIP_CONFIG="$_flow_starship_generated"
+fi
+unset _flow_starship_generated

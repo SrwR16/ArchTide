@@ -160,7 +160,92 @@ os.rename(tmp_path, output_path)
 
 apply_term() {
   apply_anyterm &
+  apply_starship &
   apply_kitty &
+}
+
+apply_starship() {
+  # Static base config lives next to the quickshell dir (~/.config/starship.toml
+  # installed, dots/.config/starship.toml in a checkout) — 4 levels up from here.
+  local base_starship="$SCRIPT_DIR/../../../../starship.toml"
+  if [ ! -f "$base_starship" ]; then
+    echo "Static Starship config not found. Skipping Starship palette generation."
+    return
+  fi
+  mkdir -p "$STATE_DIR"/user/generated/terminal
+  # Splice the [palettes.flow] section from Material tokens. Same robustness
+  # pattern as the Kitty/sequences generators: literal replacement, sanity
+  # guards, atomic tmp+rename so a failed run keeps the last valid config.
+  python3 -c '
+import sys
+import os
+scss_path, base_path, output_path = sys.argv[1:4]
+vars_dict = {}
+try:
+    with open(scss_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line.startswith("$") or ":" not in line:
+                continue
+            name, val = line.split(":", 1)
+            name = name.strip().lstrip("$")
+            val = val.strip().rstrip(";").lstrip("#")
+            vars_dict[name] = val
+except Exception as e:
+    print(f"Error reading colors scss: {e}", file=sys.stderr)
+    sys.exit(1)
+
+if len(vars_dict) < 10:
+    print("Error: Too few colors generated. Aborting Starship palette update.", file=sys.stderr)
+    sys.exit(1)
+
+# Semantic mapping: Flow palette key -> Material 3 token (material_colors.scss)
+mapping = [
+    ("flow_identity",    "onSurface"),
+    ("flow_host_bg",     "surfaceContainerHigh"),
+    ("flow_host_fg",     "onSurface"),
+    ("flow_git",         "primary"),
+    ("flow_git_status",  "onSurfaceVariant"),
+    ("flow_profile",     "primary"),
+    ("flow_target",      "onSurfaceVariant"),
+    ("flow_runtime",     "secondary"),
+    ("flow_tool",        "secondary"),
+    ("flow_infra",       "secondary"),
+    ("flow_remote",      "tertiary"),
+    ("flow_production",  "error"),
+    ("flow_success",     "primary"),
+    ("flow_error",       "error"),
+    ("flow_metadata",    "onSurfaceVariant"),
+]
+
+with open(base_path, "r") as f:
+    content = f.read()
+
+marker = "FLOW_GENERATED_PALETTE_BEGIN"
+if marker not in content:
+    print("Error: Static Starship config has no FLOW_GENERATED_PALETTE_BEGIN marker. Skipping.", file=sys.stderr)
+    sys.exit(1)
+
+# Keep everything above the marker line (header + docs), then emit the palette.
+head = content[:content.rfind("\n", 0, content.index(marker)) + 1]
+lines = ["[palettes.flow]"]
+missing = []
+for key, token in mapping:
+    if token not in vars_dict:
+        missing.append(token)
+        continue
+    lines.append(f"{key} = \"#{vars_dict[token]}\"")
+if missing:
+    missing_str = ", ".join(missing)
+    print(f"Error: Missing Material tokens: {missing_str}. Aborting Starship palette update.", file=sys.stderr)
+    sys.exit(1)
+
+output = head + "\n".join(lines) + "\n"
+tmp_path = output_path + ".tmp"
+with open(tmp_path, "w") as f:
+    f.write(output)
+os.rename(tmp_path, output_path)
+' "$STATE_DIR/user/generated/material_colors.scss" "$base_starship" "$STATE_DIR/user/generated/terminal/starship.toml"
 }
 
 apply_openrgb() {

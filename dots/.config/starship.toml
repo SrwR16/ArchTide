@@ -1,18 +1,28 @@
 # Flow Terminal — Starship Configuration
 # Phase 5: Broad, Context-Rich Starship Prompt
+# Phase 6: Colors driven by Material 3 tokens (palette mechanism)
 # Two-line structure: identity → info → prompt character
 # All icons from sdata/lib/starship-icons.sh (verified Nerd Font codepoints)
 # NOTE: custom modules MUST be referenced as ${custom.<name>} in 1.26
+#
+# Color architecture: styles reference semantic palette keys resolved from
+# the `flow` palette below. On every theme change applycolor regenerates
+# $XDG_STATE_HOME/quickshell/user/generated/terminal/starship.toml from the
+# Material tokens in material_colors.scss and 80-flow.zsh points Starship at
+# it via STARSHIP_CONFIG. The [palettes.flow] values here are the OFFLINE
+# FALLBACK so the prompt renders correctly before the theme pipeline has run.
 
 format = """
 $username$hostname $directory
 │  $git_branch$git_status${custom.flow_profile}${custom.flow_target}${custom.flow_python}${custom.flow_node}${custom.flow_go}${custom.flow_rust}${custom.flow_docker}${custom.flow_terraform}${custom.flow_kubernetes}${custom.flow_ansible}${custom.flow_aws}${custom.flow_gcp}${custom.flow_azure}${custom.flow_remote}${custom.flow_prod_warning}
 $character"""
 
+palette = "flow"
+
 # ─── Prompt Character ──────────────────────────────────────────
 [character]
-success_symbol = "[╰─❯](bold fg:40)"
-error_symbol = "[╰─⚠❯](bold fg:196)"
+success_symbol = "[╰─❯](bold fg:flow_success)"
+error_symbol = "[╰─⚠❯](bold fg:flow_error)"
 
 [package]
 disabled = true
@@ -20,26 +30,26 @@ disabled = true
 [cmd_duration]
 min_time = 2_000
 format = "[ 󰔚 $duration]($style)"
-style = "bold fg:235"
+style = "bold fg:flow_metadata"
 
 # ─── Layer 1: Identity / Location ──────────────────────────────
 
 [username]
 show_always = true
-style_user = "bold fg:235"
-style_root = "bold fg:196"
+style_user = "bold fg:flow_identity"
+style_root = "bold fg:flow_error"
 format = "[╭─ 󰍹 $user]($style)"
 
 [hostname]
 ssh_only = false
 format = "[@$hostname]($style)"
 trim_at = ".local"
-style = "bold bg:242 fg:255"
+style = "bold bg:flow_host_bg fg:flow_host_fg"
 
 [directory]
 home_symbol = "~"
 read_only = " 󰍾"
-style = "bold fg:235"
+style = "bold fg:flow_identity"
 truncation_length = 4
 truncation_symbol = "…/"
 format = "[ $path]($style)"
@@ -58,13 +68,14 @@ format = "[ $path]($style)"
 
 [git_branch]
 symbol = ""
-style = "bold fg:235"
+style = "bold fg:flow_git"
 truncation_length = 24
 truncation_symbol = "…"
 format = "$symbol [$branch]($style)"
 
 [git_status]
 format = '([$all_status$ahead_behind]($style))'
+style = "bold fg:flow_git_status"
 ahead = " ↑$count"
 behind = " ↓$count"
 diverged = " ⇕↑$ahead↓$behind"
@@ -95,7 +106,7 @@ fi
 """
 when = '[ -n "$FLOW_STARSHIP_PROFILE" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_profile"
 format = "[ $output]($style)"
 disabled = false
 
@@ -108,7 +119,7 @@ fi
 """
 when = '[ -n "$FLOW_STARSHIP_TARGET" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_target"
 format = "[ $output]($style)"
 disabled = false
 
@@ -125,7 +136,7 @@ fi
 """
 when = '[ -n "$VIRTUAL_ENV" ] || [ -n "$FLOW_STARSHIP_MISE_PYTHON" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_runtime"
 format = "[ $output]($style)"
 disabled = false
 
@@ -140,7 +151,7 @@ fi
 """
 when = '[ -n "$FLOW_STARSHIP_MISE_NODE" ] || [ -n "$FLOW_STARSHIP_NODE_VERSION" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_runtime"
 format = "[ $output]($style)"
 disabled = false
 
@@ -153,7 +164,7 @@ fi
 """
 when = '[ -n "$FLOW_STARSHIP_MISE_GO" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_runtime"
 format = "[ $output]($style)"
 disabled = false
 
@@ -166,7 +177,7 @@ fi
 """
 when = '[ -n "$FLOW_STARSHIP_MISE_RUST" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_runtime"
 format = "[ $output]($style)"
 disabled = false
 
@@ -183,7 +194,7 @@ fi
 """
 when = '[ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "compose.yml" ] || [ -f "compose.yaml" ] || [ -f "Dockerfile" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_tool"
 format = "[ $output]($style)"
 disabled = false
 
@@ -196,7 +207,7 @@ fi
 """
 when = '[ -d ".terraform" ] || ls ./*.tf &>/dev/null 2>&1'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_tool"
 format = "[ $output]($style)"
 disabled = false
 
@@ -211,7 +222,7 @@ fi
 """
 when = '[ -d "charts" ] || [ -f "Chart.yaml" ] || [ -f "helmfile.yaml" ] || [ -d "k8s" ] || [ -d "kubernetes" ] || [ -d "manifests" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_tool"
 format = "[ $output]($style)"
 disabled = false
 
@@ -224,7 +235,7 @@ fi
 """
 when = '[ -f "ansible.cfg" ] || [ -d "playbooks" ] || [ -d "roles" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_tool"
 format = "[ $output]($style)"
 disabled = false
 
@@ -239,7 +250,7 @@ fi
 """
 when = '[ -d ".aws" ] || [ -f "aws.config" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_infra"
 format = "[ $output]($style)"
 disabled = false
 
@@ -252,7 +263,7 @@ fi
 """
 when = '[ -d ".gcp" ] || [ -f "gcloud.config" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_infra"
 format = "[ $output]($style)"
 disabled = false
 
@@ -265,7 +276,7 @@ fi
 """
 when = '[ -d ".azure" ] || [ -f "azure.config" ]'
 shell = ["bash"]
-style = "bold fg:35"
+style = "bold fg:flow_infra"
 format = "[ $output]($style)"
 disabled = false
 
@@ -276,7 +287,7 @@ description = "Remote shell indicator"
 command = "echo \"· ${FLOW_ICON_REMOTE:-$'\\uE8B1'} remote\""
 when = '[ "$FLOW_STARSHIP_REMOTE" = "1" ]'
 shell = ["bash"]
-style = "bold fg:208"
+style = "bold fg:flow_remote"
 format = "[ $output]($style)"
 disabled = false
 
@@ -285,6 +296,48 @@ description = "Production context warning"
 command = "echo \"· ${FLOW_ICON_WARNING:-$'\\u26A0'} production\""
 when = '[ "$FLOW_STARSHIP_PROD" = "1" ]'
 shell = ["bash"]
-style = "bold fg:196"
+style = "bold fg:flow_production"
 format = "[ $output]($style)"
 disabled = false
+
+# ─── Material 3 Semantic Palette ───────────────────────────────
+# Style keys above map to Material 3 tokens (see kitty-theme.conf —
+# both consume the same material_colors.scss source). applycolor
+# regenerates the [palettes.flow] section from the live tokens on every
+# theme change; the values below are the OFFLINE FALLBACK only.
+#
+#   Key                Role                              Material token
+#   ─────────────────────────────────────────────────────────────────
+#   flow_identity      username, hostname, directory     onSurface
+#   flow_host_bg       hostname pill background          surfaceContainerHigh
+#   flow_host_fg       hostname pill text                onSurface
+#   flow_git           git branch                        primary
+#   flow_git_status    git status detail                 onSurfaceVariant
+#   flow_profile       active profile                    primary
+#   flow_target        environment target                onSurfaceVariant
+#   flow_runtime       language runtimes (py/node/go/rust) secondary
+#   flow_tool          dev tools (docker/tf/helm/k8s/ansible) secondary
+#   flow_infra         cloud context (aws/gcp/azure)     secondary
+#   flow_remote        remote shell — warning role       tertiary (amber)
+#   flow_production    production context — risk role    error
+#   flow_success       prompt success                    primary
+#   flow_error         prompt error                      error
+#   flow_metadata      cmd_duration, subtle info         onSurfaceVariant
+#
+# FLOW_GENERATED_PALETTE_BEGIN
+[palettes.flow]
+flow_identity = "#E3E2E2"
+flow_host_bg = "#1A2D2E"
+flow_host_fg = "#E3E2E2"
+flow_git = "#73D4E7"
+flow_git_status = "#C2C7C9"
+flow_profile = "#73D4E7"
+flow_target = "#C2C7C9"
+flow_runtime = "#ABCCD3"
+flow_tool = "#ABCCD3"
+flow_infra = "#ABCCD3"
+flow_remote = "#FFB787"
+flow_production = "#FFB4AB"
+flow_success = "#73D4E7"
+flow_error = "#FFB4AB"
+flow_metadata = "#C2C7C9"
