@@ -2185,8 +2185,22 @@ cmd_project() {
             [[ "$OPT_VERBOSE" == true ]] && env_args+=("-v")
             exec bash "$path" "${env_args[@]}"
             ;;
+        activate|deactivate|status)
+            local path="" d
+            for d in "$SCRIPT_DIR" "$MIRROR_DIR"; do
+                [[ -f "$d/sdata/subcmd-project/activate.sh" ]] && {
+                    path="$d/sdata/subcmd-project/activate.sh"
+                    break
+                }
+            done
+            [[ -n "$path" ]] || ui_die "Missing helper" "sdata/subcmd-project/activate.sh not found"
+            local activate_args=("$subcmd" "$@" "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}")
+            [[ "$OPT_JSON" == true ]] && activate_args+=("--json")
+            [[ "$OPT_VERBOSE" == true ]] && activate_args+=("-v")
+            exec bash "$path" "${activate_args[@]}"
+            ;;
         *)
-            arg_error "Unknown project subcommand \"$subcmd\" (expected: detect, profile, env)"
+            arg_error "Unknown project subcommand \"$subcmd\" (expected: detect, profile, env, activate, deactivate, status)"
             ;;
     esac
 }
@@ -2215,6 +2229,9 @@ show_help() {
     printf '  %s%-16s%s %s\n' "$C_OK" "project detect" "$C_RST" "Show detected languages/frameworks/tooling (read-only)"
     printf '  %s%-16s%s %s\n' "$C_OK" "project profile" "$C_RST" "Manage project profiles (list, create, use, set-default, status, delete)"
     printf '  %s%-16s%s %s\n' "$C_OK" "project env" "$C_RST" "Environment resolution & selection (list, show, set, clear)"
+    printf '  %s%-16s%s %s\n' "$C_OK" "project activate" "$C_RST" "Activate current shell environment for a profile"
+    printf '  %s%-16s%s %s\n' "$C_OK" "project deactivate" "$C_RST" "Deactivate current Flow environment"
+    printf '  %s%-16s%s %s\n' "$C_OK" "project status" "$C_RST" "Show current Flow environment status"
     printf '  %s%-16s%s Remove the %s symlink\n' "$C_OK" "remove-cli" "$C_RST" "$CLI_NAME"
     printf '  %s%-16s%s %s\n' "$C_OK" "help, version" "$C_RST" "This message / the version"
     printf '  %s%-16s%s %s\n' "$C_OK" "demo" "$C_RST" "Render every UI primitive and exit"

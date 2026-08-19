@@ -17,3 +17,82 @@ if [[ "$TERM" == "xterm-kitty" ]] || [[ -n "$KITTY_WINDOW_ID" ]]; then
     :
   fi
 fi
+
+# Flow Project Activation (Phase 3C)
+# Shell function that wraps the activation command
+# This ensures activation affects the parent shell via eval
+
+flow_activate() {
+  local flow_cmd="${FLOW_CMD:-flow}"
+  local activate_script="${0:A:h}/../../sdata/subcmd-project/activate.sh"
+  
+  # Find the activate.sh script
+  if [[ ! -f "$activate_script" ]]; then
+    # Try the installed location
+    activate_script="${HOME}/.local/share/flow/sdata/subcmd-project/activate.sh"
+  fi
+  
+  if [[ ! -f "$activate_script" ]]; then
+    echo "Flow: activate.sh not found" >&2
+    return 1
+  fi
+  
+  # Generate activation commands and eval them
+  local commands
+  commands=$(bash "$activate_script" activate "$@")
+  if [[ $? -eq 0 ]]; then
+    eval "$commands"
+  else
+    return $?
+  fi
+}
+
+# Flow Deactivation
+flow_deactivate() {
+  local flow_cmd="${FLOW_CMD:-flow}"
+  local activate_script="${0:A:h}/../../sdata/subcmd-project/activate.sh"
+  
+  # Find the activate.sh script
+  if [[ ! -f "$activate_script" ]]; then
+    # Try the installed location
+    activate_script="${HOME}/.local/share/flow/sdata/subcmd-project/activate.sh"
+  fi
+  
+  if [[ ! -f "$activate_script" ]]; then
+    echo "Flow: activate.sh not found" >&2
+    return 1
+  fi
+  
+  # Generate deactivation commands and eval them
+  local commands
+  commands=$(bash "$activate_script" deactivate "$@")
+  if [[ $? -eq 0 ]]; then
+    eval "$commands"
+  else
+    return $?
+  fi
+}
+
+# Flow Status
+flow_status() {
+  local flow_cmd="${FLOW_CMD:-flow}"
+  local activate_script="${0:A:h}/../../sdata/subcmd-project/activate.sh"
+  
+  # Find the activate.sh script
+  if [[ ! -f "$activate_script" ]]; then
+    # Try the installed location
+    activate_script="${HOME}/.local/share/flow/sdata/subcmd-project/activate.sh"
+  fi
+  
+  if [[ ! -f "$activate_script" ]]; then
+    echo "Flow: activate.sh not found" >&2
+    return 1
+  fi
+  
+  bash "$activate_script" status "$@"
+}
+
+# Aliases
+alias fa='flow_activate'
+alias fd='flow_deactivate'
+alias fs='flow_status'
