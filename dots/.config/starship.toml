@@ -44,7 +44,7 @@ format = "[╭─ $user]($style)"
 ssh_only = false
 format = "[@](fg:flow_metadata)[$hostname]($style)"
 trim_at = ".local"
-style = "bg:flow_host_bg fg:flow_host_fg"
+style = "fg:flow_host_fg"
 
 [directory]
 home_symbol = "~"
@@ -308,9 +308,9 @@ disabled = false
 #
 #   Key                Role                              Material token
 #   ─────────────────────────────────────────────────────────────────
-#   flow_identity      username, hostname, directory     onSurface
-#   flow_host_bg       hostname pill background          surfaceContainerHigh
-#   flow_host_fg       hostname pill text                onSurface
+#   flow_identity      username, directory              onSurface
+#   flow_host_bg       (reserved — hostname background) surfaceContainerHigh
+#   flow_host_fg       hostname text                    onSurface
 #   flow_git           git branch                        primary
 #   flow_git_status    git status detail                 onSurfaceVariant
 #   flow_profile       active profile                    primary
