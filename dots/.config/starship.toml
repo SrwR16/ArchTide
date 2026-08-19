@@ -38,7 +38,7 @@ style = "bold fg:flow_metadata"
 show_always = true
 style_user = "bold fg:flow_identity"
 style_root = "bold fg:flow_error"
-format = "[╭─ 󰍹 $user]($style)"
+format = "[╭─ $user]($style)"
 
 [hostname]
 ssh_only = false
@@ -54,15 +54,15 @@ truncation_length = 4
 truncation_symbol = "…/"
 format = "[ $path]($style)"
 
-[directory.substitutions]
-"Desktop" = "󰍹"
-"Documents" = "󰈙"
-"Downloads" = "󰉚"
-"Music" = "󰎈"
-"Pictures" = "󰉏"
-"Videos" = "󰨣"
-"GitHub" = "󰊤"
-"Projects" = "󰲋"
+# Filesystem identity stays TEXTUAL: paths are read, navigated, copied and
+# pasted, so they must remain exact. Icons are reserved for things whose
+# identity benefits from symbolic recognition:
+#   filesystem identity → textual names
+#   service/tool identity → real Nerd Font icons (custom.flow_* modules)
+#   git identity         → Git icon
+#   risk/state            → semantic status icon
+#   runtime               → language icon
+#   infrastructure        → service icon
 
 # ─── Layer 2: Git ──────────────────────────────────────────────
 
