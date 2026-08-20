@@ -78,6 +78,7 @@ typeset -gA _fp_letter2=()
 typeset -ga _fp_hist_order=()
 typeset -ga _fp_session_seq=()
 typeset -g _fp_warm=0
+typeset -g _fp_atuin_warmed=0
 typeset -g _fp_prev_cmd=""
 typeset -g _fp_prev_prev_cmd=""
 typeset -g _fp_prev_status=0
@@ -172,19 +173,22 @@ _flow_pred_context() {
 
 # Warm from Atuin. Runs once, lazily, after the first prompt. Uses
 _flow_pred_warm_from_atuin() {
-  (( _fp_warm )) && return 0
-  (( FLOW_PRED_SKIP_ATUIN )) && { _fp_warm=1; return 0 }
+  (( _fp_atuin_warmed )) && return 0
+  (( FLOW_PRED_SKIP_ATUIN )) && { _fp_atuin_warmed=1; _fp_warm=1; return 0 }
   command -v atuin >/dev/null 2>&1 || return 1
   local tmp="$FLOW_PRED_STATE_DIR/.warm.$$.tsv"
-  if atuin history list --print0 --format '{command}\x1f{directory}\x1f{exit}\x1f{time}\x1f{session}' > "$tmp" 2>/dev/null; then
+  if atuin history list --format '{command}\t{directory}\t{exit}\t{time}\t{session}' > "$tmp" 2>/dev/null; then
     local line cmd dir exit ts
-    while IFS= read -r -d $'\0' line; do
+    while IFS= read -r line; do
       [[ -n "$line" ]] || continue
-      cmd="${line%%$'\x1f'*}"
-      local rest="${line#*$'\x1f'}"
-      dir="${rest%%$'\x1f'*}"; rest="${rest#*$'\x1f'}"
-      exit="${rest%%$'\x1f'*}"; rest="${rest#*$'\x1f'}"
-      ts="${rest%%$'\x1f'*}"
+      local oldifs=$IFS
+      IFS=$'\t'; set -- ${=line}; IFS=$oldifs
+      cmd="${1:-}" dir="${2:-}" exit="${3:-}" ts="${4:-}"
+      if [[ -n "$ts" ]]; then
+        ts=$(date -d "$ts" +%s 2>/dev/null) || ts=0
+      else
+        ts=0
+      fi
       flow_pred_normalize "$cmd"
       cmd="$FLOW_PRED_RESULT"
       [[ -n "$cmd" ]] || continue
@@ -197,6 +201,7 @@ _flow_pred_warm_from_atuin() {
     return 1
   fi
   _fp_warm=1
+  _fp_atuin_warmed=1
   (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: warm index ready (${#_fp_cmd_stats} commands)"
   return 0
 }

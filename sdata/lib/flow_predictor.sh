@@ -176,7 +176,7 @@ flow_pred_score_record() {
   local oldifs=$IFS
   local key count success fail last first dirs cls
   IFS=$'\t'
-  set -- $rec
+  set -- ${=rec}
   IFS=$oldifs
   key="${1:-}" count="${2:-0}" success="${3:-0}" fail="${4:-0}" last="${5:-0}" first="${6:-0}" dirs="${7:-}" cls="${8:-}"
 
