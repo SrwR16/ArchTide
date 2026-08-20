@@ -88,6 +88,7 @@ typeset -g _fp_ghost_typed=""
 typeset -g _fp_ghost=""
 typeset -g _fp_last_typed=""
 typeset -g _fp_last_result=""
+typeset -g _fp_last_score=0
 typeset -g _fp_last_status=0
 typeset -ga _fp_hud_cands=()
 typeset -ga _fp_hud_desc=()
@@ -95,7 +96,9 @@ typeset -ga _fp_hud_src=()
 typeset -g _fp_hud_active=0
 typeset -g _fp_hud_sel=0
 typeset -g _fp_hud_offset=0
+typeset -g _fp_hud_is_recovery=0
 typeset -ga _fp_providers=()
+typeset -ga _fp_result_explain=()
 
 # ── load persisted aggregates immediately (fast, non-blocking) ───────────────
 (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: FLOW_PRED_STATE_DIR=$FLOW_PRED_STATE_DIR FLOW_PRED_AGGREGATES=$FLOW_PRED_AGGREGATES" >>"${FLOW_PRED_DEBUG_LOG:-/dev/null}" 2>&1
@@ -348,7 +351,7 @@ _flow_pred_register_provider _flow_pred_provider_completion
 _flow_pred_predict() {
   local prefix="$1"
   _fp_result="" _fp_result_score=0
-  _fp_results=() _fp_result_src=() _fp_result_meta=()
+  _fp_results=() _fp_result_src=() _fp_result_meta=() _fp_result_explain=()
   [[ -n "$prefix" ]] || return 0
 
   if (( ! _fp_warm )); then
@@ -360,6 +363,7 @@ _flow_pred_predict() {
       _fp_results+=("0	$line")
       _fp_result_src+=(history)
       _fp_result_meta+=("recent")
+      _fp_result_explain+=("recent_history")
     done
     (( ${#_fp_results} )) || return 0
     _fp_result="${_fp_results[1]#*$'\t'}"
@@ -385,12 +389,31 @@ _flow_pred_predict() {
     local count=$stat_parts[1] success=$stat_parts[2] fail=$stat_parts[3] last=$stat_parts[4] first=$stat_parts[5]
     local dirs="${_fp_key_dirs[$k]:-}"
     local cls="${_fp_key_class[$k]:-other}"
+
+    # look up transition/workflow/recovery counts for this candidate
+    local tcnt=0 tsuc=0 wcnt=0 wsuc=0 rcnt=0
+    if [[ -n "$_fp_prev_cmd" ]]; then
+      local tval="${_fp_trans[${_fp_prev_cmd}$'\x1f'$k]:-}"
+      if [[ -n "$tval" ]]; then
+        set -- ${=tval}; tcnt=$1; tsuc=$2
+      fi
+      local rval="${_fp_recovery[${_fp_prev_cmd}$'\x1f'$k]:-}"
+      [[ -n "$rval" ]] && { set -- ${=rval}; rcnt=$1; }
+    fi
+    if (( ${#_fp_session_seq} >= 2 )); then
+      local c1="${_fp_session_seq[$((${#_fp_session_seq}-1))]}"
+      local c2="${_fp_session_seq[${#_fp_session_seq}]}"
+      local wval="${_fp_workflow[$c1$'\x1f'$c2$'\x1f'$k]:-}"
+      [[ -n "$wval" ]] && { set -- ${=wval}; wcnt=$1; wsuc=$2; }
+    fi
+
     _flow_pred_context
-    flow_pred_score_fast "$k" "$count" "$success" "$fail" "$last" "$first" "$dirs" "$cls" "$prefix" "$FLOW_PRED_CONTEXT"
+    flow_pred_score_fast "$k" "$count" "$success" "$fail" "$last" "$first" "$dirs" "$cls" "$prefix" "$FLOW_PRED_CONTEXT" "$tcnt" "$tsuc" "$wcnt" "$wsuc" "$rcnt"
     (( FLOW_PRED_MATCH )) || continue
     _fp_results+=("$FLOW_PRED_SCORE	$k")
     _fp_result_src+=("${_fp_pipeline_src[$k]}")
     _fp_result_meta+=("$count $success $fail $last $first")
+    _fp_result_explain+=("${FLOW_PRED_EXPLAIN:-}")
   done
   unset _fp_pipeline_src _fp_seen
 
@@ -404,6 +427,7 @@ _flow_pred_predict() {
     _fp_results=("${(@)_fp_results[1,FLOW_PRED_HUD_MAX]}")
     _fp_result_src=("${(@)_fp_result_src[1,FLOW_PRED_HUD_MAX]}")
     _fp_result_meta=("${(@)_fp_result_meta[1,FLOW_PRED_HUD_MAX]}")
+    _fp_result_explain=("${(@)_fp_result_explain[1,FLOW_PRED_HUD_MAX]}")
   fi
   return 0
 }
@@ -431,6 +455,10 @@ _flow_pred_on_redraw() {
 
   # cache: avoid recomputing for the same typed buffer
   if [[ "$BUFFER" == "$_fp_last_typed" && -n "$_fp_last_result" ]]; then
+    # Confidence gate on cached result too
+    if (( _fp_last_score < FLOW_PRED_CONF_HIGH )); then
+      return 0
+    fi
     # Re-derive ghost suffix and restore RBUFFER/region_highlight.
     # The self-insert wrapper clears _fp_ghost_active on every keystroke,
     # so we must re-apply the cached ghost on each redraw.
@@ -456,12 +484,20 @@ _flow_pred_on_redraw() {
   _flow_pred_predict "$BUFFER"
   _fp_last_typed="$BUFFER"
   _fp_last_result="$_fp_result"
+  _fp_last_score="$_fp_result_score"
+
+  # Confidence gate: ghost only for high-confidence predictions (>=60).
+  # Lower scores are still available via Meta+P HUD.
+  if (( _fp_result_score < FLOW_PRED_CONF_HIGH )); then
+    _flow_pred_ghost_clear
+    return 0
+  fi
 
   if [[ -n "$_fp_result" && "$_fp_result" != "$BUFFER" ]]; then
     _fp_ghost_cmd="$_fp_result"
     _fp_ghost_typed="$BUFFER"
     _fp_ghost="${_fp_result#${BUFFER}}"
-    (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: redraw buf=[$BUFFER] result=[$_fp_result] ghost=[$_fp_ghost]" >>"${FLOW_PRED_DEBUG_LOG:-/dev/null}" 2>&1
+    (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: redraw buf=[$BUFFER] result=[$_fp_result] score=$_fp_result_score ghost=[$_fp_ghost]" >>"${FLOW_PRED_DEBUG_LOG:-/dev/null}" 2>&1
     if [[ -n "$_fp_ghost" ]]; then
       RBUFFER="$_fp_ghost"
       _fp_ghost_active=1
@@ -557,7 +593,14 @@ _flow_pred_hud_open() {
   (( ${#_fp_results} )) || { zle -M "Flow: no suggestions for '$prefix'"; return 1 }
   _flow_pred_ghost_clear
   _fp_hud_cands=() _fp_hud_desc=() _fp_hud_src=()
-  local r score key src meta count success fail last
+
+  # detect recovery context: last command failed
+  local is_recovery=0
+  if (( _fp_prev_status != 0 && ${#_fp_prev_cmd} > 0 )); then
+    is_recovery=1
+  fi
+
+  local r score key src meta count success fail last expl
   local i
   for (( i = 1; i <= ${#_fp_results}; i++ )); do
     r="${_fp_results[$i]}"
@@ -565,9 +608,29 @@ _flow_pred_hud_open() {
     key="${r#*$'\t'}"
     src="${_fp_result_src[$i]}"
     meta="${_fp_result_meta[$i]}"
+    expl="${_fp_result_explain[$i]:-}"
     set -- $meta
     count=$1 success=$2 fail=$3 last=$4
+
+    # build rich description from explanation tokens
     local desc=""
+    local reasons=""
+    if [[ -n "$expl" ]]; then
+      # extract human-readable reasons from explanation tokens
+      [[ "$expl" == *"dir_match"* ]] && reasons+="here · "
+      [[ "$expl" == *"parent_dir_match"* ]] && reasons+="in subtree · "
+      [[ "$expl" == *"profile_match"* ]] && reasons+="profile match · "
+      [[ "$expl" == *"workspace_match"* ]] && reasons+="workspace match · "
+      [[ "$expl" == *"project_match"* ]] && reasons+="project match · "
+      [[ "$expl" == *"runtime_match"* ]] && reasons+="runtime match · "
+      [[ "$expl" == *"session_match"* ]] && reasons+="session · "
+      [[ "$expl" == *"follows_prev"* ]] && reasons+="follows $([ -n "$_fp_prev_cmd" ] && echo "$_fp_prev_cmd" | head -c 20) · "
+      [[ "$expl" == *"workflow_step"* ]] && reasons+="workflow step · "
+      [[ "$expl" == *"recovery_candidate"* ]] && reasons+="recovery · "
+      [[ "$expl" == *"high_failure_rate"* ]] && reasons+="high failure rate · "
+      reasons="${reasons%% · }"  # trim trailing separator
+    fi
+
     desc="$key"
     if (( count > 0 )); then
       desc+="  ·  ${count}×"
@@ -580,7 +643,9 @@ _flow_pred_hud_open() {
         else desc+=" · $(( ago / 86400 ))d ago"
         fi
       fi
-      desc+=" · ${src}"
+      if [[ -n "$reasons" ]]; then
+        desc+=" · ${reasons}"
+      fi
     fi
     _fp_hud_cands+=("$key")
     _fp_hud_desc+=("$desc")
@@ -589,12 +654,14 @@ _flow_pred_hud_open() {
   _fp_hud_active=1
   _fp_hud_sel=0
   _fp_hud_offset=0
-  _flow_pred_hud_render
+  _fp_hud_is_recovery=$is_recovery
+  _flow_pred_hud_render "$is_recovery"
   zle -K flowhud
   return 0
 }
 
 _flow_pred_hud_render() {
+  local is_recovery="${1:-0}"
   local n=${#_fp_hud_cands}
   local visible=$(( LINES > 5 ? LINES - 2 : 3 ))
   (( visible > 12 )) && visible=12
@@ -608,7 +675,12 @@ _flow_pred_hud_render() {
       lines+=("  ${_fp_hud_cands[$idx]}  ${_fp_hud_desc[$idx]}")
     fi
   done
-  local header="Flow: ${n} candidate(s)  ↑/↓ move · PageUp/PageDown scroll · Enter/Tab accept · Esc close"
+  local header
+  if (( is_recovery )); then
+    header="Flow recovery: ${n} candidate(s)  ↑/↓ move · PageUp/PageDown scroll · Enter/Tab accept · Esc close"
+  else
+    header="Flow: ${n} candidate(s)  ↑/↓ move · PageUp/PageDown scroll · Enter/Tab accept · Esc close"
+  fi
   zle -R "$header" "${lines[@]}"
 }
 
@@ -623,7 +695,7 @@ _flow_pred_hud_up() {
   (( _fp_hud_active )) || { zle up-line-or-history; return 0 }
   (( _fp_hud_sel > 0 )) && _fp_hud_sel=$(( _fp_hud_sel - 1 ))
   if (( _fp_hud_sel < _fp_hud_offset )); then _fp_hud_offset=$_fp_hud_sel; fi
-  _flow_pred_hud_render
+  _flow_pred_hud_render "$_fp_hud_is_recovery"
 }
 
 _flow_pred_hud_down() {
@@ -633,7 +705,7 @@ _flow_pred_hud_down() {
   local visible=$(( LINES > 5 ? LINES - 2 : 3 ))
   (( visible > 12 )) && visible=12
   if (( _fp_hud_sel >= _fp_hud_offset + visible )); then _fp_hud_offset=$(( _fp_hud_sel - visible + 1 )); fi
-  _flow_pred_hud_render
+  _flow_pred_hud_render "$_fp_hud_is_recovery"
 }
 
 _flow_pred_hud_pgup() {
@@ -642,7 +714,7 @@ _flow_pred_hud_pgup() {
   (( _fp_hud_sel -= step ))
   (( _fp_hud_sel < 0 )) && _fp_hud_sel=0
   _fp_hud_offset=$_fp_hud_sel
-  _flow_pred_hud_render
+  _flow_pred_hud_render "$_fp_hud_is_recovery"
 }
 
 _flow_pred_hud_pgdn() {
@@ -655,7 +727,7 @@ _flow_pred_hud_pgdn() {
   (( visible > 12 )) && visible=12
   _fp_hud_offset=$(( _fp_hud_sel - visible + 1 ))
   (( _fp_hud_offset < 0 )) && _fp_hud_offset=0
-  _flow_pred_hud_render
+  _flow_pred_hud_render "$_fp_hud_is_recovery"
 }
 
 _flow_pred_hud_accept() {
@@ -852,11 +924,19 @@ _flow_pred_query() {
   _flow_pred_predict "$buf"
   _fp_last_typed="$buf"
   _fp_last_result="$_fp_result"
-  if [[ -n "$_fp_result" && "$_fp_result" != "$buf" ]]; then
-    _fp_ghost_cmd="$_fp_result"
-    _fp_ghost_typed="$buf"
-    _fp_ghost="${_fp_result#${buf}}"
-    _fp_ghost_active=1
+  _fp_last_score="$_fp_result_score"
+  # Confidence gate: only activate ghost for high-confidence predictions
+  if (( _fp_result_score >= FLOW_PRED_CONF_HIGH )); then
+    if [[ -n "$_fp_result" && "$_fp_result" != "$buf" ]]; then
+      _fp_ghost_cmd="$_fp_result"
+      _fp_ghost_typed="$buf"
+      _fp_ghost="${_fp_result#${buf}}"
+      _fp_ghost_active=1
+    else
+      _fp_ghost=""
+      _fp_ghost_cmd=""
+      _fp_ghost_active=0
+    fi
   else
     _fp_ghost=""
     _fp_ghost_cmd=""
@@ -867,13 +947,17 @@ _flow_pred_query() {
 # debug snapshot command for the shell user
 flow_pred_debug() {
   _flow_pred_predict "${1:-}"
+  flow_pred_confidence "$_fp_result_score"
+  local conf="$FLOW_PRED_RESULT"
   print -r -- "warm=$_fp_warm commands=${#_fp_cmd_stats} transitions=${#_fp_trans} workflows=${#_fp_workflow} recoveries=${#_fp_recovery}"
   print -r -- "context: $FLOW_PRED_CONTEXT"
+  print -r -- "best: [$_fp_result] score=$_fp_result_score confidence=$conf"
   if (( ${#_fp_results} )); then
     local i r
     for (( i = 1; i <= ${#_fp_results}; i++ )); do
       r="${_fp_results[$i]}"
-      print -r -- "  $r  [${_fp_result_src[$i]}]"
+      local sc="${r%%$'\t'*}" ky="${r#*$'\t'}" expl="${_fp_result_explain[$i]:-}"
+      print -r -- "  $i: $ky  score=$sc  [${_fp_result_src[$i]}]  ($expl)"
     done
   else
     print -r -- "  (no suggestions)"

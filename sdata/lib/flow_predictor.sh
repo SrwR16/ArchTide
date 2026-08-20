@@ -30,6 +30,7 @@ FLOW_PRED_AGGREGATES="${FLOW_PRED_AGGREGATES:-$FLOW_PRED_STATE_DIR/aggregates.ts
 FLOW_PRED_RESULT=""
 FLOW_PRED_SCORE=0
 FLOW_PRED_MATCH=0
+FLOW_PRED_EXPLAIN=""
 
 # -- normalization ------------------------------------------------------------
 # Normalize a raw command line into a command key. Result in FLOW_PRED_RESULT.
@@ -106,6 +107,29 @@ FLOW_PRED_W_RECENCY_D7=5
 FLOW_PRED_W_RECENCY_D30=2
 FLOW_PRED_N_FAIL_PENALTY=10
 
+# -- confidence thresholds ----------------------------------------------------
+# Presentation mode is determined by the final score:
+#   >=80  very high → inline ghost
+#   >=60  high      → ghost + alternatives accessible
+#   >=40  medium    → no ghost, HUD available on demand
+#   >=20  low       → HUD only when explicitly requested
+#   <20   very low  → no suggestion
+FLOW_PRED_CONF_VHIGH=80
+FLOW_PRED_CONF_HIGH=60
+FLOW_PRED_CONF_MEDIUM=40
+FLOW_PRED_CONF_LOW=20
+
+# flow_pred_confidence <score> -> confidence label in FLOW_PRED_RESULT
+flow_pred_confidence() {
+  local s="${1:-0}"
+  if   [ "$s" -ge "$FLOW_PRED_CONF_VHIGH" ]; then FLOW_PRED_RESULT="very_high"
+  elif [ "$s" -ge "$FLOW_PRED_CONF_HIGH" ];  then FLOW_PRED_RESULT="high"
+  elif [ "$s" -ge "$FLOW_PRED_CONF_MEDIUM" ]; then FLOW_PRED_RESULT="medium"
+  elif [ "$s" -ge "$FLOW_PRED_CONF_LOW" ];   then FLOW_PRED_RESULT="low"
+  else FLOW_PRED_RESULT="very_low"
+  fi
+}
+
 # _flow_pred_now - current unix timestamp. Result in FLOW_PRED_SCORE.
 if [ -n "${ZSH_VERSION:-}" ]; then
   flow_pred_now() { FLOW_PRED_SCORE=$EPOCHSECONDS; }
@@ -144,8 +168,8 @@ flow_pred_ctx_get() {
 }
 
 # flow_pred_score_record <rec> <prefix> <ctx>
-# Full scorer used by the HUD and the CLI. Sets FLOW_PRED_SCORE and
-# FLOW_PRED_MATCH (1 if the record matched the prefix, 0 otherwise).
+# Full scorer used by the HUD and the CLI. Sets FLOW_PRED_SCORE,
+# FLOW_PRED_MATCH, and FLOW_PRED_EXPLAIN (space-separated explanation tokens).
 # rec: TAB-separated candidate record; ctx: see flow_pred_ctx_get.
 flow_pred_score_record() {
   local rec="$1" prefix="$2" ctx="$3"
@@ -158,6 +182,7 @@ flow_pred_score_record() {
 
   FLOW_PRED_SCORE=0
   FLOW_PRED_MATCH=0
+  FLOW_PRED_EXPLAIN=""
   local score=0 keylen=${#key} prefixlen=${#prefix}
 
   if [ "$prefixlen" -gt 0 ]; then
@@ -166,6 +191,7 @@ flow_pred_score_record() {
         score=$(( score + FLOW_PRED_W_PREFIX ))
         score=$(( score + (prefixlen * 100 / keylen) / 4 ))
         FLOW_PRED_MATCH=1
+        FLOW_PRED_EXPLAIN="prefix_match"
         ;;
       *)
         FLOW_PRED_MATCH=0
@@ -192,28 +218,55 @@ flow_pred_score_record() {
       dcount="${d#*:}"; dcount="${dcount%%:*}"
       if [ "$dpath" = "$dir" ]; then
         score=$(( score + FLOW_PRED_W_DIR ))
+        FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN dir_match"
         local fb=$(( dcount * FLOW_PRED_W_FREQ ))
         if [ "$fb" -gt "$FLOW_PRED_W_FREQ_CAP" ]; then fb=$FLOW_PRED_W_FREQ_CAP; fi
         score=$(( score + fb ))
       elif [ "${dir#$dpath/}" != "$dir" ]; then
         score=$(( score + FLOW_PRED_W_DIR_PARENT ))
+        FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN parent_dir_match"
       fi
     done
     IFS=$oldifs2
   fi
 
-  [ -n "$profile" ]   && case "$key" in "$profile"*)   score=$(( score + FLOW_PRED_W_PROFILE )) ;; esac
-  [ -n "$workspace" ] && case "$key" in "$workspace"*) score=$(( score + FLOW_PRED_W_WORKSPACE )) ;; esac
-  [ -n "$project" ]   && case "$key" in "$project"*)   score=$(( score + FLOW_PRED_W_PROJECT )) ;; esac
-  [ -n "$runtime" ]   && case "$key" in "$runtime"*)   score=$(( score + FLOW_PRED_W_RUNTIME )) ;; esac
-  [ -n "$session" ]   && [ "$session" = "$key" ] && score=$(( score + FLOW_PRED_W_SESSION ))
-  [ -n "$host" ]      && [ "$host" = "$key" ] && score=$(( score + FLOW_PRED_W_HOST ))
+  if [ -n "$profile" ]; then
+    case "$key" in "$profile"*)
+      score=$(( score + FLOW_PRED_W_PROFILE ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN profile_match"
+    ;; esac
+  fi
+  if [ -n "$workspace" ]; then
+    case "$key" in "$workspace"*)
+      score=$(( score + FLOW_PRED_W_WORKSPACE ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN workspace_match"
+    ;; esac
+  fi
+  if [ -n "$project" ]; then
+    case "$key" in "$project"*)
+      score=$(( score + FLOW_PRED_W_PROJECT ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN project_match"
+    ;; esac
+  fi
+  if [ -n "$runtime" ]; then
+    case "$key" in "$runtime"*)
+      score=$(( score + FLOW_PRED_W_RUNTIME ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN runtime_match"
+    ;; esac
+  fi
+  if [ -n "$session" ] && [ "$session" = "$key" ]; then
+    score=$(( score + FLOW_PRED_W_SESSION ))
+    FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN session_match"
+  fi
+  [ -n "$host" ] && [ "$host" = "$key" ] && score=$(( score + FLOW_PRED_W_HOST ))
 
   local total=$(( success + fail ))
   if [ "$total" -gt 0 ]; then
     score=$(( score + (success * FLOW_PRED_W_SUCCESS / total) ))
+    FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN ${success}ok_${fail}fail"
     if [ "$total" -ge 3 ] && [ "$fail" -gt 0 ] && [ $(( fail * 100 / total )) -ge 50 ]; then
       score=$(( score - FLOW_PRED_N_FAIL_PENALTY ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN high_failure_rate"
     fi
   fi
 
@@ -231,23 +284,35 @@ flow_pred_score_record() {
   flow_pred_recency_bonus "$last" "$now"
   score=$(( score + FLOW_PRED_SCORE ))
 
+  [ "$count" -gt 0 ] && FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN ${count}x_used"
+
   FLOW_PRED_SCORE=$score
   return 0
 }
 
-# flow_pred_score_fast <key> <count> <success> <fail> <last> <first> <dirs> <class> <prefix> <ctx>
-# Fast heuristic scorer for the keystroke hot path. Sets FLOW_PRED_SCORE and
-# FLOW_PRED_MATCH. Uses only cheap operations; exact ranking is done by the
-# full scorer in the HUD.
+# flow_pred_score_fast <key> <count> <success> <fail> <last> <first> <dirs>
+#   <class> <prefix> <ctx> [<trans_cnt> <trans_suc> <wf_cnt> <wf_suc> <rec_cnt>]
+# Fast heuristic scorer for the keystroke hot path. Sets FLOW_PRED_SCORE,
+# FLOW_PRED_MATCH, and FLOW_PRED_EXPLAIN (space-separated explanation tokens).
+# Optional trailing args add transition/workflow/recovery bonuses.
 flow_pred_score_fast() {
   local key="$1" count="${2:-0}" success="${3:-0}" fail="${4:-0}" last="${5:-0}" first="${6:-0}" dirs="${7:-}" cls="${8:-}" prefix="$9" ctx="${10:-}"
+  local tcnt="${11:-0}" tsuc="${12:-0}" wcnt="${13:-0}" wsuc="${14:-0}" rcnt="${15:-0}"
   local score=0 prefixlen=${#prefix} keylen=${#key}
   FLOW_PRED_MATCH=0
+  FLOW_PRED_EXPLAIN=""
 
   if [ "$prefixlen" -gt 0 ]; then
     case "$key" in
-      "$prefix"*) FLOW_PRED_MATCH=1 ;;
-      *) FLOW_PRED_SCORE=0; return 1 ;;
+      "$prefix"*)
+        FLOW_PRED_MATCH=1
+        FLOW_PRED_EXPLAIN="prefix_match"
+        ;;
+      *)
+        FLOW_PRED_SCORE=0
+        FLOW_PRED_EXPLAIN=""
+        return 1
+        ;;
     esac
     score=$(( score + FLOW_PRED_W_PREFIX + (prefixlen * 100 / keylen) / 4 ))
   fi
@@ -262,22 +327,88 @@ flow_pred_score_fast() {
 
   if [ -n "$dir" ] && [ -n "$dirs" ]; then
     case ",$dirs," in
-      *",$dir:"*) score=$(( score + FLOW_PRED_W_DIR )) ;;
-      *",${dir%/},"*) score=$(( score + FLOW_PRED_W_DIR )) ;;
-      *) case ",$dirs," in *",${dir%%/*}:"*) score=$(( score + FLOW_PRED_W_DIR_PARENT )) ;; esac
+      *",$dir:"*)
+        score=$(( score + FLOW_PRED_W_DIR ))
+        FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN dir_match"
+        ;;
+      *",${dir%/},"*)
+        score=$(( score + FLOW_PRED_W_DIR ))
+        FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN dir_match"
+        ;;
+      *)
+        case ",$dirs," in
+          *",${dir%%/*}:"*)
+            score=$(( score + FLOW_PRED_W_DIR_PARENT ))
+            FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN parent_dir_match"
+            ;;
+        esac
+        ;;
     esac
   fi
-  [ -n "$profile" ]   && case "$key" in "$profile"*)   score=$(( score + FLOW_PRED_W_PROFILE )) ;; esac
-  [ -n "$workspace" ] && case "$key" in "$workspace"*) score=$(( score + FLOW_PRED_W_WORKSPACE )) ;; esac
-  [ -n "$project" ]   && case "$key" in "$project"*)   score=$(( score + FLOW_PRED_W_PROJECT )) ;; esac
-  [ -n "$runtime" ]   && case "$key" in "$runtime"*)   score=$(( score + FLOW_PRED_W_RUNTIME )) ;; esac
-  [ -n "$session" ]   && [ "$session" = "$key" ] && score=$(( score + FLOW_PRED_W_SESSION ))
+  if [ -n "$profile" ]; then
+    case "$key" in "$profile"*)
+      score=$(( score + FLOW_PRED_W_PROFILE ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN profile_match"
+    ;; esac
+  fi
+  if [ -n "$workspace" ]; then
+    case "$key" in "$workspace"*)
+      score=$(( score + FLOW_PRED_W_WORKSPACE ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN workspace_match"
+    ;; esac
+  fi
+  if [ -n "$project" ]; then
+    case "$key" in "$project"*)
+      score=$(( score + FLOW_PRED_W_PROJECT ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN project_match"
+    ;; esac
+  fi
+  if [ -n "$runtime" ]; then
+    case "$key" in "$runtime"*)
+      score=$(( score + FLOW_PRED_W_RUNTIME ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN runtime_match"
+    ;; esac
+  fi
+  if [ -n "$session" ] && [ "$session" = "$key" ]; then
+    score=$(( score + FLOW_PRED_W_SESSION ))
+    FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN session_match"
+  fi
+
+  # transition boost: proportional to count, capped
+  if [ "$tcnt" -gt 0 ]; then
+    local tboost=0 tbase=0
+    while [ "$tcnt" -gt 1 ]; do tbase=$((tbase+1)); tcnt=$((tcnt >> 1)); done
+    tboost=$(( tbase * FLOW_PRED_W_TRANSITION ))
+    [ "$tboost" -gt "$FLOW_PRED_W_TRANSITION_CAP" ] && tboost=$FLOW_PRED_W_TRANSITION_CAP
+    score=$(( score + tboost ))
+    FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN follows_prev"
+  fi
+
+  # workflow boost: proportional to count, capped
+  if [ "$wcnt" -gt 0 ]; then
+    local wboost=0 wbase=0
+    while [ "$wcnt" -gt 1 ]; do wbase=$((wbase+1)); wcnt=$((wcnt >> 1)); done
+    wboost=$(( wbase * FLOW_PRED_W_WORKFLOW ))
+    [ "$wboost" -gt "$FLOW_PRED_W_WORKFLOW_CAP" ] && wboost=$FLOW_PRED_W_WORKFLOW_CAP
+    score=$(( score + wboost ))
+    FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN workflow_step"
+  fi
+
+  # recovery boost
+  if [ "$rcnt" -gt 0 ]; then
+    local rboost=$(( rcnt * FLOW_PRED_W_RECOVERY ))
+    [ "$rboost" -gt 20 ] && rboost=20
+    score=$(( score + rboost ))
+    FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN recovery_candidate"
+  fi
 
   local total=$(( success + fail ))
   if [ "$total" -gt 0 ]; then
     score=$(( score + (success * FLOW_PRED_W_SUCCESS / total) ))
+    FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN ${success}ok_${fail}fail"
     if [ "$total" -ge 3 ] && [ "$fail" -gt 0 ] && [ $(( fail * 100 / total )) -ge 50 ]; then
       score=$(( score - FLOW_PRED_N_FAIL_PENALTY ))
+      FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN high_failure_rate"
     fi
   fi
 
@@ -291,6 +422,9 @@ flow_pred_score_fast() {
   local now=$FLOW_PRED_SCORE
   flow_pred_recency_bonus "$last" "$now"
   score=$(( score + FLOW_PRED_SCORE ))
+
+  # append count/recency explanation
+  [ "$count" -gt 0 ] && FLOW_PRED_EXPLAIN="$FLOW_PRED_EXPLAIN ${count}x_used"
 
   FLOW_PRED_SCORE=$score
   return 0

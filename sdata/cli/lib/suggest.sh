@@ -89,6 +89,8 @@ CTX="dir=$DIR|profile=$PROFILE|workspace=$WORKSPACE|project=$PROJECT|runtime=$RU
 
 # ---- rank ------------------------------------------------------------------
 results=()
+explanations=()
+start_ts=$(date +%s%N 2>/dev/null || echo 0)
 for key in "${!cmd_stats[@]}"; do
   # Build full record: key\tcount\tsuccess\tfail\tlast\tfirst\tdirs\tclass
   set -- ${cmd_stats[$key]}
@@ -99,14 +101,56 @@ for key in "${!cmd_stats[@]}"; do
   flow_pred_score_record "$rec" "$PREFIX" "$CTX"
   if [ "$FLOW_PRED_MATCH" -eq 1 ]; then
     results+=("$FLOW_PRED_SCORE"$'\t'"$key")
+    explanations+=("${FLOW_PRED_EXPLAIN:-}")
   fi
 done
+end_ts=$(date +%s%N 2>/dev/null || echo 0)
+elapsed_ms=0
+if [ "$start_ts" != "0" ] && [ "$end_ts" != "0" ]; then
+  elapsed_ms=$(( (end_ts - start_ts) / 1000000 ))
+fi
 
 # sort desc by score (default whitespace separator handles tabs)
-mapfile -t results_sorted < <(printf '%s\n' "${results[@]}" | sort -k1,1nr)
+# also reorder explanations to match sorted results
+sorted_indices=()
+for ((i=0; i<${#results[@]}; i++)); do
+  sorted_indices+=("$i")
+done
+# simple insertion sort by score
+for ((i=1; i<${#sorted_indices[@]}; i++)); do
+  j=$i
+  while [ $j -gt 0 ]; do
+    prev_pos=$((j-1))
+    prev_idx=${sorted_indices[$prev_pos]}
+    curr_idx=${sorted_indices[$j]}
+    prev_score="${results[$prev_idx]%%$'\t'*}"
+    curr_score="${results[$curr_idx]%%$'\t'*}"
+    if [ "$curr_score" -gt "$prev_score" ]; then
+      sorted_indices[$j]="$prev_idx"
+      sorted_indices[$prev_pos]="$curr_idx"
+      j=$prev_pos
+    else
+      break
+    fi
+  done
+done
+
+results_sorted=()
+explanations_sorted=()
+for ((i=0; i<${#sorted_indices[@]}; i++)); do
+  idx=${sorted_indices[$i]}
+  results_sorted+=("${results[$idx]}")
+  explanations_sorted+=("${explanations[$idx]:-}")
+done
 
 count=${#results_sorted[@]}
 if [ "$LIMIT" -gt 0 ] && [ "$count" -gt "$LIMIT" ]; then count=$LIMIT; fi
+
+# confidence for best result
+best_score=0
+[ "$count" -gt 0 ] && best_score="${results_sorted[0]%%$'\t'*}"
+flow_pred_confidence "$best_score"
+best_conf="$FLOW_PRED_RESULT"
 
 tab=$'\t'
 if [ "$JSON" -eq 1 ]; then
@@ -114,6 +158,8 @@ if [ "$JSON" -eq 1 ]; then
   printf '"schema":%d,' "$FLOW_PRED_SCHEMA_VERSION"
   printf '"prefix":%s,' "$(printf '%s' "$PREFIX" | jq -Rsa . 2>/dev/null || printf '"%s"' "$PREFIX")"
   printf '"count":%d,' "$count"
+  printf '"latency_ms":%d,' "$elapsed_ms"
+  printf '"confidence":%s,' "$(printf '%s' "$best_conf" | jq -Rsa . 2>/dev/null || printf '"%s"' "$best_conf")"
   printf '"context":{"dir":%s,"profile":%s,"workspace":%s,"project":%s,"runtime":%s,"host":%s},' \
     "$(printf '%s' "$DIR" | jq -Rsa . 2>/dev/null || printf '"%s"' "$DIR")" \
     "$(printf '%s' "$PROFILE" | jq -Rsa . 2>/dev/null || printf '"%s"' "$PROFILE")" \
@@ -126,24 +172,60 @@ if [ "$JSON" -eq 1 ]; then
     [ $i -gt 0 ] && printf ','
     rec="${results_sorted[$i]}"
     IFS=$tab read -r score key <<< "$rec"
+    expl="${explanations_sorted[$i]:-}"
     set -- ${cmd_stats["$key"]}
-    printf '{"score":%d,"command":%s,"count":%d,"success":%d,"fail":%d,"class":%s,"risk":%s}' \
+    flow_pred_confidence "$score"
+    cand_conf="$FLOW_PRED_RESULT"
+    # build reasons array from explanation tokens
+    reasons="["
+    first_reason=1
+    for token in $expl; do
+      case "$token" in
+        prefix_match)      r="prefix_match" ;;
+        dir_match)         r="exact_directory" ;;
+        parent_dir_match)  r="parent_directory" ;;
+        profile_match)     r="profile_match" ;;
+        workspace_match)   r="workspace_match" ;;
+        project_match)     r="project_match" ;;
+        runtime_match)     r="runtime_match" ;;
+        session_match)     r="session_match" ;;
+        follows_prev)      r="follows_previous_command" ;;
+        workflow_step)     r="workflow_continuation" ;;
+        recovery_candidate) r="recovery_after_failure" ;;
+        high_failure_rate) r="high_failure_rate" ;;
+        *) r="$token" ;;
+      esac
+      [ $first_reason -eq 0 ] && reasons+=","
+      reasons+="$(printf '%s' "$r" | jq -Rsa . 2>/dev/null || printf '"%s"' "$r")"
+      first_reason=0
+    done
+    reasons+="]"
+    printf '{"score":%d,"confidence":%s,"command":%s,"count":%d,"success":%d,"fail":%d,"class":%s,"risk":%s,"reasons":%s}' \
       "$score" \
+      "$(printf '%s' "$cand_conf" | jq -Rsa . 2>/dev/null || printf '"%s"' "$cand_conf")" \
       "$(printf '%s' "$key" | jq -Rsa . 2>/dev/null || printf '"%s"' "$key")" \
       "$1" "$2" "$3" \
       "$(printf '%s' "${key_class[$key]:-other}" | jq -Rsa . 2>/dev/null || printf '"%s"' "${key_class[$key]:-other}")" \
-      "$(flow_pred_risk_class "$key"; printf '"%s"' "$FLOW_PRED_RESULT" | jq -Rsa . 2>/dev/null || printf '"%s"' "$FLOW_PRED_RESULT")"
+      "$(flow_pred_risk_class "$key"; printf '"%s"' "$FLOW_PRED_RESULT" | jq -Rsa . 2>/dev/null || printf '"%s"' "$FLOW_PRED_RESULT")" \
+      "$reasons"
   done
   printf ']}\n'
   exit 0
 fi
 
+# ---- human-readable output --------------------------------------------------
 echo "flow-suggest: ${count} candidate(s) for '${PREFIX}'"
 echo "context: dir=${DIR} profile=${PROFILE} workspace=${WORKSPACE} project=${PROJECT} runtime=${RUNTIME} host=${HOST}"
-tab=$'\t'
+echo "confidence: ${best_conf}  latency: ${elapsed_ms}ms"
+if [ "$DEBUG" -eq 1 ]; then
+  echo "--- debug ---"
+  echo "weights: prefix=$FLOW_PRED_W_PREFIX dir=$FLOW_PRED_W_DIR profile=$FLOW_PRED_W_PROFILE workspace=$FLOW_PRED_W_WORKSPACE project=$FLOW_PRED_W_PROJECT runtime=$FLOW_PRED_W_RUNTIME session=$FLOW_PRED_W_SESSION success=$FLOW_PRED_W_SUCCESS freq=$FLOW_PRED_W_FREQ"
+  echo "confidence thresholds: very_high>=$FLOW_PRED_CONF_VHIGH high>=$FLOW_PRED_CONF_HIGH medium>=$FLOW_PRED_CONF_MEDIUM low>=$FLOW_PRED_CONF_LOW"
+fi
 for ((i=0; i<count; i++)); do
   rec="${results_sorted[$i]}"
   IFS=$tab read -r score key <<< "$rec"
+  expl="${explanations_sorted[$i]:-}"
   set -- ${cmd_stats["$key"]}   # count success fail last first
   total=$(( $2 + $3 ))
   pct=0
@@ -158,5 +240,11 @@ for ((i=0; i<count; i++)); do
     else ago="$(( diff / 86400 ))d ago"
     fi
   fi
-  echo "  ${key}  score=${score}  ${1}x  ${pct}% success  ${ago}  class=${key_class[$key]:-other}  risk=$(flow_pred_risk_class "$key"; echo "$FLOW_PRED_RESULT")"
+  flow_pred_confidence "$score"
+  cand_conf="$FLOW_PRED_RESULT"
+  line="  ${key}  score=${score} (${cand_conf})  ${1}x  ${pct}% success  ${ago}  class=${key_class[$key]:-other}  risk=$(flow_pred_risk_class "$key"; echo "$FLOW_PRED_RESULT")"
+  if [ "$DEBUG" -eq 1 ] && [ -n "$expl" ]; then
+    line+="  reasons=(${expl})"
+  fi
+  echo "$line"
 done

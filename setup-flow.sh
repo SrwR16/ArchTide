@@ -2498,7 +2498,11 @@ cmd_suggest() {
         }
     done
     [[ -n "$path" ]] || ui_die "Missing helper" "sdata/cli/lib/suggest.sh not found"
-    exec bash "$path" "$@"
+    # Forward global flags that setup-flow.sh's parser consumes but suggest.sh needs
+    local -a extra_flags=()
+    [[ "${OPT_JSON:-}" == "true" ]] && extra_flags+=("--json")
+    [[ "${OPT_DEBUG:-}" == "true" ]] && extra_flags+=("--debug")
+    exec bash "$path" "${extra_flags[@]+"${extra_flags[@]}"}" "$@"
 }
 
 # cmd_project <subcmd> [args...] — dispatches "flow project <subcmd>".
@@ -2837,6 +2841,15 @@ parse_args() {
                 PASSTHRU_ARGS+=("$@")
                 break
                 ;;
+            --json|--debug)
+                # Pass through to subcommands that accept them (e.g. suggest)
+                PASSTHRU_ARGS+=("$1")
+                shift
+                ;;
+            --limit)
+                PASSTHRU_ARGS+=("$1" "${2:-}")
+                shift 2
+                ;;
             -*)
                 arg_error "Unknown option \"$1\""
                 ;;
@@ -2873,7 +2886,7 @@ parse_args() {
             PROJECT_ARGS=("${positional[@]}")
             ;;
         suggest)
-            SUGGEST_ARGS=("${positional[@]}")
+            SUGGEST_ARGS=("${positional[@]}" "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}")
             ;;
         shell)
             SHELL_ARGS=("${positional[@]}")
