@@ -90,6 +90,11 @@ typeset -g _fp_last_typed=""
 typeset -g _fp_last_result=""
 typeset -g _fp_last_score=0
 typeset -g _fp_last_status=0
+typeset -g _fp_last_result_count=0
+typeset -ga _fp_last_results=()
+typeset -ga _fp_last_result_src=()
+typeset -ga _fp_last_result_meta=()
+typeset -ga _fp_last_result_explain=()
 typeset -ga _fp_hud_cands=()
 typeset -ga _fp_hud_desc=()
 typeset -ga _fp_hud_src=()
@@ -485,6 +490,11 @@ _flow_pred_on_redraw() {
   _fp_last_typed="$BUFFER"
   _fp_last_result="$_fp_result"
   _fp_last_score="$_fp_result_score"
+  _fp_last_result_count=${#_fp_results}
+  _fp_last_results=("${(@)_fp_results[@]}")
+  _fp_last_result_src=("${(@)_fp_result_src[@]}")
+  _fp_last_result_meta=("${(@)_fp_result_meta[@]}")
+  _fp_last_result_explain=("${(@)_fp_result_explain[@]}")
 
   # Confidence gate: ghost only for high-confidence predictions (>=60).
   # Lower scores are still available via Meta+P HUD.
@@ -589,7 +599,25 @@ done
 # ── HUD ─────────────────────────────────────────────────────────────────────
 _flow_pred_hud_open() {
   local prefix="$BUFFER"
-  _flow_pred_predict "$prefix"
+  # Reuse cached results if prefix matches (avoids redundant prediction)
+  if [[ "$prefix" == "$_fp_last_typed" && ${#_fp_last_results} -gt 0 ]]; then
+    _fp_results=("${(@)_fp_last_results[@]}")
+    _fp_result_src=("${(@)_fp_last_result_src[@]}")
+    _fp_result_meta=("${(@)_fp_last_result_meta[@]}")
+    _fp_result_explain=("${(@)_fp_last_result_explain[@]}")
+    _fp_result="$_fp_last_result"
+    _fp_result_score="$_fp_last_score"
+  else
+    _flow_pred_predict "$prefix"
+    _fp_last_typed="$prefix"
+    _fp_last_result="$_fp_result"
+    _fp_last_score="$_fp_result_score"
+    _fp_last_result_count=${#_fp_results}
+    _fp_last_results=("${(@)_fp_results[@]}")
+    _fp_last_result_src=("${(@)_fp_result_src[@]}")
+    _fp_last_result_meta=("${(@)_fp_result_meta[@]}")
+    _fp_last_result_explain=("${(@)_fp_result_explain[@]}")
+  fi
   (( ${#_fp_results} )) || { zle -M "Flow: no suggestions for '$prefix'"; return 1 }
   _flow_pred_ghost_clear
   _fp_hud_cands=() _fp_hud_desc=() _fp_hud_src=()
@@ -691,6 +719,30 @@ _flow_pred_hud_close() {
   zle -R
 }
 
+_flow_pred_up() {
+  (( _fp_hud_active )) && { _flow_pred_hud_up; return }
+  (( _fp_warm )) || { zle up-line-or-history; return }
+  (( ${#BUFFER} == 0 )) && { zle up-line-or-history; return }
+  (( CURSOR == ${#BUFFER} )) || { zle up-line-or-history; return }
+  if (( _fp_last_result_count >= 2 )); then
+    _flow_pred_hud_open
+  else
+    zle up-line-or-history
+  fi
+}
+
+_flow_pred_down() {
+  (( _fp_hud_active )) && { _flow_pred_hud_down; return }
+  (( _fp_warm )) || { zle down-line-or-history; return }
+  (( ${#BUFFER} == 0 )) && { zle down-line-or-history; return }
+  (( CURSOR == ${#BUFFER} )) || { zle down-line-or-history; return }
+  if (( _fp_last_result_count >= 2 )); then
+    _flow_pred_hud_open
+  else
+    zle down-line-or-history
+  fi
+}
+
 _flow_pred_hud_up() {
   (( _fp_hud_active )) || { zle up-line-or-history; return 0 }
   (( _fp_hud_sel > 0 )) && _fp_hud_sel=$(( _fp_hud_sel - 1 ))
@@ -769,6 +821,8 @@ bindkey -M flowhud -R "\x00-\x1f" _flow_pred_hud_delegate
 zle -N _flow_pred_accept_ghost
 zle -N _flow_pred_accept_token
 zle -N _flow_pred_hud_open
+zle -N _flow_pred_up
+zle -N _flow_pred_down
 zle -N _flow_pred_hud_up
 zle -N _flow_pred_hud_down
 zle -N _flow_pred_hud_pgup
@@ -782,6 +836,12 @@ bindkey "\e[F" _flow_pred_accept_ghost
 bindkey "\C-f" _flow_pred_accept_token
 bindkey "\M-p" _flow_pred_hud_open   # Meta+P
 bindkey "\M-P" _flow_pred_hud_open   # Meta+Shift+P
+
+# Up/Down: Flow HUD when multiple candidates, normal history otherwise
+bindkey "\e[A" _flow_pred_up
+bindkey "\e[B" _flow_pred_down
+bindkey "\C-p" _flow_pred_up
+bindkey "\C-n" _flow_pred_down
 
 # ── continuous learning ─────────────────────────────────────────────────────
 _flow_pred_preexec() {

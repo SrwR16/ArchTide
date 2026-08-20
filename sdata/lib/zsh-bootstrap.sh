@@ -75,24 +75,23 @@ zsh_ensure_bootstrap_rc() {
     fi
 
     # zshrc.d fragments: overlay only the Flow *.zsh files, never removing or
-    # replacing anything a user already keeps there.
-    if ! zshrc_d_ready; then
-        local d
-        for d in "$repo_root/dots/.config/zshrc.d" "$MIRROR_DIR/dots/.config/zshrc.d" "$SCRIPT_DIR/dots/.config/zshrc.d"; do
-            if [[ -d "$d" ]]; then
-                mkdir -p "$HOME/.config/zshrc.d"
-                local frag
-                for frag in "$d"/[0-9]*.zsh; do
-                    [[ -f "$frag" ]] || continue
-                    if [[ ! -f "$HOME/.config/zshrc.d/$(basename "$frag")" ]]; then
-                        cp -f "$frag" "$HOME/.config/zshrc.d/"
-                        ui_verbose "deployed zshrc.d/$(basename "$frag")"
-                    fi
-                done
-                break
-            fi
-        done
-    fi
+    # replacing anything a user already keeps there. Deploy new fragments even
+    # when zshrc.d is already initialised (the inner check is idempotent).
+    local d
+    for d in "$repo_root/dots/.config/zshrc.d" "$MIRROR_DIR/dots/.config/zshrc.d" "$SCRIPT_DIR/dots/.config/zshrc.d"; do
+        if [[ -d "$d" ]]; then
+            mkdir -p "$HOME/.config/zshrc.d"
+            local frag
+            for frag in "$d"/[0-9]*.zsh; do
+                [[ -f "$frag" ]] || continue
+                if [[ ! -f "$HOME/.config/zshrc.d/$(basename "$frag")" ]]; then
+                    cp -f "$frag" "$HOME/.config/zshrc.d/"
+                    ui_verbose "deployed zshrc.d/$(basename "$frag")"
+                fi
+            done
+            break
+        fi
+    done
 
     if [[ ! -f "$FLOW_ZSH_BOOTSTRAP" ]]; then
         ui_warn "Flow zsh bootstrap ($(tilde "$FLOW_ZSH_BOOTSTRAP")) not found in the source."
