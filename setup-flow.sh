@@ -2488,6 +2488,19 @@ cmd_hypr() {
     exec bash "$path" "$@"
 }
 
+cmd_suggest() {
+    local path=""
+    local d
+    for d in "$SCRIPT_DIR" "$MIRROR_DIR"; do
+        [[ -f "$d/sdata/cli/lib/suggest.sh" ]] && {
+            path="$d/sdata/cli/lib/suggest.sh"
+            break
+        }
+    done
+    [[ -n "$path" ]] || ui_die "Missing helper" "sdata/cli/lib/suggest.sh not found"
+    exec bash "$path" "$@"
+}
+
 # cmd_project <subcmd> [args...] — dispatches "flow project <subcmd>".
 # Mirrors cmd_hypr's resolve-then-ui_die convention: check SCRIPT_DIR, fall
 # back to MIRROR_DIR, die with the normal error UI (not a raw shell error)
@@ -2589,6 +2602,7 @@ show_help() {
     printf '  %s%-16s%s %s\n' "$C_OK" "project activate" "$C_RST" "Activate current shell environment for a profile"
     printf '  %s%-16s%s %s\n' "$C_OK" "project deactivate" "$C_RST" "Deactivate current Flow environment"
     printf '  %s%-16s%s %s\n' "$C_OK" "project status" "$C_RST" "Show current Flow environment status"
+    printf '  %s%-16s%s %s\n' "$C_OK" "suggest" "$C_RST" "Query the command predictor (offline; --json/--debug)"
     printf '  %s%-16s%s Remove the %s symlink\n' "$C_OK" "remove-cli" "$C_RST" "$CLI_NAME"
     printf '  %s%-16s%s %s\n' "$C_OK" "help, version" "$C_RST" "This message / the version"
     printf '  %s%-16s%s %s\n' "$C_OK" "demo" "$C_RST" "Render every UI primitive and exit"
@@ -2837,7 +2851,7 @@ parse_args() {
     if ((${#positional[@]} > 0)); then
         local first="${positional[0]}"
         case "$first" in
-            apply | install | update | switch | restart | run | doctor | remove-cli | hyprset | hyprmerge | help | version | demo | project | shell)
+            apply | install | update | switch | restart | run | doctor | remove-cli | hyprset | hyprmerge | help | version | demo | project | shell | suggest)
                 COMMAND="$first"
                 positional=("${positional[@]:1}")
                 ;;
@@ -2857,6 +2871,9 @@ parse_args() {
             # meant main() could never see what the user actually typed and
             # silently always ran "detect".
             PROJECT_ARGS=("${positional[@]}")
+            ;;
+        suggest)
+            SUGGEST_ARGS=("${positional[@]}")
             ;;
         shell)
             SHELL_ARGS=("${positional[@]}")
@@ -2912,6 +2929,7 @@ main() {
         hyprset) cmd_hypr hyprset "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}" ;;
         hyprmerge) cmd_hypr hyprmerge "${PASSTHRU_ARGS[@]+"${PASSTHRU_ARGS[@]}"}" ;;
         project) cmd_project "${PROJECT_ARGS[@]+"${PROJECT_ARGS[@]}"}" ;;
+        suggest) cmd_suggest "${SUGGEST_ARGS[@]+"${SUGGEST_ARGS[@]}"}" ;;
     esac
 
     open_log
