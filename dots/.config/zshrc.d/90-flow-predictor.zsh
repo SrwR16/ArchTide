@@ -642,7 +642,7 @@ _flow_pred_hud_open() {
     src="${_fp_result_src[$i]}"
     meta="${_fp_result_meta[$i]}"
     expl="${_fp_result_explain[$i]:-}"
-    set -- $meta
+    set -- ${=meta}
     count=$1 success=$2 fail=$3 last=$4
 
     # build rich description from explanation tokens
@@ -702,17 +702,21 @@ _flow_pred_hud_render() {
   local i idx
   for (( i = 1; i <= visible && _fp_hud_offset + i <= n; i++ )); do
     idx=$(( _fp_hud_offset + i ))
+    local cand="${_fp_hud_cands[$idx]//\%/%%}"
+    local desc="${_fp_hud_desc[$idx]//\%/%%}"
+    local line
     if (( idx - 1 == _fp_hud_sel )); then
-      lines+=("${(%):-%K{240}%F{0}> }${_fp_hud_cands[$idx]}%f%k  ${_fp_hud_desc[$idx]}")
+      line="%F{38}➜ %f%B${cand}%b%F{244}  ${desc}%f"
     else
-      lines+=("  ${_fp_hud_cands[$idx]}  ${_fp_hud_desc[$idx]}")
+      line="  ${cand}%F{244}  ${desc}%f"
     fi
+    lines+=("${(%):-$line}")
   done
   local header
   if (( is_recovery )); then
-    header="Flow recovery: ${n} candidate(s)  ↑/↓ move · PageUp/PageDown scroll · Enter/Tab accept · Esc close"
+    header="Flow recovery: ${n} candidate(s)   ↑/↓ move · Enter accept · Esc close"
   else
-    header="Flow: ${n} candidate(s)  ↑/↓ move · PageUp/PageDown scroll · Enter/Tab accept · Esc close"
+    header="Flow: ${n} candidate(s)   ↑/↓ move · Enter accept · Esc close"
   fi
   zle -R "$header" "${lines[@]}"
 }
