@@ -28,9 +28,7 @@ bindkey '^[[3;5~' kill-word         # Ctrl+Delete
 bindkey '^H' backward-kill-word     # Ctrl+Backspace (from existing shortcuts.zsh)
 bindkey '^[[3~' delete-char         # Delete
 
-# Undo
-bindkey '^Z' undo                   # Ctrl+Z (from existing shortcuts.zsh)
-bindkey '^[_' redo                  # Alt+_
+# Undo — handled by zsh-edit-select (Ctrl+Z / Ctrl+Shift+Z)
 
 # Clear screen
 bindkey '^L' clear-screen
