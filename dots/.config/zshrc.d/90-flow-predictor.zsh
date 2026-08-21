@@ -969,10 +969,14 @@ add-zle-hook-widget zle-line-pre-redraw _flow_pred_on_redraw
 # lazy atuin enrichment after the first prompt
 _flow_pred_warmup() {
   add-zsh-hook -d precmd _flow_pred_warmup
-  local log="${FLOW_PRED_DEBUG_LOG:-/dev/null}"
-  (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: atuin warmup starting" >>"$log" 2>&1
-  _flow_pred_warm_from_atuin
-  (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: warm index ready (${#_fp_cmd_stats} commands)" >>"$log" 2>&1
+  # Run atuin warm-up in background so prompt appears instantly.
+  # Poll until ready; _fp_warm=1 signals completion to _flow_pred_on_redraw.
+  {
+    local log="${FLOW_PRED_DEBUG_LOG:-/dev/null}"
+    (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: atuin warmup starting" >>"$log" 2>&1
+    _flow_pred_warm_from_atuin
+    (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: warm index ready (${#_fp_cmd_stats} commands)" >>"$log" 2>&1
+  } &
 }
 add-zsh-hook precmd _flow_pred_warmup
 
