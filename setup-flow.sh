@@ -1048,6 +1048,24 @@ copy_tree() {
     return 0
 }
 
+# prune_stale_files <src_dir/> <dst_dir/> — remove files in dst that are not in
+# src.  Skips directories, hidden files, and .git.  Safe to call on any
+# src/dst pair; only deletes regular files.
+prune_stale_files() {
+    local src="${1%/}" dst="${2%/}" f rel removed=0
+    [[ -d "$dst" ]] || return 0
+    while IFS= read -r -d '' f; do
+        rel="${f#"$dst"/}"
+        # skip hidden files/dirs, .git, directories
+        [[ "$rel" == .* || "$rel" == .git/* || "$rel" == .git ]] && continue
+        [[ -f "$src/$rel" ]] && continue
+        rm -f "$f"
+        ui_verbose "pruned stale $rel"
+        removed=$((removed + 1))
+    done < <(find "$dst" -type f -print0 2>/dev/null)
+    ((removed > 0)) && ui_note "Pruned $removed stale file(s) from $(tilde "$dst")"
+}
+
 #══════════════════════════════════════════════════════════════════════════════
 # Protected files, backups, atomic swap
 #══════════════════════════════════════════════════════════════════════════════
@@ -1818,6 +1836,7 @@ install_extras_config() {
             }
         else
             copy_tree "$src/" "$HOME/.config/$name/" || return 1
+            prune_stale_files "$src/" "$HOME/.config/$name/"
         fi
         deployed=$((deployed + 1))
     done
