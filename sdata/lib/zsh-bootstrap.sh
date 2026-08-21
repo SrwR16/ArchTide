@@ -61,17 +61,41 @@ zsh_ensure_bootstrap_rc() {
     local repo_root="${1:-}"
     local candidates=("$MIRROR_DIR/dots/.config/zsh/.zshrc" "$SCRIPT_DIR/dots/.config/zsh/.zshrc")
     [[ -n "$repo_root" ]] && candidates+=("$repo_root/dots/.config/zsh/.zshrc")
-    local c frags_candidate="" zshrc_candidate=""
+    local c zshrc_candidate=""
     for c in "${candidates[@]}"; do
         if [[ -f "$c" ]]; then
             zshrc_candidate="$c"
             break
         fi
     done
-    if [[ -n "$zshrc_candidate" && ! -f "$FLOW_ZSH_BOOTSTRAP" ]]; then
-        mkdir -p "$(dirname "$FLOW_ZSH_BOOTSTRAP")"
-        cp -f "$zshrc_candidate" "$FLOW_ZSH_BOOTSTRAP"
-        ui_verbose "deployed $FLOW_ZSH_BOOTSTRAP"
+
+    # Deploy Flow bootstrap rc (~/.config/zsh/.zshrc). Use conflict resolution
+    # if the destination exists (it may be a user's existing config like Oh My Zsh).
+    if [[ -n "$zshrc_candidate" ]]; then
+        if [[ ! -f "$FLOW_ZSH_BOOTSTRAP" ]]; then
+            mkdir -p "$(dirname "$FLOW_ZSH_BOOTSTRAP")"
+            cp -f "$zshrc_candidate" "$FLOW_ZSH_BOOTSTRAP"
+            ui_verbose "deployed $FLOW_ZSH_BOOTSTRAP"
+        else
+            # Destination exists — use conflict resolution to avoid silently
+            # overwriting a user's existing config (e.g., Oh My Zsh).
+            local newfile
+            newfile="$(mktemp "${TMPDIR:-/tmp}/flow-zsh-XXXXXX")"
+            cp -f "$zshrc_candidate" "$newfile"
+            conflict_resolve "$FLOW_ZSH_BOOTSTRAP" "$newfile" "$(tilde "$FLOW_ZSH_BOOTSTRAP")" overwrite
+            local action="$CONFLICT_ACTION"
+            if [[ "$action" == "remove" ]]; then
+                cp -f "$zshrc_candidate" "$newfile"
+            fi
+            if [[ "$action" == "keep" || "$action" == "skip" ]]; then
+                ui_note "Left $(tilde "$FLOW_ZSH_BOOTSTRAP") alone — Flow bootstrap not deployed."
+                rm -f "$newfile"
+                return 1
+            fi
+            conflict_apply "$FLOW_ZSH_BOOTSTRAP" "$newfile"
+            rm -f "$newfile"
+            ui_verbose "deployed $FLOW_ZSH_BOOTSTRAP"
+        fi
     fi
 
     # zshrc.d fragments: overlay only the Flow *.zsh files, never removing or
@@ -114,6 +138,19 @@ zsh_install_managed_block() {
         mkdir -p "$HOME"
         printf '%s\n' "$block" >"$target"
         ui_ok "Zsh config" "created $(tilde "$target")"
+        return 0
+    fi
+
+    # Broken symlink: detect, report, and replace safely.
+    if [[ -L "$target" && ! -e "$target" ]]; then
+        local broken_target
+        broken_target="$(readlink "$target")"
+        ui_warn "Found broken symlink $(tilde "$target") -> $broken_target"
+        ui_note "Replacing with Flow managed block (backup kept)."
+        rm -f "$target"
+        mkdir -p "$HOME"
+        printf '%s\n' "$block" >"$target"
+        ui_ok "Zsh config" "replaced broken symlink with Flow block in $(tilde "$target")"
         return 0
     fi
 
