@@ -470,12 +470,13 @@ _flow_pred_highlight_reset() {
   fi
 }
 
-# Apply ghost highlight
+# Apply ghost highlight — brighter, bold for visibility
 _flow_pred_highlight_apply() {
   typeset -g _fp_ghost_highlight
   if (( _fp_ghost_active )) && [[ -n "$_fp_ghost_postdisplay" ]]; then
-    _fp_ghost_highlight="$#BUFFER $(($#BUFFER + $#_fp_ghost_postdisplay)) fg=240"
-    region_highall+=("$_fp_ghost_highlight")
+    # fg=245 (bright gray), bold, standout for visibility
+    _fp_ghost_highlight="$#BUFFER $(($#BUFFER + $#_fp_ghost_postdisplay)) fg=245,bold,standout"
+    region_highlight+=("$_fp_ghost_highlight")
   else
     unset _fp_ghost_highlight
   fi
@@ -819,6 +820,7 @@ _flow_pred_hud_delegate() {
 
 # HUD keymap
 bindkey -N flowhud 2>/dev/null
+zle -N _flow_pred_hud_delegate
 bindkey -M flowhud '^[' _flow_pred_hud_close
 bindkey -M flowhud '^M' _flow_pred_hud_accept
 bindkey -M flowhud '^J' _flow_pred_hud_accept
