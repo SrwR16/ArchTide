@@ -597,7 +597,7 @@ _flow_pred_g_accept-line() {
 }
 zle -N accept-line _flow_pred_g_accept-line
 
-for w in self-insert backward-delete-char delete-char backward-kill-word kill-word backward-word forward-word beginning-of-line end-of-line forward-char backward-char up-line-or-history down-line-or-history undo redo history-search-backward history-search-forward yank yank-pop clear-screen delete-char-or-list quoted-insert flow_paste flow_cut flow_delete_backward flow_delete_forward flow_select_all flow_copy; do
+for w in self-insert backward-delete-char delete-char backward-kill-word kill-word backward-word forward-word beginning-of-line end-of-line forward-char backward-char up-line-or-history down-line-or-history undo redo history-search-backward history-search-forward yank yank-pop clear-screen delete-char-or-list quoted-insert; do
   (( ${+widgets[$w]} )) && _flow_pred_wrap_widget "$w"
 done
 
