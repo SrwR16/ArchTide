@@ -470,12 +470,12 @@ _flow_pred_highlight_reset() {
   fi
 }
 
-# Apply ghost highlight — brighter, bold for visibility
+# Apply ghost highlight — dim text, same style as active command but muted
 _flow_pred_highlight_apply() {
   typeset -g _fp_ghost_highlight
   if (( _fp_ghost_active )) && [[ -n "$_fp_ghost_postdisplay" ]]; then
-    # fg=245 (bright gray), bold, standout for visibility
-    _fp_ghost_highlight="$#BUFFER $(($#BUFFER + $#_fp_ghost_postdisplay)) fg=245,bold,standout"
+    # fg=245 (muted gray) — dim like autosuggestions, no bold/standout
+    _fp_ghost_highlight="$#BUFFER $(($#BUFFER + $#_fp_ghost_postdisplay)) fg=245"
     region_highlight+=("$_fp_ghost_highlight")
   else
     unset _fp_ghost_highlight
@@ -534,6 +534,11 @@ _flow_pred_fetch_suggestion() {
 # on_redraw: safety net only (re-apply POSTDISPLAY if cleared externally)
 _flow_pred_on_redraw() {
   (( FLOW_PRED_GHOST_ENABLED )) || return 0
+  # Never show ghost on empty buffer
+  if (( ${#BUFFER} == 0 )); then
+    (( _fp_ghost_active )) && _flow_pred_ghost_clear
+    return 0
+  fi
   # If ghost was active but POSTDISPLAY got cleared (e.g., by another plugin),
   # re-apply it. This is a safety net, not the primary path.
   if (( _fp_ghost_active )) && [[ -z "$POSTDISPLAY" && -n "$_fp_ghost_postdisplay" ]]; then
@@ -602,7 +607,7 @@ _flow_pred_g_accept-line() {
 }
 zle -N accept-line _flow_pred_g_accept-line
 
-for w in self-insert backward-delete-char delete-char backward-kill-word kill-word backward-word forward-word beginning-of-line end-of-line forward-char backward-char up-line-or-history down-line-or-history undo redo history-search-backward history-search-forward yank yank-pop clear-screen delete-char-or-list quoted-insert; do
+for w in self-insert backward-delete-char delete-char backward-kill-word kill-word backward-word forward-word beginning-of-line end-of-line forward-char backward-char undo redo yank yank-pop clear-screen delete-char-or-list quoted-insert; do
   (( ${+widgets[$w]} )) && _flow_pred_wrap_widget "$w"
 done
 
@@ -736,11 +741,9 @@ _flow_pred_hud_close() {
 
 _flow_pred_up() {
   (( _fp_hud_active )) && { _flow_pred_hud_up; return }
-  (( _fp_warm )) || { zle up-line-or-history; return }
-  (( ${#BUFFER} == 0 )) && { zle up-line-or-history; return }
-  (( CURSOR == ${#BUFFER} )) || { zle up-line-or-history; return }
-  if (( _fp_last_result_count >= 2 )); then
-    _flow_pred_hud_open
+  # If buffer has text: prefix history search; if empty: recent history
+  if (( ${#BUFFER} > 0 )); then
+    zle history-search-backward
   else
     zle up-line-or-history
   fi
@@ -748,10 +751,8 @@ _flow_pred_up() {
 
 _flow_pred_down() {
   (( _fp_hud_active )) && { _flow_pred_hud_down; return }
-  (( _fp_warm )) || { zle down-line-or-history; return }
-  (( ${#BUFFER} == 0 )) && { zle down-line-or-history; return }
-  (( CURSOR == ${#BUFFER} )) || { zle down-line-or-history; return }
-  if (( _fp_last_result_count >= 2 )); then
+  # Always open HUD on Down
+  if (( _fp_warm )); then
     _flow_pred_hud_open
   else
     zle down-line-or-history
@@ -857,9 +858,13 @@ bindkey "\e[1;5C" _flow_pred_accept_word   # Ctrl+Right: accept word
 bindkey "\M-p" _flow_pred_hud_open       # Meta+P
 bindkey "\M-P" _flow_pred_hud_open       # Meta+Shift+P
 
-# Up/Down: Flow HUD when multiple candidates (Alt+Up/Alt+Down), normal history otherwise
-bindkey "\e[1;3A" _flow_pred_up          # Alt+Up
-bindkey "\e[1;3B" _flow_pred_down        # Alt+Down
+# Up/Down: Flow HUD navigation (Alt+Up/Alt+Down in HUD, regular Up/Down elsewhere)
+# Regular Up: prefix history search (or recent history if empty)
+# Regular Down: always open HUD
+bindkey "\e[A" _flow_pred_up              # Up arrow
+bindkey "\e[B" _flow_pred_down            # Down arrow
+bindkey "\e[1;3A" _flow_pred_up          # Alt+Up (same as Up)
+bindkey "\e[1;3B" _flow_pred_down        # Alt+Down (same as Down)
 
 # ── continuous learning ─────────────────────────────────────────────────────
 _flow_pred_preexec() {
@@ -979,13 +984,15 @@ add-zle-hook-widget zle-line-pre-redraw _flow_pred_on_redraw
 _flow_pred_warmup() {
   add-zsh-hook -d precmd _flow_pred_warmup
   # Run atuin warm-up in background so prompt appears instantly.
-  # Poll until ready; _fp_warm=1 signals completion to _flow_pred_on_redraw.
+  # Suppress job notifications so they don't interrupt typing (e.g. sudo password).
   {
+    setopt LOCAL_OPTIONS NO_NOTIFY
     local log="${FLOW_PRED_DEBUG_LOG:-/dev/null}"
     (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: atuin warmup starting" >>"$log" 2>&1
     _flow_pred_warm_from_atuin
     (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: warm index ready (${#_fp_cmd_stats} commands)" >>"$log" 2>&1
   } &
+  disown
 }
 add-zsh-hook precmd _flow_pred_warmup
 
