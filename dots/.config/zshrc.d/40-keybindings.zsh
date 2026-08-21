@@ -11,7 +11,7 @@ bindkey '^P' up-line-or-history
 bindkey '^N' down-line-or-history
 
 # Beginning/end of line
-bindkey '^A' beginning-of-line
+# Ctrl+A: select-all (handled by zsh-edit-select)
 bindkey '^E' end-of-line
 
 # Word movement
