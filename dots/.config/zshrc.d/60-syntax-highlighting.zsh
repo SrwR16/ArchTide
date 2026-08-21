@@ -16,9 +16,14 @@ local -a _sh_dirs=(
 
 local _sh_dir=""
 for _sh_dir in "${_sh_dirs[@]}"; do
+  # Check both .zsh and .plugin.zsh (system packages use .zsh)
   if [[ -f "$_sh_dir/zsh-syntax-highlighting.zsh" ]]; then
     source "$_sh_dir/zsh-syntax-highlighting.zsh"
-    # Custom styles for Flow
+    ZSH_HIGHLIGHT_STYLES[flow-command]='fg=green,bold'
+    ZSH_HIGHLIGHT_STYLES[flow-alias]='fg=cyan,bold'
+    return 0
+  elif [[ -f "$_sh_dir/zsh-syntax-highlighting.plugin.zsh" ]]; then
+    source "$_sh_dir/zsh-syntax-highlighting.plugin.zsh"
     ZSH_HIGHLIGHT_STYLES[flow-command]='fg=green,bold'
     ZSH_HIGHLIGHT_STYLES[flow-alias]='fg=cyan,bold'
     return 0

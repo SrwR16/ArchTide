@@ -94,6 +94,7 @@ local -a _ft_dirs=(
   "$_ft_install_dir"
   "$HOME/.zsh-plugins/fzf-tab"
   "/usr/share/zsh/plugins/fzf-tab"
+  "/usr/share/zsh/plugins/fzf-tab-git"
 )
 
 local _ft_dir=""

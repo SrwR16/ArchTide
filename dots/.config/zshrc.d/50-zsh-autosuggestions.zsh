@@ -16,9 +16,15 @@ local -a _as_dirs=(
 
 local _as_dir=""
 for _as_dir in "${_as_dirs[@]}"; do
+  # Check both .plugin.zsh and .zsh (system packages use .zsh)
   if [[ -f "$_as_dir/zsh-autosuggestions.zsh" ]]; then
     source "$_as_dir/zsh-autosuggestions.zsh"
-    # Custom config for Flow
+    ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=245,bold,standout'
+    ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+    ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+    return 0
+  elif [[ -f "$_as_dir/zsh-autosuggestions.plugin.zsh" ]]; then
+    source "$_as_dir/zsh-autosuggestions.plugin.zsh"
     ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=245,bold,standout'
     ZSH_AUTOSUGGEST_STRATEGY=(history completion)
     ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
