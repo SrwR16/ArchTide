@@ -7,8 +7,7 @@ bindkey -e
 # History search
 bindkey '^R' history-incremental-search-backward
 bindkey '^S' history-incremental-search-forward
-bindkey '^P' up-line-or-history
-bindkey '^N' down-line-or-history
+# Ctrl+P/N handled by predictor (Alt+Up/Down for HUD, normal history otherwise)
 
 # Beginning/end of line
 # Ctrl+A: select-all (handled by zsh-edit-select)

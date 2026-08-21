@@ -442,92 +442,109 @@ _flow_pred_predict() {
   return 0
 }
 
-# ── ghost rendering ─────────────────────────────────────────────────────────
+# ── ghost rendering (POSTDISPLAY pattern, like zsh-autosuggestions) ──────────
+# Ghost state
+typeset -g _fp_ghost_suggestion=""   # The full suggested command
+typeset -g _fp_ghost_postdisplay=""  # The suffix to show (POSTDISPLAY)
+typeset -g _fp_ghost_active=0
+typeset -g _fp_ghost_score=0
+
+# Clear ghost: reset POSTDISPLAY and highlight
 _flow_pred_ghost_clear() {
   if (( _fp_ghost_active )); then
     _fp_ghost_active=0
-    _fp_ghost=""
-    _fp_ghost_cmd=""
-    RBUFFER=""
-    region_highlight=()
+    _fp_ghost_suggestion=""
+    _fp_ghost_postdisplay=""
+    _fp_ghost_score=0
+    POSTDISPLAY=""
+    _flow_pred_highlight_reset
   fi
 }
 
-typeset -g _fp_redraw_count=0
+# Reset highlight (like zsh-autosuggestions)
+_flow_pred_highlight_reset() {
+  typeset -g _fp_ghost_highlight
+  if [[ -n "$_fp_ghost_highlight" ]]; then
+    region_highlight=("${(@)region_highlight:#$_fp_ghost_highlight}")
+    unset _fp_ghost_highlight
+  fi
+}
 
-_flow_pred_on_redraw() {
-  _fp_redraw_count=$((_fp_redraw_count + 1))
-  # bail fast when disabled / empty / cursor not at end
+# Apply ghost highlight
+_flow_pred_highlight_apply() {
+  typeset -g _fp_ghost_highlight
+  if (( _fp_ghost_active )) && [[ -n "$_fp_ghost_postdisplay" ]]; then
+    _fp_ghost_highlight="$#BUFFER $(($#BUFFER + $#_fp_ghost_postdisplay)) fg=240"
+    region_highall+=("$_fp_ghost_highlight")
+  else
+    unset _fp_ghost_highlight
+  fi
+}
+
+# Fetch suggestion for current buffer (async-safe, called from widget wrappers)
+_flow_pred_fetch_suggestion() {
+  local buf="$1"
   (( FLOW_PRED_GHOST_ENABLED )) || return 0
-  (( ${#BUFFER} )) || { _flow_pred_ghost_clear; return 0 }
-  (( CURSOR == ${#BUFFER} )) || { _flow_pred_ghost_clear; return 0 }
-  (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: on_redraw #$_fp_redraw_count buf=[$BUFFER] cursor=$CURSOR last_typed=[$_fp_last_typed] ghost_active=$_fp_ghost_active" >>"${FLOW_PRED_DEBUG_LOG:-/dev/null}" 2>&1
+  (( ${#buf} )) || { _flow_pred_ghost_clear; return 0 }
 
-  # cache: avoid recomputing for the same typed buffer
-  if [[ "$BUFFER" == "$_fp_last_typed" && -n "$_fp_last_result" ]]; then
-    # Confidence gate on cached result too
-    if (( _fp_last_score < FLOW_PRED_CONF_HIGH )); then
+  # Use cache if buffer unchanged and high confidence
+  if [[ "$buf" == "$_fp_last_typed" && -n "$_fp_last_result" ]]; then
+    if (( _fp_last_score >= FLOW_PRED_CONF_HIGH )); then
+      _fp_result="$_fp_last_result"
+      _fp_result_score="$_fp_last_score"
+      _fp_results=("${(@)_fp_last_results[@]}")
+      _fp_result_src=("${(@)_fp_last_result_src[@]}")
+      _fp_result_meta=("${(@)_fp_last_result_meta[@]}")
+      _fp_result_explain=("${(@)_fp_last_result_explain[@]}")
+    else
+      _flow_pred_ghost_clear
       return 0
     fi
-    # Re-derive ghost suffix and restore RBUFFER/region_highlight.
-    # The self-insert wrapper clears _fp_ghost_active on every keystroke,
-    # so we must re-apply the cached ghost on each redraw.
-    if [[ "$_fp_last_result" != "$BUFFER" ]]; then
-      local ghost="${_fp_last_result#${BUFFER}}"
-      if [[ -n "$ghost" ]]; then
-        _fp_ghost_cmd="$_fp_last_result"
-        _fp_ghost_typed="$BUFFER"
-        _fp_ghost="$ghost"
-        RBUFFER="$_fp_ghost"
-        _fp_ghost_active=1
-        local start=$CURSOR end=$(( CURSOR + ${#_fp_ghost} ))
-        region_highlight=( "$start $end fg=240" )
-        return 0
-      fi
-    fi
-    # Buffer matches cache but no ghost suffix — keep state as-is.
-    # Do NOT clear here: when a widget (gst/dbg) calls this function,
-    # the ghost may have been set by the self-insert redraw and is valid.
-    return 0
+  else
+    _flow_pred_predict "$buf"
+    _fp_last_typed="$buf"
+    _fp_last_result="$_fp_result"
+    _fp_last_score="$_fp_result_score"
+    _fp_last_result_count=${#_fp_results}
+    _fp_last_results=("${(@)_fp_results[@]}")
+    _fp_last_result_src=("${(@)_fp_result_src[@]}")
+    _fp_last_result_meta=("${(@)_fp_result_meta[@]}")
+    _fp_last_result_explain=("${(@)_fp_result_explain[@]}")
   fi
 
-  _flow_pred_predict "$BUFFER"
-  _fp_last_typed="$BUFFER"
-  _fp_last_result="$_fp_result"
-  _fp_last_score="$_fp_result_score"
-  _fp_last_result_count=${#_fp_results}
-  _fp_last_results=("${(@)_fp_results[@]}")
-  _fp_last_result_src=("${(@)_fp_result_src[@]}")
-  _fp_last_result_meta=("${(@)_fp_result_meta[@]}")
-  _fp_last_result_explain=("${(@)_fp_result_explain[@]}")
-
-  # Confidence gate: ghost only for high-confidence predictions (>=60).
-  # Lower scores are still available via Meta+P HUD.
+  # Confidence gate
   if (( _fp_result_score < FLOW_PRED_CONF_HIGH )); then
     _flow_pred_ghost_clear
     return 0
   fi
 
-  if [[ -n "$_fp_result" && "$_fp_result" != "$BUFFER" ]]; then
-    _fp_ghost_cmd="$_fp_result"
-    _fp_ghost_typed="$BUFFER"
-    _fp_ghost="${_fp_result#${BUFFER}}"
-    (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: redraw buf=[$BUFFER] result=[$_fp_result] score=$_fp_result_score ghost=[$_fp_ghost]" >>"${FLOW_PRED_DEBUG_LOG:-/dev/null}" 2>&1
-    if [[ -n "$_fp_ghost" ]]; then
-      RBUFFER="$_fp_ghost"
-      _fp_ghost_active=1
-      local start=$CURSOR end=$(( CURSOR + ${#_fp_ghost} ))
-      region_highlight=( "$start $end fg=240" )
-      return 0
-    fi
+  if [[ -n "$_fp_result" && "$_fp_result" != "$buf" ]]; then
+    _fp_ghost_suggestion="$_fp_result"
+    _fp_ghost_postdisplay="${_fp_result#${buf}}"
+    _fp_ghost_score="$_fp_result_score"
+    _fp_ghost_active=1
+    POSTDISPLAY="$_fp_ghost_postdisplay"
+    _flow_pred_highlight_apply
+  else
+    _flow_pred_ghost_clear
   fi
-  _flow_pred_ghost_clear
+}
+
+# on_redraw: safety net only (re-apply POSTDISPLAY if cleared externally)
+_flow_pred_on_redraw() {
+  (( FLOW_PRED_GHOST_ENABLED )) || return 0
+  # If ghost was active but POSTDISPLAY got cleared (e.g., by another plugin),
+  # re-apply it. This is a safety net, not the primary path.
+  if (( _fp_ghost_active )) && [[ -z "$POSTDISPLAY" && -n "$_fp_ghost_postdisplay" ]]; then
+    POSTDISPLAY="$_fp_ghost_postdisplay"
+    _flow_pred_highlight_apply
+  fi
 }
 
 # ── ghost acceptance ────────────────────────────────────────────────────────
 _flow_pred_accept_ghost() {
   if (( _fp_ghost_active )); then
-    BUFFER="$_fp_ghost_cmd"
+    BUFFER="$_fp_ghost_suggestion"
     CURSOR=${#BUFFER}
     _flow_pred_ghost_clear
     _fp_last_typed="$BUFFER"
@@ -539,23 +556,19 @@ _flow_pred_accept_ghost() {
 
 _flow_pred_accept_token() {
   if (( _fp_ghost_active )); then
-    local ghost="$_fp_ghost"
+    local ghost="$_fp_ghost_postdisplay"
     local token="${ghost%% *}"
     local rest="${ghost#* }"
     _flow_pred_ghost_clear
     BUFFER+="$token"
     if [[ -n "$rest" ]]; then
-      _fp_ghost="$rest"
-      _fp_ghost_cmd="${_fp_ghost_typed}$token $rest"
-      _fp_ghost_typed="${BUFFER}"
-      CURSOR=${#BUFFER}
-      RBUFFER=" $_fp_ghost"
-      local start=$CURSOR end=$(( CURSOR + 1 + ${#_fp_ghost} ))
-      region_highlight=( "$start $end fg=240" )
+      _fp_ghost_suggestion="${_fp_ghost_suggestion}"
+      _fp_ghost_postdisplay="$rest"
       _fp_ghost_active=1
-    else
-      CURSOR=${#BUFFER}
+      POSTDISPLAY=" $_fp_ghost_postdisplay"
+      _flow_pred_highlight_apply
     fi
+    CURSOR=${#BUFFER}
     _fp_last_typed="$BUFFER"
     _fp_last_result=""
     return 0
@@ -563,26 +576,17 @@ _flow_pred_accept_token() {
   return 1
 }
 
-# wrapped widgets: clear ghost before any editing widget acts
+# ── widget wrappers (clear ghost BEFORE mutation, fetch AFTER) ──────────────
 _flow_pred_wrap_widget() {
   local w=$1
   local orig="_flow_pred_orig_$w"
   if (( ! ${+functions[$orig]} )); then
     zle -A "$w" "$orig" 2>/dev/null
-    if [[ "$w" == "self-insert" ]]; then
-      # self-insert: only clear ghost if the key has NO dedicated widget binding.
-      # This lets ghost-acceptance widgets (Ctrl+F, Right, End) read the ghost
-      # before it's cleared.
-      eval "_flow_pred_g_$w() {
-        local wname=\$(bindkey -M main \"\$KEYS\" 2>/dev/null)
-        case \"\$wname\" in
-          \"\"|undefined-key|self-insert) _flow_pred_ghost_clear ;;
-        esac
-        zle $orig
-      }"
-    else
-      eval "_flow_pred_g_$w() { _flow_pred_ghost_clear; zle $orig; }"
-    fi
+    eval "_flow_pred_g_$w() {
+      _flow_pred_ghost_clear
+      zle $orig
+      _flow_pred_fetch_suggestion \"\$BUFFER\"
+    }"
     zle -N "$w" "_flow_pred_g_$w" 2>/dev/null
   fi
 }
@@ -710,13 +714,14 @@ _flow_pred_hud_render() {
     else
       line="  ${cand}%F{244}  ${desc}%f"
     fi
-    lines+=("${(%):-$line}")
+    # Fix: escape % as %% in content, then apply prompt expansion once to the full string
+    lines+=("${(%):-${line//\%/%%}}")
   done
   local header
   if (( is_recovery )); then
-    header="Flow recovery: ${n} candidate(s)   ↑/↓ move · Enter accept · Esc close"
+    header="Flow recovery: ${n} candidate(s)   Alt+↑/Alt+↓ move · Enter accept · Esc close"
   else
-    header="Flow: ${n} candidate(s)   ↑/↓ move · Enter accept · Esc close"
+    header="Flow: ${n} candidate(s)   Alt+↑/Alt+↓ move · Enter accept · Esc close"
   fi
   zle -R "$header" "${lines[@]}"
 }
@@ -839,18 +844,20 @@ zle -N _flow_pred_hud_pgdn
 zle -N _flow_pred_hud_accept
 zle -N _flow_pred_hud_close
 
-# ghost acceptance: Right, End, Ctrl+F (token), and Meta+P opens the HUD
+# ghost acceptance: Right, End, Ctrl+F (token), Ctrl+Right (word), Meta+P opens the HUD
+zle -N _flow_pred_accept_ghost
+zle -N _flow_pred_accept_token
+zle -N _flow_pred_accept_word
 bindkey "\e[C" _flow_pred_accept_ghost
 bindkey "\e[F" _flow_pred_accept_ghost
 bindkey "\C-f" _flow_pred_accept_token
-bindkey "\M-p" _flow_pred_hud_open   # Meta+P
-bindkey "\M-P" _flow_pred_hud_open   # Meta+Shift+P
+bindkey "\e[1;5C" _flow_pred_accept_word   # Ctrl+Right: accept word
+bindkey "\M-p" _flow_pred_hud_open       # Meta+P
+bindkey "\M-P" _flow_pred_hud_open       # Meta+Shift+P
 
-# Up/Down: Flow HUD when multiple candidates, normal history otherwise
-bindkey "\e[A" _flow_pred_up
-bindkey "\e[B" _flow_pred_down
-bindkey "\C-p" _flow_pred_up
-bindkey "\C-n" _flow_pred_down
+# Up/Down: Flow HUD when multiple candidates (Alt+Up/Alt+Down), normal history otherwise
+bindkey "\e[1;3A" _flow_pred_up          # Alt+Up
+bindkey "\e[1;3B" _flow_pred_down        # Alt+Down
 
 # ── continuous learning ─────────────────────────────────────────────────────
 _flow_pred_preexec() {
