@@ -716,6 +716,19 @@ func (o *Overlay) draw() string {
 				tw := lipgloss.Width(tag)
 				rem := max(descW-tw-1, 0)
 				desc = tag + bg.Render(" ") + bg.Foreground(lipgloss.Color(descColor)).Render(fixedWidth("atuin history", rem))
+			case "flow":
+				boxStyle := lipgloss.NewStyle().Background(lipgloss.Color(t.Flow)).Foreground(lipgloss.Color(t.FlowSel))
+				if selected {
+					boxStyle = lipgloss.NewStyle().Background(lipgloss.Color(t.FlowSel)).Foreground(lipgloss.Color(t.SelText)).Bold(true)
+				}
+				tag := boxStyle.Render(" flow ")
+				tw := lipgloss.Width(tag)
+				rem := max(descW-tw-1, 0)
+				descText := it.Desc
+				if descText == "" {
+					descText = "context"
+				}
+				desc = tag + bg.Render(" ") + bg.Foreground(lipgloss.Color(descColor)).Render(fixedWidth(descText, rem))
 			case "history":
 				boxStyle := lipgloss.NewStyle().Background(lipgloss.Color(t.History)).Foreground(lipgloss.Color(t.HistorySel))
 				if selected {

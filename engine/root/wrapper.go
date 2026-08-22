@@ -23,6 +23,7 @@ import (
 	"github.com/versenilvis/iris/integration/shell"
 	"github.com/versenilvis/iris/internal/ai"
 	"github.com/versenilvis/iris/internal/config"
+	"github.com/versenilvis/iris/internal/flow"
 	"github.com/versenilvis/iris/internal/logger"
 	"github.com/versenilvis/iris/internal/scoring"
 	"github.com/versenilvis/iris/spec"
@@ -442,7 +443,15 @@ func runWrapper() {
 			bufQuery := naiveBuffer
 			bufferMu.Unlock()
 
-			results := MergeResults(bufQuery, currentMode)
+			var results []spec.Suggestion
+			if dir == "down" && bufQuery == "" {
+				// Flow: empty buffer + down arrow = "what can I do here"
+				// contextual next-actions instead of plain history.
+				results = predictiveSuggestions(spec.GetCWD(), 15)
+			}
+			if len(results) == 0 {
+				results = MergeResults(bufQuery, currentMode)
+			}
 			if len(results) > 0 {
 				limit := min(len(results), 100)
 				var historyList []spec.Suggestion
@@ -1309,4 +1318,52 @@ func runWrapper() {
 			}
 		}
 	}
+}
+
+// predictiveSuggestions builds the empty-buffer, down-arrow panel: Flow
+// context candidates (directory-anchored aggregates + local scripts).
+func predictiveSuggestions(cwd string, limit int) []spec.Suggestion {
+	fs := flow.GlobalStore()
+	out := make([]spec.Suggestion, 0, limit)
+	added := make(map[string]bool)
+	for _, c := range fs.Suggest(cwd, "", limit) {
+		if added[c.Key] {
+			continue
+		}
+		conf := int(c.Score)
+		if conf > 95 {
+			conf = 95
+		}
+		if conf < 40 || c.Total() == 0 {
+			continue
+		}
+		added[c.Key] = true
+		out = append(out, spec.Suggestion{
+			Cmd:        c.Key,
+			Desc:       "flow",
+			Icon:       "flow",
+			Source:     "flow",
+			Confidence: conf,
+			Priority:   60,
+		})
+	}
+	for _, c := range fs.SuggestScripts(cwd, "./", limit/3+2) {
+		if added[c.Key] {
+			continue
+		}
+		conf := int(c.Score)
+		if conf > 90 {
+			conf = 90
+		}
+		added[c.Key] = true
+		out = append(out, spec.Suggestion{
+			Cmd:        c.Key,
+			Desc:       "script",
+			Icon:       "flow",
+			Source:     "flow",
+			Confidence: conf,
+			Priority:   55,
+		})
+	}
+	return out
 }

@@ -28,6 +28,8 @@ var defaultTheme = ThemeStyles{
 	SysSel:     "#a277ff",
 	Alias:      "#2a2342",
 	AliasSel:   "#a277ff",
+	Flow:       "#132b4a",
+	FlowSel:    "#7dcfff",
 }
 
 var (
@@ -61,6 +63,8 @@ type ThemeStyles struct {
 	HistorySel string `toml:"hist_sel"`
 	Alias      string `toml:"alias"`
 	AliasSel   string `toml:"alias_sel"`
+	Flow       string `toml:"flow"`
+	FlowSel    string `toml:"flow_sel"`
 }
 
 // LoadTheme reads theme.toml at filePath

@@ -36,3 +36,7 @@ output_path = '~/.local/state/quickshell/user/generated/wallpaper/path.txt'
 [templates.sddm]
 input_path = '~/.config/matugen/templates/sddm/theme.conf'
 output_path = '/var/tmp/sddm-dotfiles/theme.conf'
+
+[templates.flow_engine]
+input_path = '~/.config/matugen/templates/flow-engine/theme.toml'
+output_path = '~/.config/iris/theme.toml'
