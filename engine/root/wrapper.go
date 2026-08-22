@@ -1050,6 +1050,62 @@ func runWrapper() {
 					// left/right arrow cursor tracking
 					isLeftRightArrow := false
 					if i+2 < n && (inputSlice[i+1] == '[' || inputSlice[i+1] == 'O') {
+						// Flow: Ctrl+Right (CSI 1;5C) accepts ONE WORD of ghost text.
+						// "cd P" + ghost "cd Programming/ArchTide" -> "cd Programming/"
+						if i+5 < n && inputSlice[i+1] == '[' && inputSlice[i+2] == '1' &&
+							inputSlice[i+3] == ';' && inputSlice[i+4] == '5' && inputSlice[i+5] == 'C' {
+							intercepted = true
+							take := ""
+							bufferMu.Lock()
+							if naiveBuffer != "" && !disableGhostText.Load() {
+								if g := overlay.GetGhostText(naiveBuffer, cursorOffset == 0); g != "" {
+									if cut := strings.IndexAny(g, "/ "); cut >= 0 {
+										take = g[:cut+1]
+									} else {
+										take = g
+									}
+								}
+							}
+							if take != "" {
+								naiveBuffer += take
+								cursorOffset = 0
+							}
+							bufferMu.Unlock()
+							if take != "" {
+								_, _ = ptmx.Write([]byte(take))
+								overlay.ClearGhostTextState()
+								shouldOverlayDraw = true
+							}
+							i += 5
+							continue
+						}
+						// Alt+F (ESC f): word-wise accept, emacs muscle memory
+						if b == '\x1b' && i+1 < n && inputSlice[i+1] == 'f' && naiveBuffer != "" {
+							intercepted = true
+							take := ""
+							bufferMu.Lock()
+							if !disableGhostText.Load() {
+								if g := overlay.GetGhostText(naiveBuffer, cursorOffset == 0); g != "" {
+									if cut := strings.IndexAny(g, "/ "); cut >= 0 {
+										take = g[:cut+1]
+									} else {
+										take = g
+									}
+								}
+							}
+							if take != "" {
+								naiveBuffer += take
+								cursorOffset = 0
+							}
+							bufferMu.Unlock()
+							if take != "" {
+								_, _ = ptmx.Write([]byte(take))
+								overlay.ClearGhostTextState()
+								shouldOverlayDraw = true
+							}
+							i++
+							continue
+						}
 						if inputSlice[i+2] == 'D' {
 							bufferMu.Lock()
 							isEmptyQuery := naiveBuffer == "" && (!overlay.IsVisible() || overlay.GetTypedQuery() == "")

@@ -1454,6 +1454,39 @@ restart_quickshell() {
 }
 
 #══════════════════════════════════════════════════════════════════════════════
+# Flow Engine (vendored IRIS fork) build + install
+#══════════════════════════════════════════════════════════════════════════════
+
+ENGINE_BIN="$BIN_DIR/iris"
+
+install_engine() {
+    local src=""
+    for d in "$SCRIPT_DIR" "$MIRROR_DIR"; do
+        [[ -n "$d" && -f "$d/engine/go.mod" ]] && { src="$d/engine"; break; }
+    done
+    if [[ -z "$src" ]]; then
+        ui_warn "Flow engine" "engine/ sources not found — skipping"
+        return 0
+    fi
+    if ! have go; then
+        ui_warn "Flow engine" "go not on PATH — install go, then rerun"
+        return 0
+    fi
+    ui_step "Building Flow engine (Go)"
+    local tmp="$src/.flow-build-iris"
+    if ! (cd "$src" && GOAMD64=v4 go build -ldflags="-s -w" -trimpath -o "$tmp" ./cmd/iris); then
+        ui_fail "Flow engine build failed" "see output above"
+        return 1
+    fi
+    mkdir -p "$BIN_DIR"
+    # rm+cp: the running engine holds its inode; overwrite would fail busy
+    rm -f "$ENGINE_BIN"
+    mv -f "$tmp" "$ENGINE_BIN"
+    chmod 0755 "$ENGINE_BIN"
+    ui_ok "Flow engine" "$(tilde "$ENGINE_BIN") $( ("$ENGINE_BIN" version 2>/dev/null | head -1) || true )"
+}
+
+#══════════════════════════════════════════════════════════════════════════════
 # CLI install / removal
 #══════════════════════════════════════════════════════════════════════════════
 
@@ -1502,6 +1535,7 @@ mirror_scripts() {
         rm -f "${MIRROR_DIR:?}/$obsolete"
     done
     install_cli
+    install_engine
     ui_ok "Mirrored" "$copied items $G_ARROW $(tilde "$MIRROR_DIR")"
 }
 
