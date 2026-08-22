@@ -202,7 +202,7 @@ _flow_pred_warm_from_atuin() {
   fi
   _fp_warm=1
   _fp_atuin_warmed=1
-  (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: warm index ready (${#_fp_cmd_stats} commands)"
+  (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: warm index ready (${#_fp_cmd_stats} commands)" >>"${FLOW_PRED_DEBUG_LOG:-/dev/null}" 2>&1
   return 0
 }
 
@@ -613,6 +613,8 @@ done
 
 # ── HUD ─────────────────────────────────────────────────────────────────────
 _flow_pred_hud_open() {
+  # Re-entrancy guard: if HUD is already rendering, skip
+  (( _fp_hud_active )) && { _flow_pred_hud_close; return 0 }
   local prefix="$BUFFER"
   # Reuse cached results if prefix matches (avoids redundant prediction)
   if [[ "$prefix" == "$_fp_last_typed" && ${#_fp_last_results} -gt 0 ]]; then
@@ -704,39 +706,41 @@ _flow_pred_hud_open() {
 }
 
 _flow_pred_hud_render() {
-  local is_recovery="${1:-0}"
+  (( _fp_hud_active )) || return 0
+  local is_recovery="${1:-${_fp_hud_is_recovery:-0}}"
   local n=${#_fp_hud_cands}
+  (( n > 0 )) || return 0
   local visible=$(( LINES > 5 ? LINES - 2 : 3 ))
   (( visible > 12 )) && visible=12
   local -a lines=()
   local i idx
   for (( i = 1; i <= visible && _fp_hud_offset + i <= n; i++ )); do
     idx=$(( _fp_hud_offset + i ))
-    local cand="${_fp_hud_cands[$idx]//\%/%%}"
-    local desc="${_fp_hud_desc[$idx]//\%/%%}"
+    local cand="${_fp_hud_cands[$idx]}"
+    local desc="${_fp_hud_desc[$idx]}"
     local line
     if (( idx - 1 == _fp_hud_sel )); then
-      line="%F{38}➜ %f%B${cand}%b%F{244}  ${desc}%f"
+      line="%F{38}> %f%B${cand}%b%F{244} ${desc}%f"
     else
-      line="  ${cand}%F{244}  ${desc}%f"
+      line="  ${cand}%F{244} ${desc}%f"
     fi
-    # Fix: escape % as %% in content, then apply prompt expansion once to the full string
-    lines+=("${(%):-${line//\%/%%}}")
+    lines+=("${(%):-$line}")
   done
   local header
   if (( is_recovery )); then
-    header="Flow recovery: ${n} candidate(s)   Alt+↑/Alt+↓ move · Enter accept · Esc close"
+    header="%F{38}Flow recovery%f: ${n} candidates  ↑↓ navigate  Enter accept  Esc close"
   else
-    header="Flow: ${n} candidate(s)   Alt+↑/Alt+↓ move · Enter accept · Esc close"
+    header="%F{38}Flow%f: ${n} candidates  ↑↓ navigate  Enter accept  Esc close"
   fi
-  zle -R "$header" "${lines[@]}"
+  zle -R "${(%):-$header}" "${lines[@]}"
 }
 
 _flow_pred_hud_close() {
   _fp_hud_active=0
   _fp_hud_cands=() _fp_hud_desc=() _fp_hud_src=()
-  zle -K main
-  zle -R
+  _fp_hud_sel=0 _fp_hud_offset=0
+  zle -K main 2>/dev/null
+  zle -R 2>/dev/null
 }
 
 _flow_pred_up() {
@@ -760,33 +764,33 @@ _flow_pred_down() {
 }
 
 _flow_pred_hud_up() {
-  (( _fp_hud_active )) || { zle up-line-or-history; return 0 }
+  (( _fp_hud_active )) || return 0
   (( _fp_hud_sel > 0 )) && _fp_hud_sel=$(( _fp_hud_sel - 1 ))
   if (( _fp_hud_sel < _fp_hud_offset )); then _fp_hud_offset=$_fp_hud_sel; fi
-  _flow_pred_hud_render "$_fp_hud_is_recovery"
+  _flow_pred_hud_render
 }
 
 _flow_pred_hud_down() {
-  (( _fp_hud_active )) || { zle down-line-or-history; return 0 }
+  (( _fp_hud_active )) || return 0
   local n=${#_fp_hud_cands}
   (( _fp_hud_sel + 1 < n )) && _fp_hud_sel=$(( _fp_hud_sel + 1 ))
   local visible=$(( LINES > 5 ? LINES - 2 : 3 ))
   (( visible > 12 )) && visible=12
   if (( _fp_hud_sel >= _fp_hud_offset + visible )); then _fp_hud_offset=$(( _fp_hud_sel - visible + 1 )); fi
-  _flow_pred_hud_render "$_fp_hud_is_recovery"
+  _flow_pred_hud_render
 }
 
 _flow_pred_hud_pgup() {
-  (( _fp_hud_active )) || { zle .backward-word; return 0 }
+  (( _fp_hud_active )) || return 0
   local step=$(( LINES > 5 ? LINES - 3 : 3 ))
   (( _fp_hud_sel -= step ))
   (( _fp_hud_sel < 0 )) && _fp_hud_sel=0
   _fp_hud_offset=$_fp_hud_sel
-  _flow_pred_hud_render "$_fp_hud_is_recovery"
+  _flow_pred_hud_render
 }
 
 _flow_pred_hud_pgdn() {
-  (( _fp_hud_active )) || { zle .forward-word; return 0 }
+  (( _fp_hud_active )) || return 0
   local step=$(( LINES > 5 ? LINES - 3 : 3 ))
   local n=${#_fp_hud_cands}
   (( _fp_hud_sel += step ))
@@ -795,13 +799,13 @@ _flow_pred_hud_pgdn() {
   (( visible > 12 )) && visible=12
   _fp_hud_offset=$(( _fp_hud_sel - visible + 1 ))
   (( _fp_hud_offset < 0 )) && _fp_hud_offset=0
-  _flow_pred_hud_render "$_fp_hud_is_recovery"
+  _flow_pred_hud_render
 }
 
 _flow_pred_hud_accept() {
-  (( _fp_hud_active )) || { zle accept-line; return 0 }
-  if (( ${#_fp_hud_cands} )); then
-    BUFFER="${_fp_hud_cands[$_fp_hud_sel + 1]}"
+  (( _fp_hud_active )) || return 0
+  if (( ${#_fp_hud_cands} > 0 )); then
+    BUFFER="${_fp_hud_cands[$((_fp_hud_sel + 1))]}"
     CURSOR=${#BUFFER}
     _fp_last_typed="$BUFFER" _fp_last_result=""
   fi
@@ -811,12 +815,13 @@ _flow_pred_hud_accept() {
 _flow_pred_hud_delegate() {
   # any other key while HUD is open: dismiss and pass the key to main keymap
   _fp_hud_close
+  # Look up what widget this key normally triggers
   local w
-  w=$(bindkey -M main "$KEYS" 2>/dev/null)
-  case "$w" in
-    ""|undefined-key) return 0 ;;
-  esac
-  zle "$w"
+  w="${$(bindkey -M main "$KEYS" 2>/dev/null)//\"/}"
+  # Only invoke if it's a real, defined widget
+  if [[ -n "$w" && "$w" != "undefined-key" && "$w" != "-"* ]] && (( ${+widgets[$w]} )); then
+    zle "$w" 2>/dev/null
+  fi
 }
 
 # HUD keymap
