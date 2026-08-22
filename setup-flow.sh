@@ -1060,7 +1060,8 @@ prune_stale_files() {
         [[ "$rel" == .* || "$rel" == .git/* || "$rel" == .git ]] && continue
         [[ -f "$src/$rel" ]] && continue
         rm -f "$f"
-        ui_verbose "pruned stale $rel"
+        removed=$((removed + 1))
+    done < <(find "$dst" -type f -print0 2>/dev/null)
     if ((removed > 0)); then
         ui_note "Pruned $removed stale file(s) from $(tilde "$dst")"
     fi
