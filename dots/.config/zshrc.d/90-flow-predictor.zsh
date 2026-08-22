@@ -883,6 +883,25 @@ bindkey -M flowhud '\e[6~'    _flow_pred_hud_pgdn
 bindkey -M flowhud -R " -~"   _flow_pred_hud_delegate
 bindkey -M flowhud -R "\x00-\x1f" _flow_pred_hud_delegate
 
+# ── main keymap widgets ─────────────────────────────────────────────────────
+_flow_pred_up() {
+  (( _fp_hud_active )) && { _flow_pred_hud_up; return }
+  if (( ${#BUFFER} > 0 )); then
+    zle history-search-backward
+  else
+    zle up-line-or-history
+  fi
+}
+
+_flow_pred_down() {
+  (( _fp_hud_active )) && { _flow_pred_hud_down; return }
+  if (( _fp_warm )); then
+    _flow_pred_hud_open
+  else
+    zle down-line-or-history
+  fi
+}
+
 # ── key bindings ────────────────────────────────────────────────────────────
 zle -N _flow_pred_accept_ghost
 zle -N _flow_pred_accept_token
