@@ -1061,9 +1061,10 @@ prune_stale_files() {
         [[ -f "$src/$rel" ]] && continue
         rm -f "$f"
         ui_verbose "pruned stale $rel"
-        removed=$((removed + 1))
-    done < <(find "$dst" -type f -print0 2>/dev/null)
-    ((removed > 0)) && ui_note "Pruned $removed stale file(s) from $(tilde "$dst")"
+    if ((removed > 0)); then
+        ui_note "Pruned $removed stale file(s) from $(tilde "$dst")"
+    fi
+    return 0
 }
 
 #══════════════════════════════════════════════════════════════════════════════
@@ -1706,6 +1707,9 @@ install_sddm_config() {
 
     ui_step "SDDM"
     local matugen="${XDG_CONFIG_HOME:-$HOME/.config}/matugen"
+    if [[ -L "$matugen" && ! -e "$matugen" ]]; then
+        rm -f "$matugen"
+    fi
     if [[ -d "$repo_root/dots/.config/matugen/templates/sddm" ]]; then
         mkdir -p "$matugen/templates/sddm"
         cp -a "$repo_root/dots/.config/matugen/templates/sddm/." "$matugen/templates/sddm/"
