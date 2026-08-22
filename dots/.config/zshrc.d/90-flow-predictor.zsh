@@ -1052,18 +1052,17 @@ add-zle-hook-widget zle-line-pre-redraw _flow_pred_on_redraw
 _flow_pred_warmup() {
   add-zsh-hook -d precmd _flow_pred_warmup
   # Run atuin warm-up in background so prompt appears instantly.
-  # Disable job notifications in the PARENT to suppress "[1] done" messages
-  # that interrupt typing (e.g. sudo password). LOCAL_OPTIONS inside the
-  # backgrounded block only affects the child — notifications are parent-side.
-  setopt NO_NOTIFY
+  # Suppress job monitoring notice [1] <PID> and completion notice [1] done.
   {
-    local log="${FLOW_PRED_DEBUG_LOG:-/dev/null}"
-    (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: atuin warmup starting" >>"$log" 2>&1
-    _flow_pred_warm_from_atuin
-    (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: warm index ready (${#_fp_cmd_stats} commands)" >>"$log" 2>&1
-  } &
-  disown
-  setopt NOTIFY
+    setopt LOCAL_OPTIONS NO_MONITOR NO_NOTIFY
+    {
+      local log="${FLOW_PRED_DEBUG_LOG:-/dev/null}"
+      (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: atuin warmup starting" >>"$log" 2>&1
+      _flow_pred_warm_from_atuin
+      (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: warm index ready (${#_fp_cmd_stats} commands)" >>"$log" 2>&1
+    } &
+    disown
+  } 2>/dev/null
 }
 add-zsh-hook precmd _flow_pred_warmup
 
