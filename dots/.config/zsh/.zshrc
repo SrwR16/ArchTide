@@ -4,11 +4,11 @@
 # Only run for interactive shells
 [[ -o interactive ]] || return
 
-# Prevent double-loading
+# Prevent double-loading within the same shell instance (do not export)
 if (( ${+FLOW_ZSH_LOADED} )); then
   return
 fi
-export FLOW_ZSH_LOADED=1
+typeset FLOW_ZSH_LOADED=1
 
 # Determine Flow config root (directory containing this .zshrc)
 export FLOW_CONFIG_ROOT="${${(%):-%x}:A:h:h}"
