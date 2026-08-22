@@ -100,6 +100,7 @@ typeset -ga _fp_hud_cands=()
 typeset -ga _fp_hud_desc=()
 typeset -ga _fp_hud_src=()
 typeset -g _fp_hud_active=0
+typeset -g _fp_hud_rendering=0
 typeset -g _fp_hud_sel=0
 typeset -g _fp_hud_offset=0
 typeset -g _fp_hud_is_recovery=0
@@ -611,12 +612,29 @@ for w in self-insert backward-delete-char delete-char backward-kill-word kill-wo
   (( ${+widgets[$w]} )) && _flow_pred_wrap_widget "$w"
 done
 
-# ── HUD ─────────────────────────────────────────────────────────────────────
+# ── HUD (IRIS-inspired design) ─────────────────────────────────────────────
+#
+# Key design decisions (learned from IRIS, zsh-autocomplete, fzf-tab):
+#
+# 1. RAW ANSI escape codes for rendering — NO ${(%):-} prompt expansion in the
+#    render loop. That was the root cause of hangs: prompt expansion is slow
+#    and can recurse into ZLE callbacks.
+#
+# 2. Simple keymap delegation: flowhud keymap handles ONLY arrow/scroll/accept
+#    keys. Everything else closes HUD and re-dispatches via main keymap.
+#    No complex widget-forwarding — that was the crash source.
+#
+# 3. _fp_hud_rendering flag prevents re-entrant renders from rapid keypresses.
+#
+# 4. IRIS color palette for a modern editor-like look:
+#    border: #a277ff (purple), accent: #61ffca (green), muted: #6d6a7f,
+#    text: #edecee, sel_bg: #3d375e, ghost: #4b4a4c
+
 _flow_pred_hud_open() {
-  # Re-entrancy guard: if HUD is already rendering, skip
-  (( _fp_hud_active )) && { _flow_pred_hud_close; return 0 }
+  if (( _fp_hud_active )); then
+    _flow_pred_hud_close
+  fi
   local prefix="$BUFFER"
-  # Reuse cached results if prefix matches (avoids redundant prediction)
   if [[ "$prefix" == "$_fp_last_typed" && ${#_fp_last_results} -gt 0 ]]; then
     _fp_results=("${(@)_fp_last_results[@]}")
     _fp_result_src=("${(@)_fp_last_result_src[@]}")
@@ -639,7 +657,6 @@ _flow_pred_hud_open() {
   _flow_pred_ghost_clear
   _fp_hud_cands=() _fp_hud_desc=() _fp_hud_src=()
 
-  # detect recovery context: last command failed
   local is_recovery=0
   if (( _fp_prev_status != 0 && ${#_fp_prev_cmd} > 0 )); then
     is_recovery=1
@@ -653,44 +670,42 @@ _flow_pred_hud_open() {
     key="${r#*$'\t'}"
     src="${_fp_result_src[$i]}"
     meta="${_fp_result_meta[$i]}"
-    expl="${_fp_result_explain[$i]:-}"
-    set -- ${=meta}
-    count=$1 success=$2 fail=$3 last=$4
+    expl="${_fp_result_explain[$i]}"
 
-    # build rich description from explanation tokens
-    local desc=""
+    set -- ${=${(s. .)meta}}
+    count="${1:-0}" success="${2:-0}" fail="${3:-0}" last="${4:-0}"
+
     local reasons=""
     if [[ -n "$expl" ]]; then
-      # extract human-readable reasons from explanation tokens
-      [[ "$expl" == *"dir_match"* ]] && reasons+="here · "
-      [[ "$expl" == *"parent_dir_match"* ]] && reasons+="in subtree · "
-      [[ "$expl" == *"profile_match"* ]] && reasons+="profile match · "
-      [[ "$expl" == *"workspace_match"* ]] && reasons+="workspace match · "
-      [[ "$expl" == *"project_match"* ]] && reasons+="project match · "
-      [[ "$expl" == *"runtime_match"* ]] && reasons+="runtime match · "
-      [[ "$expl" == *"session_match"* ]] && reasons+="session · "
-      [[ "$expl" == *"follows_prev"* ]] && reasons+="follows $([ -n "$_fp_prev_cmd" ] && echo "$_fp_prev_cmd" | head -c 20) · "
-      [[ "$expl" == *"workflow_step"* ]] && reasons+="workflow step · "
-      [[ "$expl" == *"recovery_candidate"* ]] && reasons+="recovery · "
-      [[ "$expl" == *"high_failure_rate"* ]] && reasons+="high failure rate · "
-      reasons="${reasons%% · }"  # trim trailing separator
+      [[ "$expl" == *"dir_match"* ]] && reasons+="here"
+      [[ "$expl" == *"parent_dir_match"* ]] && reasons+="subtree"
+      [[ "$expl" == *"profile_match"* ]] && reasons+="profile"
+      [[ "$expl" == *"workspace_match"* ]] && reasons+="workspace"
+      [[ "$expl" == *"project_match"* ]] && reasons+="project"
+      [[ "$expl" == *"runtime_match"* ]] && reasons+="runtime"
+      [[ "$expl" == *"session_match"* ]] && reasons+="session"
+      [[ "$expl" == *"follows_prev"* ]] && reasons+="follows ${_fp_prev_cmd:0:15}"
+      [[ "$expl" == *"workflow_step"* ]] && reasons+="workflow"
+      [[ "$expl" == *"recovery_candidate"* ]] && reasons+="recovery"
+      [[ "$expl" == *"high_failure_rate"* ]] && reasons+="high fail"
     fi
 
-    desc="$key"
+    local desc=""
     if (( count > 0 )); then
-      desc+="  ·  ${count}×"
-      if (( (success + fail) > 0 )); then desc+=" · $(( success * 100 / (success + fail) ))% success"; fi
+      desc+="${count}×"
+      if (( (success + fail) > 0 )); then
+        local pct=$(( success * 100 / (success + fail) ))
+        (( pct < 100 )) && desc+=" ${pct}%"
+      fi
       if (( last > 0 )); then
         local ago=$(( EPOCHSECONDS - last ))
-        if (( ago < 60 )); then desc+=" · just now"
-        elif (( ago < 3600 )); then desc+=" · $(( ago / 60 ))m ago"
-        elif (( ago < 86400 )); then desc+=" · $(( ago / 3600 ))h ago"
-        else desc+=" · $(( ago / 86400 ))d ago"
+        if (( ago < 60 )); then desc+=" · now"
+        elif (( ago < 3600 )); then desc+=" · $(( ago / 60 ))m"
+        elif (( ago < 86400 )); then desc+=" · $(( ago / 3600 ))h"
+        else desc+=" · $(( ago / 86400 ))d"
         fi
       fi
-      if [[ -n "$reasons" ]]; then
-        desc+=" · ${reasons}"
-      fi
+      [[ -n "$reasons" ]] && desc+=" · ${reasons}"
     fi
     _fp_hud_cands+=("$key")
     _fp_hud_desc+=("$desc")
@@ -700,73 +715,93 @@ _flow_pred_hud_open() {
   _fp_hud_sel=0
   _fp_hud_offset=0
   _fp_hud_is_recovery=$is_recovery
-  _flow_pred_hud_render "$is_recovery"
+  _flow_pred_hud_render
   zle -K flowhud
   return 0
 }
 
 _flow_pred_hud_render() {
   (( _fp_hud_active )) || return 0
-  local is_recovery="${1:-${_fp_hud_is_recovery:-0}}"
+  (( _fp_hud_rendering )) && return 0
+  _fp_hud_rendering=1
+
   local n=${#_fp_hud_cands}
-  (( n > 0 )) || return 0
-  local visible=$(( LINES > 5 ? LINES - 2 : 3 ))
-  (( visible > 12 )) && visible=12
+  if (( n == 0 )); then
+    _fp_hud_rendering=0
+    _flow_pred_hud_close
+    return 0
+  fi
+
+  local max_visible=$(( LINES - 3 ))
+  (( max_visible > 12 )) && max_visible=12
+  (( max_visible < 3 )) && max_visible=3
+
+  # Clamp offset
+  local bottom=$(( _fp_hud_offset + max_visible ))
+  (( _fp_hud_sel >= bottom )) && _fp_hud_offset=$(( _fp_hud_sel - max_visible + 1 ))
+  (( _fp_hud_sel < _fp_hud_offset )) && _fp_hud_offset=$_fp_hud_sel
+  (( _fp_hud_offset < 0 )) && _fp_hud_offset=0
+
+  # ── IRIS-inspired color palette (ANSI 256) ──
+  local RST=$'\e[0m'
+  local ACC=$'\e[38;5;114m'    # accent green  #61ffca
+  local DIM=$'\e[38;5;242m'    # dim gray      #6d6a7f
+  local TXT=$'\e[38;5;255m'    # bright text   #edecee
+  local SEL=$'\e[38;5;231m'    # sel text      #ffffff
+  local SBG=$'\e[48;5;61m'     # sel bg        #3d375e
+  local BRD=$'\e[38;5;141m'    # border purple #a277ff
+  local DSC=$'\e[38;5;246m'    # desc gray     #9692a8
+  local GRH=$'\e[38;5;75m'     # ghost teal    #4B4A4C
+
+  # ── Header ──
+  local label="Flow"
+  [[ "$_fp_hud_is_recovery" == "1" ]] && label=" Flow recovery"
+  local header=" ${BRD}──${RST} ${ACC}${label}${RST} ${DIM}${n} results${RST}"
+  if (( n > max_visible )); then
+    local page_top=$(( _fp_hud_offset + 1 ))
+    local page_bot=$(( _fp_hud_offset + max_visible ))
+    (( page_bot > n )) && page_bot=$n
+    header+=" ${DIM}${page_top}-${page_bot}/${n}${RST}"
+  fi
+  header+=" ${BRD}─${RST}"
+
+  # ── Candidate lines ──
   local -a lines=()
   local i idx
-  for (( i = 1; i <= visible && _fp_hud_offset + i <= n; i++ )); do
-    idx=$(( _fp_hud_offset + i ))
+  for (( i = 0; i < max_visible && _fp_hud_offset + i < n; i++ )); do
+    idx=$(( _fp_hud_offset + i + 1 ))
     local cand="${_fp_hud_cands[$idx]}"
     local desc="${_fp_hud_desc[$idx]}"
-    local line
+    local line=""
     if (( idx - 1 == _fp_hud_sel )); then
-      line="%F{38}> %f%B${cand}%b%F{244} ${desc}%f"
+      # Selected: highlight bar like IRIS sel_bg
+      line="${SBG}${SEL} ${cand} ${RST}${DSC} ${desc}${RST}"
     else
-      line="  ${cand}%F{244} ${desc}%f"
+      line=" ${TXT}${cand} ${RST}${DSC} ${desc}${RST}"
     fi
-    lines+=("${(%):-$line}")
+    lines+=("$line")
   done
-  local header
-  if (( is_recovery )); then
-    header="%F{38}Flow recovery%f: ${n} candidates  ↑↓ navigate  Enter accept  Esc close"
-  else
-    header="%F{38}Flow%f: ${n} candidates  ↑↓ navigate  Enter accept  Esc close"
-  fi
-  zle -R "${(%):-$header}" "${lines[@]}"
+
+  # ── Footer hint ──
+  lines+=(" ${DIM}↑↓ navigate  Tab/Enter accept  Esc close${RST}")
+
+  zle -R "$header" "${lines[@]}"
+  _fp_hud_rendering=0
 }
 
 _flow_pred_hud_close() {
   _fp_hud_active=0
   _fp_hud_cands=() _fp_hud_desc=() _fp_hud_src=()
   _fp_hud_sel=0 _fp_hud_offset=0
+  _fp_hud_rendering=0
   zle -K main 2>/dev/null
   zle -R 2>/dev/null
-}
-
-_flow_pred_up() {
-  (( _fp_hud_active )) && { _flow_pred_hud_up; return }
-  # If buffer has text: prefix history search; if empty: recent history
-  if (( ${#BUFFER} > 0 )); then
-    zle history-search-backward
-  else
-    zle up-line-or-history
-  fi
-}
-
-_flow_pred_down() {
-  (( _fp_hud_active )) && { _flow_pred_hud_down; return }
-  # Always open HUD on Down
-  if (( _fp_warm )); then
-    _flow_pred_hud_open
-  else
-    zle down-line-or-history
-  fi
 }
 
 _flow_pred_hud_up() {
   (( _fp_hud_active )) || return 0
   (( _fp_hud_sel > 0 )) && _fp_hud_sel=$(( _fp_hud_sel - 1 ))
-  if (( _fp_hud_sel < _fp_hud_offset )); then _fp_hud_offset=$_fp_hud_sel; fi
+  (( _fp_hud_sel < _fp_hud_offset )) && _fp_hud_offset=$_fp_hud_sel
   _flow_pred_hud_render
 }
 
@@ -774,16 +809,19 @@ _flow_pred_hud_down() {
   (( _fp_hud_active )) || return 0
   local n=${#_fp_hud_cands}
   (( _fp_hud_sel + 1 < n )) && _fp_hud_sel=$(( _fp_hud_sel + 1 ))
-  local visible=$(( LINES > 5 ? LINES - 2 : 3 ))
-  (( visible > 12 )) && visible=12
-  if (( _fp_hud_sel >= _fp_hud_offset + visible )); then _fp_hud_offset=$(( _fp_hud_sel - visible + 1 )); fi
+  local max_visible=$(( LINES - 3 ))
+  (( max_visible > 12 )) && max_visible=12
+  (( max_visible < 3 )) && max_visible=3
+  (( _fp_hud_sel >= _fp_hud_offset + max_visible )) && _fp_hud_offset=$(( _fp_hud_sel - max_visible + 1 ))
   _flow_pred_hud_render
 }
 
 _flow_pred_hud_pgup() {
   (( _fp_hud_active )) || return 0
-  local step=$(( LINES > 5 ? LINES - 3 : 3 ))
-  (( _fp_hud_sel -= step ))
+  local step=$(( LINES - 3 ))
+  (( step > 12 )) && step=12
+  (( step < 1 )) && step=1
+  _fp_hud_sel=$(( _fp_hud_sel - step ))
   (( _fp_hud_sel < 0 )) && _fp_hud_sel=0
   _fp_hud_offset=$_fp_hud_sel
   _flow_pred_hud_render
@@ -791,13 +829,15 @@ _flow_pred_hud_pgup() {
 
 _flow_pred_hud_pgdn() {
   (( _fp_hud_active )) || return 0
-  local step=$(( LINES > 5 ? LINES - 3 : 3 ))
   local n=${#_fp_hud_cands}
-  (( _fp_hud_sel += step ))
+  local step=$(( LINES - 3 ))
+  (( step > 12 )) && step=12
+  (( step < 1 )) && step=1
+  _fp_hud_sel=$(( _fp_hud_sel + step ))
   (( _fp_hud_sel >= n )) && _fp_hud_sel=$(( n - 1 ))
-  local visible=$(( LINES > 5 ? LINES - 2 : 3 ))
-  (( visible > 12 )) && visible=12
-  _fp_hud_offset=$(( _fp_hud_sel - visible + 1 ))
+  local max_visible=$(( LINES - 3 ))
+  (( max_visible > 12 )) && max_visible=12
+  (( _fp_hud_sel >= _fp_hud_offset + max_visible )) && _fp_hud_offset=$(( _fp_hud_sel - max_visible + 1 ))
   (( _fp_hud_offset < 0 )) && _fp_hud_offset=0
   _flow_pred_hud_render
 }
@@ -809,34 +849,38 @@ _flow_pred_hud_accept() {
     CURSOR=${#BUFFER}
     _fp_last_typed="$BUFFER" _fp_last_result=""
   fi
-  _fp_hud_close
+  _flow_pred_hud_close
 }
 
 _flow_pred_hud_delegate() {
-  # any other key while HUD is open: dismiss and pass the key to main keymap
-  _fp_hud_close
-  # Look up what widget this key normally triggers
+  # SAFEST approach: close HUD, then look up the widget and call it.
+  # We do NOT try to handle the key ourselves — just pass it through.
+  _fp_hud_active=0
+  _fp_hud_rendering=0
+  zle -K main 2>/dev/null
+  zle -R 2>/dev/null
+  _fp_hud_cands=() _fp_hud_desc=() _fp_hud_src=()
+  # Try to dispatch the key to its normal main-keymap widget
   local w
   w="${$(bindkey -M main "$KEYS" 2>/dev/null)//\"/}"
-  # Only invoke if it's a real, defined widget
   if [[ -n "$w" && "$w" != "undefined-key" && "$w" != "-"* ]] && (( ${+widgets[$w]} )); then
     zle "$w" 2>/dev/null
   fi
 }
 
-# HUD keymap
+# ── flowhud keymap ──
 bindkey -N flowhud 2>/dev/null
 zle -N _flow_pred_hud_delegate
-bindkey -M flowhud '^[' _flow_pred_hud_close
-bindkey -M flowhud '^M' _flow_pred_hud_accept
-bindkey -M flowhud '^J' _flow_pred_hud_accept
-bindkey -M flowhud '^I' _flow_pred_hud_accept
-bindkey -M flowhud '^G' _flow_pred_hud_close
-bindkey -M flowhud '\e[A' _flow_pred_hud_up
-bindkey -M flowhud '\e[B' _flow_pred_hud_down
-bindkey -M flowhud '\e[5~' _flow_pred_hud_pgup
-bindkey -M flowhud '\e[6~' _flow_pred_hud_pgdn
-bindkey -M flowhud -R " -~" _flow_pred_hud_delegate
+bindkey -M flowhud '^['       _flow_pred_hud_close
+bindkey -M flowhud '^M'       _flow_pred_hud_accept
+bindkey -M flowhud '^J'       _flow_pred_hud_accept
+bindkey -M flowhud '^I'       _flow_pred_hud_accept
+bindkey -M flowhud '^G'       _flow_pred_hud_close
+bindkey -M flowhud '\e[A'     _flow_pred_hud_up
+bindkey -M flowhud '\e[B'     _flow_pred_hud_down
+bindkey -M flowhud '\e[5~'    _flow_pred_hud_pgup
+bindkey -M flowhud '\e[6~'    _flow_pred_hud_pgdn
+bindkey -M flowhud -R " -~"   _flow_pred_hud_delegate
 bindkey -M flowhud -R "\x00-\x1f" _flow_pred_hud_delegate
 
 # ── key bindings ────────────────────────────────────────────────────────────
@@ -989,15 +1033,18 @@ add-zle-hook-widget zle-line-pre-redraw _flow_pred_on_redraw
 _flow_pred_warmup() {
   add-zsh-hook -d precmd _flow_pred_warmup
   # Run atuin warm-up in background so prompt appears instantly.
-  # Suppress job notifications so they don't interrupt typing (e.g. sudo password).
+  # Disable job notifications in the PARENT to suppress "[1] done" messages
+  # that interrupt typing (e.g. sudo password). LOCAL_OPTIONS inside the
+  # backgrounded block only affects the child — notifications are parent-side.
+  setopt NO_NOTIFY
   {
-    setopt LOCAL_OPTIONS NO_NOTIFY
     local log="${FLOW_PRED_DEBUG_LOG:-/dev/null}"
     (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: atuin warmup starting" >>"$log" 2>&1
     _flow_pred_warm_from_atuin
     (( FLOW_PRED_DEBUG )) && print -u2 "flow-predictor: warm index ready (${#_fp_cmd_stats} commands)" >>"$log" 2>&1
   } &
   disown
+  setopt NOTIFY
 }
 add-zsh-hook precmd _flow_pred_warmup
 
