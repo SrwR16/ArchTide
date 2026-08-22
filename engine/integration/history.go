@@ -21,15 +21,15 @@ var (
 	sessionHistory   []string
 	sessionHistoryMu sync.Mutex
 
-	historyCache  []string
-	idMapCache    map[string]int
+	historyCache   []string
+	idMapCache     map[string]int
 	sourceMapCache map[string]string
-	searcherCache *fuzzy.Searcher
-	mu            sync.Mutex
-	lastModTime   int64
+	searcherCache  *fuzzy.Searcher
+	mu             sync.Mutex
+	lastModTime    int64
 
-	atuinCmds    []string
-	atuinLastMod int64
+	atuinCmds     []string
+	atuinLastMod  int64
 	lastAtuinMode int = -1
 )
 
@@ -293,8 +293,8 @@ func SearchHistory(query string, aliases map[string]string) ([]HistResult, error
 		for i := range limit {
 			cmd := historyCache[i]
 			results = append(results, HistResult{
-				ID:  idMapCache[cmd],
-				Cmd: cmd,
+				ID:     idMapCache[cmd],
+				Cmd:    cmd,
 				Source: sourceMapCache[cmd],
 			})
 		}

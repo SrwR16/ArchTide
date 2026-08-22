@@ -120,7 +120,7 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 			addSuggestion(spec.Suggestion{
 				Cmd:        c.Key,
 				Desc:       flowDescFor(c),
-				Icon:       "flow",
+				Icon:       "history",
 				Source:     "flow",
 				Confidence: conf,
 				Priority:   60,

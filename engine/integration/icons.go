@@ -124,7 +124,6 @@ var iconMap = map[string]string{
 	"alias":          "",
 	"history":        "",
 	"atuin":          "󰳗",
-	"flow":           "",
 	"system":         "",
 	"root":           "",
 }

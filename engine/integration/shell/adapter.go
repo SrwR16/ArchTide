@@ -65,18 +65,18 @@ func (z *ZshAdapter) ScanAliases() map[string]string {
 	envSet := os.Getenv("ZDOTDIR") != ""
 	zdotdir := GetZshConfigDir()
 	home, _ := os.UserHomeDir()
-	
+
 	var files []string
 	if !envSet && zdotdir != home {
 		files = append(files, filepath.Join(home, ".zshenv"))
 	}
-	
+
 	files = append(files,
 		filepath.Join(zdotdir, ".zshenv"),
 		filepath.Join(zdotdir, ".zprofile"),
 		filepath.Join(zdotdir, ".zshrc"),
 	)
-	
+
 	return ScanPosixAliases(files)
 }
 
@@ -84,7 +84,7 @@ func GetZshConfigDir() string {
 	if zdotdir := os.Getenv("ZDOTDIR"); zdotdir != "" {
 		return zdotdir
 	}
-	
+
 	// Fallback: ask zsh directly in case ZDOTDIR is set in ~/.zshenv without export
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
@@ -96,7 +96,7 @@ func GetZshConfigDir() string {
 			return zdotdir
 		}
 	}
-	
+
 	home, _ := os.UserHomeDir()
 	return home
 }

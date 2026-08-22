@@ -1397,7 +1397,7 @@ func predictiveSuggestions(cwd string, limit int) []spec.Suggestion {
 		out = append(out, spec.Suggestion{
 			Cmd:        c.Key,
 			Desc:       "flow",
-			Icon:       "flow",
+			Icon:       "history",
 			Source:     "flow",
 			Confidence: conf,
 			Priority:   60,
@@ -1415,7 +1415,7 @@ func predictiveSuggestions(cwd string, limit int) []spec.Suggestion {
 		out = append(out, spec.Suggestion{
 			Cmd:        c.Key,
 			Desc:       "script",
-			Icon:       "flow",
+			Icon:       "history",
 			Source:     "flow",
 			Confidence: conf,
 			Priority:   55,

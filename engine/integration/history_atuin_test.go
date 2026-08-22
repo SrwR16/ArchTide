@@ -1,8 +1,8 @@
 package integration
 
 import (
-	"testing"
 	"github.com/versenilvis/iris/internal/config"
+	"testing"
 )
 
 func TestSearchHistory_AtuinSourceMapping(t *testing.T) {
