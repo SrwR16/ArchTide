@@ -1,0 +1,75 @@
+package config
+
+import (
+	"time"
+)
+
+func DefaultConfig() *Config {
+	return &Config{
+		Core: CoreConfig{
+			Version:           1,
+			Shell:             "",
+			ShellLogin:        false,
+			Mode:              "last",
+			Debug:             false,
+			ExpandAlias:       true,
+			AutoExecute:       false,
+			CobraProbeEnabled: true,
+		},
+		UI: UIConfig{
+			Style:           "modern",
+			GhostText:       true,
+			ShowHiddenFiles: false,
+			MaxSuggestions:  100,
+			MaxHeight:       15,
+			MaxWidth:        0, // 0 means no limit, fallback to terminal width
+			NerdFonts:       true,
+		},
+		Git: GitConfig{
+			FilterActiveBranch:  true,
+			DeduplicateBranches: true,
+		},
+		Updater: UpdaterConfig{
+			CheckOnStartup: true,
+			Channel:        "stable",
+			CheckInterval:  Duration(24 * time.Hour),
+			AutoUpdate:     0,
+		},
+		AI: AIConfig{
+			Enabled:       false,
+			Provider:      "",
+			DebounceMS:    500,
+			MinIntervalMS: 1000,
+			Providers:     nil,
+			SuggestOnEmpty: SuggestOnEmptyConfig{
+				Enabled:       false,
+				DebounceMS:    800,
+				MinIntervalMS: 5000,
+			},
+		},
+		Flow: FlowConfig{
+			Enabled:       true,
+			MaxSuggestion: 6,
+		},
+		Keybindings: KeybindingsConfig{
+			ToggleMode:       "ctrl+r",
+			ToggleMenu:       "shift+tab",
+			SelectSuggestion: "tab",
+			NavigateUp:       "up",
+			NavigateDown:     "down",
+		},
+	}
+}
+
+func DefaultState() *State {
+	return &State{
+		LastMode: "spec",
+		Updater: UpdaterState{
+			LastCheckTime:     time.Time{},
+			SeenVersion:       "",
+			AutoUpdateTarget:  "",
+			AutoUpdateAttempt: 0,
+			DeclinedVersion:   "",
+		},
+	}
+}
