@@ -9,6 +9,9 @@ set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MPV_CFG="${MPV_CFG:-$HOME/.config/mpv}"
+if [ -L "$MPV_CFG" ] && [ ! -e "$MPV_CFG" ]; then
+    rm -f "$MPV_CFG"
+fi
 mkdir -p "$MPV_CFG/scripts" "$MPV_CFG/script-opts" "$MPV_CFG/shaders"
 
 # 0. Deploy the config that lives in this folder (mpv.conf, input.conf,

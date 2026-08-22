@@ -1830,6 +1830,10 @@ install_extras_config() {
             continue
         fi
         [[ -d "$src" ]] || continue
+        if [[ -L "$HOME/.config/$name" && ! -e "$HOME/.config/$name" ]]; then
+            rm -f "$HOME/.config/$name"
+            ui_verbose "removed broken symlink ~/.config/$name"
+        fi
         script=""
         [[ -f "$src/fetch-extras.sh" ]] && script="fetch-extras.sh"
         [[ -f "$src/install.sh" && -z "$script" ]] && script="install.sh"
