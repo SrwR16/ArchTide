@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/SrwR16/flow-engine/internal/config"
 	"github.com/spf13/cobra"
-	"github.com/versenilvis/iris/internal/config"
 )
 
 var ConfigCmd = &cobra.Command{

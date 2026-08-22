@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/versenilvis/iris/internal/config"
+	"github.com/SrwR16/flow-engine/internal/config"
 )
 
 func TestParseCobraOutput_ValidCobra(t *testing.T) {

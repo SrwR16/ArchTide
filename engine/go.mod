@@ -1,4 +1,4 @@
-module github.com/versenilvis/iris
+module github.com/SrwR16/flow-engine
 
 go 1.25.0
 

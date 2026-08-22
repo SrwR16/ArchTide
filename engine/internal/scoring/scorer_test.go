@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/versenilvis/iris/internal/workspace"
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/internal/workspace"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 func TestScore_GitInitAndStatusInGitRepo(t *testing.T) {

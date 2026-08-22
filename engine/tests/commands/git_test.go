@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/versenilvis/iris/commands"
-	"github.com/versenilvis/iris/spec"
+	_ "github.com/SrwR16/flow-engine/commands"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 // setupGitRepo creates a real git repo in a temp dir with:
@@ -57,7 +57,7 @@ func setupGitRepo(t *testing.T) (tmp string, cleanup func()) {
 	run("git", "-C", tmp, "tag", "v1.0")
 
 	// add a real remote in config
-	run("git", "-C", tmp, "remote", "add", "origin", "https://github.com/versenilvis/iris.git")
+	run("git", "-C", tmp, "remote", "add", "origin", "https://github.com/SrwR16/flow-engine.git")
 
 	// write fake remote refs directly (no need for actual remote server)
 	for _, ref := range []string{"main", "dev"} {

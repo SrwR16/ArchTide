@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 type SourceType string

@@ -30,8 +30,8 @@ func DefaultConfig() *Config {
 			DeduplicateBranches: true,
 		},
 		Updater: UpdaterConfig{
-			// SAFETY: this is the Flow fork — checking versenilvis releases
-			// would offer to overwrite it with stock IRIS. Keep off.
+			// SAFETY: release checking stays off — this binary is built and
+			// deployed by setup-flow.sh from source, never self-updated.
 			CheckOnStartup: false,
 			Channel:        "stable",
 			CheckInterval:  Duration(24 * time.Hour),

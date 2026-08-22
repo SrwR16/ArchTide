@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/versenilvis/iris/internal/config"
-	"github.com/versenilvis/iris/internal/logger"
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/internal/config"
+	"github.com/SrwR16/flow-engine/internal/logger"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 type suggestionCacheItem struct {

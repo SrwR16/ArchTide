@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 func processGenerator(tokens []string, _ string, _ string) []spec.Suggestion {

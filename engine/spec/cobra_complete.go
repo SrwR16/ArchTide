@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/versenilvis/iris/internal/config"
+	"github.com/SrwR16/flow-engine/internal/config"
 )
 
 const cobraModulePath = "github.com/spf13/cobra"

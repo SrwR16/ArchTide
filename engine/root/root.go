@@ -15,10 +15,10 @@ import (
 	"strings"
 	"syscall"
 
+	_ "github.com/SrwR16/flow-engine/commands"
+	"github.com/SrwR16/flow-engine/internal/config"
+	"github.com/SrwR16/flow-engine/internal/logger"
 	"github.com/spf13/cobra"
-	_ "github.com/versenilvis/iris/commands"
-	"github.com/versenilvis/iris/internal/config"
-	"github.com/versenilvis/iris/internal/logger"
 	"golang.org/x/term"
 )
 
@@ -26,7 +26,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "iris",
 		Short: "Flow Engine — context-aware terminal suggestions",
-		Long: `Flow Engine (based on IRIS, 0BSD) is Flow Terminal's suggestion engine.
+		Long: `Flow Engine is Flow Terminal's context-aware suggestion system.
 It ranks commands by directory context, success rates, and workflow history.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			defer func() {
@@ -72,7 +72,7 @@ func init() {
 		logDir, err := config.CachePath()
 		if err == nil {
 			logger.Init(filepath.Join(logDir, "iris.log"), debugMode || config.Get().Core.Debug)
-			logger.Infof("IRIS session started: os=%s, arch=%s, go=%s, pid=%d", runtime.GOOS, runtime.GOARCH, runtime.Version(), os.Getpid())
+			logger.Infof("Flow session started: os=%s, arch=%s, go=%s, pid=%d", runtime.GOOS, runtime.GOARCH, runtime.Version(), os.Getpid())
 			cfg := config.Get()
 			logger.Debugf("IRIS loaded config: shell=%q, shell-login=%v, mode=%q, ghost-text=%v, max-suggestions=%d", cfg.Core.Shell, cfg.Core.ShellLogin, cfg.Core.Mode, cfg.UI.GhostText, cfg.UI.MaxSuggestions)
 		}

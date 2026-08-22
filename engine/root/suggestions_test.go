@@ -3,8 +3,8 @@ package root
 import (
 	"testing"
 
-	"github.com/versenilvis/iris/spec"
-	"github.com/versenilvis/iris/spec/alias"
+	"github.com/SrwR16/flow-engine/spec"
+	"github.com/SrwR16/flow-engine/spec/alias"
 )
 
 func TestMergeResults(t *testing.T) {

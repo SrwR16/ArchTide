@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	_ "github.com/versenilvis/iris/commands/runner"
-	"github.com/versenilvis/iris/spec"
+	_ "github.com/SrwR16/flow-engine/commands/runner"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 // Verify that the just command generator parses recipes and returns nil on read errors

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/versenilvis/iris/spec"
-	_ "github.com/versenilvis/iris/commands"
+	"github.com/SrwR16/flow-engine/spec"
+	_ "github.com/SrwR16/flow-engine/commands"
 )
 
 func TestIntegration_ZoxideMultiWord(t *testing.T) {

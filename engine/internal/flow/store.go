@@ -333,7 +333,7 @@ func (s *Store) score(e *Entry, cwd, query string, now int64) (float64, []string
 		if !anchored {
 			return 0, nil // context-less stale rows stay out entirely
 		}
-	} 
+	}
 
 	if cwd != "" {
 		if hasExactDir(e.Dirs, cwd) {

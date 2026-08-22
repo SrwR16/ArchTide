@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 func envVarGenerator(tokens []string, _ string, _ string) []spec.Suggestion {

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 func NpmScriptGenerator(tokens []string, _ string, _ string) []spec.Suggestion {

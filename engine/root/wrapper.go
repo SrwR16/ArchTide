@@ -18,15 +18,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/SrwR16/flow-engine/integration"
+	"github.com/SrwR16/flow-engine/integration/shell"
+	"github.com/SrwR16/flow-engine/internal/ai"
+	"github.com/SrwR16/flow-engine/internal/config"
+	"github.com/SrwR16/flow-engine/internal/flow"
+	"github.com/SrwR16/flow-engine/internal/logger"
+	"github.com/SrwR16/flow-engine/internal/scoring"
+	"github.com/SrwR16/flow-engine/spec"
 	"github.com/creack/pty"
-	"github.com/versenilvis/iris/integration"
-	"github.com/versenilvis/iris/integration/shell"
-	"github.com/versenilvis/iris/internal/ai"
-	"github.com/versenilvis/iris/internal/config"
-	"github.com/versenilvis/iris/internal/flow"
-	"github.com/versenilvis/iris/internal/logger"
-	"github.com/versenilvis/iris/internal/scoring"
-	"github.com/versenilvis/iris/spec"
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 )
@@ -334,8 +334,6 @@ func runWrapper() {
 	overlay := integration.NewOverlay()
 
 	// start background update check (async)
-	pendingUpdate = startBackgroundUpdateCheck()
-	updatePrinted := false
 
 	shellPGID, err := unix.Getpgid(spec.ShellPID)
 	if err != nil {
@@ -619,27 +617,6 @@ func runWrapper() {
 					}(cmdToRecord, cwd, exitCode, prevSkeleton, prevCwd, currSkeleton)
 					setPrevRecordedInfo(cmdToRecord, cwd)
 				}
-				// hook: after user executes a command, print the update notice exactly once per session
-				if !updatePrinted {
-					select {
-					case result, ok := <-pendingUpdate:
-						if ok && result.hasUpdate {
-							switch result.kind {
-							case updateResultAutoInstalled:
-								printAutoUpdateInstalledNotice(result.latestVersion)
-							case updateResultConfirm:
-								printAutoUpdateConfirmPrompt(result.latestVersion, result.notes)
-								armAutoUpdateConfirm(result.latestVersion)
-							case updateResultGiveUp:
-								printAutoUpdateGiveUpNotice(result.latestVersion)
-							default:
-								printUpdateNotice(result.latestVersion, result.notes)
-							}
-							updatePrinted = true
-						}
-					default:
-					}
-				}
 				continue
 			}
 
@@ -856,12 +833,6 @@ func runWrapper() {
 			for i := 0; i < n; i++ {
 				b := inputSlice[i]
 				intercepted = false
-
-				// while an auto-update confirm prompt is pending, every
-				// byte goes to it instead of normal key handling
-				if handleAutoUpdateConfirmKey(b) {
-					continue
-				}
 
 				if matched, consumed := config.MatchKey(inputSlice[i:], config.Get().Keybindings.ToggleMenu); matched {
 					intercepted = true

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/versenilvis/iris/internal/workspace"
+	"github.com/SrwR16/flow-engine/internal/workspace"
 )
 
 type SignalSet struct {

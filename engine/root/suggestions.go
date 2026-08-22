@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/versenilvis/iris/integration"
-	"github.com/versenilvis/iris/internal/ai"
-	"github.com/versenilvis/iris/internal/config"
-	"github.com/versenilvis/iris/internal/flow"
-	"github.com/versenilvis/iris/internal/logger"
-	"github.com/versenilvis/iris/internal/scoring"
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/integration"
+	"github.com/SrwR16/flow-engine/internal/ai"
+	"github.com/SrwR16/flow-engine/internal/config"
+	"github.com/SrwR16/flow-engine/internal/flow"
+	"github.com/SrwR16/flow-engine/internal/logger"
+	"github.com/SrwR16/flow-engine/internal/scoring"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 // normalizeVariantCmd groups command variants ("cd x" vs "cd x/") so

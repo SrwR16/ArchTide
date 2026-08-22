@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/versenilvis/iris/internal/config"
+	"github.com/SrwR16/flow-engine/internal/config"
 	_ "modernc.org/sqlite"
 )
 
@@ -507,7 +507,7 @@ func GetFrecencyStore() (*FrecencyStore, error) {
 func CloseGlobalFrecencyStore() {
 	globalFrecencyMu.Lock()
 	defer globalFrecencyMu.Unlock()
-	
+
 	if globalFrecencyStore != nil {
 		_ = globalFrecencyStore.Close()
 		globalFrecencyStore = nil

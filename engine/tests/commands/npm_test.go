@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/versenilvis/iris/commands/js"
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/commands/js"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 func TestNpmScriptGenerator(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/versenilvis/fuzzy"
-	"github.com/versenilvis/iris/integration/shell"
-	"github.com/versenilvis/iris/internal/config"
+	"github.com/SrwR16/flow-engine/integration/shell"
+	"github.com/SrwR16/flow-engine/internal/config"
 	_ "modernc.org/sqlite"
 )
 

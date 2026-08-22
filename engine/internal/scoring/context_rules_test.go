@@ -3,7 +3,7 @@ package scoring
 import (
 	"testing"
 
-	"github.com/versenilvis/iris/internal/workspace"
+	"github.com/SrwR16/flow-engine/internal/workspace"
 )
 
 func TestApplyContextRules_MultiEcosystem(t *testing.T) {

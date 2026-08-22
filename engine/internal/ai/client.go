@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/versenilvis/iris/internal/config"
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/internal/config"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 var sharedHTTPClient = &http.Client{}

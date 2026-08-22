@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/SrwR16/flow-engine/integration/shell"
+	"github.com/SrwR16/flow-engine/internal/config"
 	"github.com/spf13/cobra"
-	"github.com/versenilvis/iris/integration/shell"
-	"github.com/versenilvis/iris/internal/config"
 )
 
 var initCmd = &cobra.Command{
@@ -155,7 +155,7 @@ var setupCmd = &cobra.Command{
 		exe, _ := os.Executable()
 		targetExe := filepath.Join(localBin, "iris")
 
-		fmt.Printf("Installing iris to %s...\n", targetExe)
+		fmt.Printf("Installing Flow engine to %s...\n", targetExe)
 		input, err := os.ReadFile(exe)
 		if err != nil {
 			fmt.Printf("Failed to read current executable: %v\n", err)
@@ -190,7 +190,7 @@ var setupCmd = &cobra.Command{
 			configFile = filepath.Join(shell.GetFishConfigDir(), "config.fish")
 			evalCmd = `iris init fish | source`
 		default:
-			fmt.Printf("Unsupported shell: %s. Please add iris init manually.\n", shellName)
+			fmt.Printf("Unsupported shell: %s. Please add flow-engine init manually.\n", shellName)
 			return
 		}
 
@@ -213,7 +213,7 @@ var setupCmd = &cobra.Command{
 				fmt.Printf("Failed to update %s: %v\n", configFile, err)
 				return
 			}
-			fmt.Printf("✓ Added iris integration to top of %s\n", configFile)
+			fmt.Printf("✓ Added Flow engine integration to top of %s\n", configFile)
 		}
 
 		// initialize default config file if it does not exist

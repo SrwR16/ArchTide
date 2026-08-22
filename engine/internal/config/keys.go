@@ -42,13 +42,13 @@ func MatchKey(input []byte, expected string) (matched bool, consumed int) {
 			if input[0] == targetByte {
 				return true, 1
 			}
-		// Some terminals (foot, kitty, etc.) send kitty keyboard protocol
-		// escape sequences for Ctrl+letter instead of raw control bytes:
-		// CSI <keycode> ; <modifiers> <action>
-		// where modifiers include Ctrl=4 and action='u' means press.
-		if matched, consumed := matchKittyCtrl(input, int(char)); matched {
-			return matched, consumed
-		}
+			// Some terminals (foot, kitty, etc.) send kitty keyboard protocol
+			// escape sequences for Ctrl+letter instead of raw control bytes:
+			// CSI <keycode> ; <modifiers> <action>
+			// where modifiers include Ctrl=4 and action='u' means press.
+			if matched, consumed := matchKittyCtrl(input, int(char)); matched {
+				return matched, consumed
+			}
 		}
 	}
 

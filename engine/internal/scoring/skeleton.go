@@ -3,7 +3,7 @@ package scoring
 import (
 	"strings"
 
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 // ExtractSkeleton extracts the subcommand skeleton of a command string for transition tracking.

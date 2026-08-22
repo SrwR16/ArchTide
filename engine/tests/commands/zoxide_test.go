@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/versenilvis/iris/commands/fs"
+	"github.com/SrwR16/flow-engine/commands/fs"
 )
 
 func TestZoxideGenerator(t *testing.T) {

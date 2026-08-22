@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/versenilvis/iris/internal/scoring"
+	"github.com/SrwR16/flow-engine/internal/scoring"
 	"go.uber.org/goleak"
 )
 

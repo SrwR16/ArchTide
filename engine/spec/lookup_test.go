@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/versenilvis/iris/spec/alias"
+	"github.com/SrwR16/flow-engine/spec/alias"
 )
 
 func TestLookup(t *testing.T) {

@@ -1,6 +1,6 @@
 package root
 
-import "github.com/versenilvis/iris/spec/alias"
+import "github.com/SrwR16/flow-engine/spec/alias"
 
 type mockGitProvider struct{}
 

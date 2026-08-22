@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/SrwR16/flow-engine/internal/config"
 	"github.com/spf13/cobra"
-	"github.com/versenilvis/iris/internal/config"
 )
 
 // startRescueShell starts a fallback shell if the application crashes to keep the terminal open

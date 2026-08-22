@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 type cacheEntry struct {

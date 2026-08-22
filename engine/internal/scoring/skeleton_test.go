@@ -3,7 +3,7 @@ package scoring
 import (
 	"testing"
 
-	"github.com/versenilvis/iris/spec"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 func TestExtractSkeleton(t *testing.T) {
