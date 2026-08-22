@@ -228,9 +228,9 @@ func (s *Store) loadLocked() {
 			continue // T/W/R records handled by IRIS's own transition learning
 		}
 		if e, ok := parseEntry(line[kindEnd+1:]); ok {
-			if _, dup := entries[e.Key]; !dup {
-				entries[e.Key] = e
-			}
+			// last-wins: the zsh recorder appends refreshed records for keys
+			// it has already written; newer lines must override older ones.
+			entries[e.Key] = e
 		}
 	}
 	s.entries = entries

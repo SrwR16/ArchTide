@@ -186,3 +186,23 @@ flow_status() {
 alias fa='flow_activate'
 alias fd='flow_deactivate'
 alias fs='flow_status'
+# ── Flow Engine recorder ─────────────────────────────────────────────────────
+# Feeds every executed command into the engine's aggregates store (canonical
+# schema=1). Async, silent, never blocks the prompt. Skipped inside the
+# engine's own child shells to avoid double-counting PTY echoes.
+typeset -g _FLOW_REC_CMD=""
+_flow_rec_preexec() {
+  _FLOW_REC_CMD="$1"
+}
+_flow_rec_precmd() {
+  local ec=$?
+  local cmd="$_FLOW_REC_CMD"
+  _FLOW_REC_CMD=""
+  [[ -n "$cmd" ]] || return 0
+  command -v iris >/dev/null 2>&1 || return 0
+  {
+    iris record --cmd "$cmd" --dir "$PWD" --exit "$ec"
+  } >/dev/null 2>&1 &
+}
+add-zsh-hook preexec _flow_rec_preexec
+add-zsh-hook precmd _flow_rec_precmd
