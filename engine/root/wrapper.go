@@ -385,7 +385,19 @@ func runWrapper() {
 	// Shared handler for configured navigation keys (e.g. ctrl+j / ctrl+k).
 	// Moves the overlay cursor when visible, otherwise opens history/spec
 	// list and selects the next item in the requested direction.
-	handleNavKey := func(dir string) {
+	handleNavKey := func(dir string, consumed *bool) {
+		bufferMu.Lock()
+		bufEmpty := naiveBuffer == ""
+		bufferMu.Unlock()
+
+		// Flow: UP on an empty buffer is NATIVE shell history — do not
+		// intercept. zsh walks its own history line-by-line like stock.
+		if dir == "up" && bufEmpty && !overlay.IsVisible() {
+			*consumed = false
+			return
+		}
+
+		*consumed = true
 		if overlay.IsVisible() {
 			intercepted = true
 			userNavigated.Store(true)
@@ -898,9 +910,13 @@ func runWrapper() {
 					if isNavUp {
 						arrowDir = "up"
 					}
-					handleNavKey(arrowDir)
-					i += navConsumed - 1
-					continue
+					handleNavKey(arrowDir, &intercepted)
+					if intercepted {
+						i += navConsumed - 1
+						continue
+					}
+					// not consumed: fall through — bytes reach the shell
+					// natively (e.g. up-arrow on empty buffer = zsh history)
 				}
 
 				if matched, consumed := config.MatchKey(inputSlice[i:], config.Get().Keybindings.SelectSuggestion); matched && config.Get().Keybindings.SelectSuggestion != "" {
@@ -1036,14 +1052,15 @@ func runWrapper() {
 						isNavDown, navConsumed = config.MatchKey(inputSlice[i:], config.Get().Keybindings.NavigateDown)
 					}
 					if isNavUp || isNavDown {
-						intercepted = true
 						arrowDir := "down"
 						if isNavUp {
 							arrowDir = "up"
 						}
-						handleNavKey(arrowDir)
-						i += navConsumed - 1
-						continue
+						handleNavKey(arrowDir, &intercepted)
+						if intercepted {
+							i += navConsumed - 1
+							continue
+						}
 					}
 
 					// handle escape sequences like arrow keys and functional shortcuts
