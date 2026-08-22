@@ -17,14 +17,22 @@ import (
 	"github.com/versenilvis/iris/spec"
 )
 
+// normalizeVariantCmd groups command variants ("cd x" vs "cd x/") so
+// different data sources don't produce duplicate rows.
+func normalizeVariantCmd(cmd string) string {
+	return strings.TrimRight(strings.TrimSpace(cmd), "/")
+}
+
 // MergeResults collects and dedupes suggestions for a query and mode
 func MergeResults(query string, mode string) []spec.Suggestion {
 	maxSugg := config.Get().UI.MaxSuggestions
-	seen := make(map[string]bool)
+	seenIdx := make(map[string]int)
 	deduped := []spec.Suggestion{}
 	normalizedQuery := strings.TrimSpace(query)
 
-	// add suggestion helper to deduplicate
+	// add suggestion helper — variant-aware dedup: "cd x" and "cd x/" are
+	// the same command from different sources (atuin vs Flow aggregates);
+	// keep the stronger row instead of showing both.
 	addSuggestion := func(s spec.Suggestion) {
 		normalizedCmd := strings.TrimSpace(s.Cmd)
 		if normalizedCmd == "" {
@@ -39,10 +47,20 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 				s.Confidence = 50
 			}
 		}
-		if !seen[s.Cmd] {
-			seen[s.Cmd] = true
-			deduped = append(deduped, s)
+		k := normalizeVariantCmd(s.Cmd)
+		if idx, ok := seenIdx[k]; ok {
+			if s.Confidence > deduped[idx].Confidence {
+				if deduped[idx].Desc != "" && s.Desc == "" {
+					s.Desc = deduped[idx].Desc
+				}
+				deduped[idx] = s
+			} else if deduped[idx].Desc == "" && s.Desc != "" {
+				deduped[idx].Desc = s.Desc
+			}
+			return
 		}
+		seenIdx[k] = len(deduped)
+		deduped = append(deduped, s)
 	}
 
 	// always call lookup to scan aliases and get spec suggestions
@@ -99,20 +117,9 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 			if conf < 40 {
 				continue
 			}
-			desc := flowDescFor(c)
-			if seen[c.Key] {
-				// merge: strengthen the existing row rather than duplicate it
-				for i := range deduped {
-					if deduped[i].Cmd == c.Key && conf > deduped[i].Confidence {
-						deduped[i].Confidence = conf
-						deduped[i].Desc = desc
-					}
-				}
-				continue
-			}
 			addSuggestion(spec.Suggestion{
 				Cmd:        c.Key,
-				Desc:       desc,
+				Desc:       flowDescFor(c),
 				Icon:       "flow",
 				Source:     "flow",
 				Confidence: conf,
@@ -128,7 +135,7 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 		return deduped
 	}
 
-	injectAISuggestion(&deduped, seen, normalizedQuery)
+	injectAISuggestion(&deduped, normalizedQuery)
 
 	var finalResults []spec.Suggestion
 	if mode == "history" {
@@ -162,55 +169,34 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 	return finalResults
 }
 
-// flowDescFor renders why Flow surfaced a candidate, e.g.
-// "in this dir · 83% ok" or "local script · recently modified".
+// flowDescFor stays deliberately quiet: professional UIs annotate only
+// exceptions. A chronically failing command earns a warning; everything
+// else speaks through its ranking position, not a caption.
 func flowDescFor(c *flow.Candidate) string {
-	parts := make([]string, 0, 3)
-	failing := false
-	for _, r := range c.Reasons {
-		switch r {
-		case "dir":
-			parts = append(parts, "in this dir")
-		case "parent_dir":
-			parts = append(parts, "nearby project")
-		case "recent":
-			if !containsStr(parts, "recently used") && !containsStr(parts, "recent") {
-				parts = append(parts, "recent")
-			}
-		case "exec", "script":
-			parts = append(parts, "local script")
-		case "fails_a_lot":
-			failing = true
-		}
-	}
-	if t := c.Total(); t >= 2 && !failing {
+	t := c.Total()
+	if t >= 3 && c.Fail > 0 {
 		pct := c.Success * 100 / t
-		if pct >= 100 {
-			parts = append(parts, fmt.Sprintf("%d%% ok", pct))
-		} else if pct < 60 {
-			parts = append(parts, fmt.Sprintf("⚠ %d%% ok", pct))
-		}
-	} else if failing {
-		parts = append(parts, "⚠ low success")
-	}
-	return strings.Join(parts, " · ")
-}
-
-func containsStr(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
+		if pct < 60 {
+			return fmt.Sprintf("⚠ %d%% ok", pct)
 		}
 	}
-	return false
+	return ""
 }
 
-func injectAISuggestion(deduped *[]spec.Suggestion, seen map[string]bool, normalizedQuery string) {
+func injectAISuggestion(deduped *[]spec.Suggestion, normalizedQuery string) {
+	taken := func(cmd string) bool {
+		k := normalizeVariantCmd(cmd)
+		for _, item := range *deduped {
+			if normalizeVariantCmd(item.Cmd) == k {
+				return true
+			}
+		}
+		return false
+	}
 	if aiSugg := GetCurrentAISuggestion(); aiSugg != nil {
 		normalizedCmd := strings.TrimSpace(aiSugg.Cmd)
 		if normalizedCmd != "" && normalizedCmd != normalizedQuery && strings.HasPrefix(strings.ToLower(normalizedCmd), strings.ToLower(normalizedQuery)) {
-			if !seen[aiSugg.Cmd] {
-				seen[aiSugg.Cmd] = true
+			if !taken(aiSugg.Cmd) {
 				*deduped = append(*deduped, *aiSugg)
 			} else {
 				for i, item := range *deduped {
