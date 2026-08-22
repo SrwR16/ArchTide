@@ -150,6 +150,7 @@ flow_dep starship core starship "Starship prompt" starship
 flow_dep mise core mise "Runtime version manager (project profiles)" mise
 flow_dep direnv core direnv "Per-project environment switching" direnv
 flow_dep atuin core atuin "Shell history (local only, no sync)" atuin
+flow_dep iris core iris-autocomplete "Intelligent Real-time Input Suggestion" iris
 flow_dep fzf core fzf "Fuzzy finder" fzf
 flow_dep fd core fd "Fast find (FZF default command)" fd
 flow_dep ripgrep core rg "Fast grep (zshrc.d, FZF)" rg
