@@ -2,6 +2,7 @@ package root
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -56,12 +57,12 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 		baseConf := 75
 		for i, h := range histResults {
 			conf := max(baseConf-(i*2), 60)
-			
+
 			icon := "history"
 			if h.Source == "atuin" {
 				icon = "atuin"
 			}
-			
+
 			addSuggestion(spec.Suggestion{
 				Cmd:        h.Cmd,
 				Desc:       h.Source,
@@ -79,6 +80,8 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 	// ── Flow provider ────────────────────────────────────────────────────
 	// Context-aware candidates from Flow aggregates: directory match,
 	// success/failure weighting, recovery history, and "./" script discovery.
+	// Candidates that already exist (history/spec/atuin) get their confidence
+	// UPGRADED instead of duplicated — one merged list, no separate category.
 	if config.Get().Flow.Enabled {
 		fstore := flow.GlobalStore()
 		cwd := spec.GetCWD()
@@ -96,9 +99,20 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 			if conf < 40 {
 				continue
 			}
+			desc := flowDescFor(c)
+			if seen[c.Key] {
+				// merge: strengthen the existing row rather than duplicate it
+				for i := range deduped {
+					if deduped[i].Cmd == c.Key && conf > deduped[i].Confidence {
+						deduped[i].Confidence = conf
+						deduped[i].Desc = desc
+					}
+				}
+				continue
+			}
 			addSuggestion(spec.Suggestion{
 				Cmd:        c.Key,
-				Desc:       "flow",
+				Desc:       desc,
 				Icon:       "flow",
 				Source:     "flow",
 				Confidence: conf,
@@ -129,7 +143,7 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 		if len(tokens) > 0 {
 			rootCmd = tokens[0]
 		}
-		
+
 		ctxTimeout, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()
 		store, _ := scoring.GetFrecencyStore()
@@ -146,6 +160,49 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 		return finalResults[:maxSugg]
 	}
 	return finalResults
+}
+
+// flowDescFor renders why Flow surfaced a candidate, e.g.
+// "in this dir · 83% ok" or "local script · recently modified".
+func flowDescFor(c *flow.Candidate) string {
+	parts := make([]string, 0, 3)
+	failing := false
+	for _, r := range c.Reasons {
+		switch r {
+		case "dir":
+			parts = append(parts, "in this dir")
+		case "parent_dir":
+			parts = append(parts, "nearby project")
+		case "recent":
+			if !containsStr(parts, "recently used") && !containsStr(parts, "recent") {
+				parts = append(parts, "recent")
+			}
+		case "exec", "script":
+			parts = append(parts, "local script")
+		case "fails_a_lot":
+			failing = true
+		}
+	}
+	if t := c.Total(); t >= 2 && !failing {
+		pct := c.Success * 100 / t
+		if pct >= 100 {
+			parts = append(parts, fmt.Sprintf("%d%% ok", pct))
+		} else if pct < 60 {
+			parts = append(parts, fmt.Sprintf("⚠ %d%% ok", pct))
+		}
+	} else if failing {
+		parts = append(parts, "⚠ low success")
+	}
+	return strings.Join(parts, " · ")
+}
+
+func containsStr(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 func injectAISuggestion(deduped *[]spec.Suggestion, seen map[string]bool, normalizedQuery string) {

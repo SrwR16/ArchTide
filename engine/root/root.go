@@ -25,9 +25,9 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:   "iris",
-		Short: "IRIS is an awesome cli auto-completion tool",
-		Long: `IRIS (a.k.a Intelligent Real-time Input Suggestion) is a shell auto-autocompletion tool.
-It works exactly like coding editor suggestion menu drop down.`,
+		Short: "Flow Engine — context-aware terminal suggestions",
+		Long: `Flow Engine (based on IRIS, 0BSD) is Flow Terminal's suggestion engine.
+It ranks commands by directory context, success rates, and workflow history.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			defer func() {
 				if r := recover(); r != nil {

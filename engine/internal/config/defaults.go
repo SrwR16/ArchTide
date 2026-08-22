@@ -30,7 +30,9 @@ func DefaultConfig() *Config {
 			DeduplicateBranches: true,
 		},
 		Updater: UpdaterConfig{
-			CheckOnStartup: true,
+			// SAFETY: this is the Flow fork — checking versenilvis releases
+			// would offer to overwrite it with stock IRIS. Keep off.
+			CheckOnStartup: false,
 			Channel:        "stable",
 			CheckInterval:  Duration(24 * time.Hour),
 			AutoUpdate:     0,
