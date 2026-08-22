@@ -43,35 +43,27 @@ if command -v docker >/dev/null 2>&1; then
   fpath=("${XDG_DATA_HOME:-$HOME/.local/share}/zsh/completions" $fpath)
 fi
 
-# Kubectl completion
-if command -v kubectl >/dev/null 2>&1; then
-  source <(kubectl completion zsh) 2>/dev/null || true
-fi
+# Cache generated completion scripts to avoid subshell execution on every startup
+_flow_source_cached_completion() {
+  local cmd="$1" cache_file="$2"
+  shift 2
+  if command -v "$cmd" >/dev/null 2>&1; then
+    local bin_path
+    bin_path="$(command -v "$cmd")"
+    if [[ ! -f "$cache_file" || "$cache_file" -ot "$bin_path" ]]; then
+      "$@" > "$cache_file" 2>/dev/null || rm -f "$cache_file"
+    fi
+    [[ -f "$cache_file" ]] && source "$cache_file" 2>/dev/null || true
+  fi
+}
 
-# Helm completion
-if command -v helm >/dev/null 2>&1; then
-  source <(helm completion zsh) 2>/dev/null || true
-fi
+_flow_comp_cache_dir="${zcompdir}/completions"
+[[ -d "$_flow_comp_cache_dir" ]] || mkdir -p "$_flow_comp_cache_dir"
 
-# Terraform completion
-if command -v terraform >/dev/null 2>&1; then
-  complete -o nospace -C terraform terraform
-fi
-
-# AWS CLI completion
-if command -v aws >/dev/null 2>&1; then
-  complete -C aws_completer aws
-fi
-
-# GH completion
-if command -v gh >/dev/null 2>&1; then
-  source <(gh completion -s zsh) 2>/dev/null || true
-fi
-
-# Mise completion
-if command -v mise >/dev/null 2>&1; then
-  source <(mise completion zsh) 2>/dev/null || true
-fi
+_flow_source_cached_completion kubectl "$_flow_comp_cache_dir/kubectl.zsh" kubectl completion zsh
+_flow_source_cached_completion helm "$_flow_comp_cache_dir/helm.zsh" helm completion zsh
+_flow_source_cached_completion gh "$_flow_comp_cache_dir/gh.zsh" gh completion -s zsh
+_flow_source_cached_completion mise "$_flow_comp_cache_dir/mise.zsh" mise completion zsh
 
 # Rebuild completion cache once per day
 if [[ ! -f "$zcompdump" ]] || [[ "$zcompdump" -ot "${ZDOTDIR:-$HOME}/.zshrc" ]]; then

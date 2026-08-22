@@ -26,6 +26,9 @@ local _es_dir=""
 for _es_dir in "${_es_dirs[@]}"; do
   if [[ -f "$_es_dir/zsh-edit-select.plugin.zsh" ]]; then
     source "$_es_dir/zsh-edit-select.plugin.zsh"
+    # Ensure native bracketed paste is preserved for terminal/application paste
+    bindkey -M emacs '^[[200~' bracketed-paste 2>/dev/null || true
+    bindkey '^[[200~' bracketed-paste 2>/dev/null || true
     return 0
   fi
 done
