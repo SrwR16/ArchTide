@@ -389,4 +389,3 @@ func TestLookup_RealGitProvider(t *testing.T) {
 		t.Errorf("expected 'git recent' in results for real GitProvider, got %v", results)
 	}
 }
-

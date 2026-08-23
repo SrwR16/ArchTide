@@ -40,9 +40,20 @@ var (
 	prodRe = regexp.MustCompile(`(?i)prod`)
 )
 
-// CurrentKubeContext reads current-context from $KUBECONFIG / ~/.kube/config
+// liveContext is pushed by the shell over the FD protocol because env
+// exports made inside zsh never reach this (parent) process.
+var liveContext string
+
+// SetLiveContext records the shell-reported kube context.
+func SetLiveContext(ctx string) { liveContext = strings.TrimSpace(ctx) }
+
+// CurrentKubeContext prefers the live shell-reported value, then falls back
+// to reading current-context from $KUBECONFIG / ~/.kube/config
 // with a minimal parser — no YAML library, no subprocess.
 func CurrentKubeContext() string {
+	if liveContext != "" {
+		return liveContext
+	}
 	cfg := os.Getenv("KUBECONFIG")
 	if cfg == "" {
 		if home, err := os.UserHomeDir(); err == nil {

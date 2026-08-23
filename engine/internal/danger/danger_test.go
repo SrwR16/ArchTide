@@ -41,3 +41,21 @@ func TestEvaluateGates(t *testing.T) {
 		t.Fatal("ls gated?!")
 	}
 }
+
+func TestLiveContextOverridesFile(t *testing.T) {
+	dir := t.TempDir()
+	cfg := dir + "/config"
+	os.WriteFile(cfg, []byte("current-context: file-says-dev\n"), 0600)
+	t.Setenv("KUBECONFIG", cfg)
+
+	SetLiveContext("")
+	if v := Evaluate("kubectl delete ns x"); v.Triggered {
+		t.Fatal("file fallback said prod?!")
+	}
+	SetLiveContext("prod-eu")
+	v := Evaluate("kubectl delete ns x")
+	if !v.Triggered || v.RequiredText != "prod-eu" {
+		t.Fatalf("live ctx gate failed: %+v", v)
+	}
+	SetLiveContext("")
+}

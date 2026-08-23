@@ -11,9 +11,9 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/versenilvis/fuzzy"
 	"github.com/SrwR16/flow-engine/integration/shell"
 	"github.com/SrwR16/flow-engine/internal/config"
+	"github.com/versenilvis/fuzzy"
 	_ "modernc.org/sqlite"
 )
 

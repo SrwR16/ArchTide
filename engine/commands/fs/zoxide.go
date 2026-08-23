@@ -11,8 +11,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/versenilvis/fuzzy"
 	"github.com/SrwR16/flow-engine/spec"
+	"github.com/versenilvis/fuzzy"
 )
 
 func init() {

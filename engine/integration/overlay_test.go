@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/x/ansi"
 	"github.com/SrwR16/flow-engine/spec"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestRenderGhostText_CursorAtEnd(t *testing.T) {

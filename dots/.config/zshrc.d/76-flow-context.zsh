@@ -37,7 +37,14 @@ _flow_context_compute() {
     ctx="$(awk '
       /^[[:space:]]*current-context:/ { sub(/^[^:]*:[[:space:]]*/, ""); gsub(/"/,""); print; exit }
     ' "$kube_cfg" 2>/dev/null)"
-    [[ -n "$ctx" ]] && export FLOW_STARSHIP_K8S="$ctx"
+    # push to the Flow Engine over its FD protocol — env exports made in zsh
+    # never reach the parent engine process. Empty value clears its state.
+    if (( $+IRIS_FD )) && [[ -n "$IRIS_FD" ]]; then
+      print -u $IRIS_FD -N -r -- "IRIS_KUBECTX:${ctx}" 2>/dev/null
+    fi
+    if [[ -n "$ctx" ]]; then
+      export FLOW_STARSHIP_K8S="$ctx"
+    fi
   fi
 
   # --- AWS ------------------------------------------------------------------

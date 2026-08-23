@@ -9,10 +9,10 @@ import (
 	"unicode/utf8"
 
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/SrwR16/flow-engine/internal/config"
 	"github.com/SrwR16/flow-engine/internal/logger"
 	"github.com/SrwR16/flow-engine/spec"
+	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/term"
 )
 

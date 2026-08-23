@@ -578,6 +578,13 @@ func runWrapper() {
 				}
 				continue
 			}
+			if kctx, ok := strings.CutPrefix(query, "IRIS_KUBECTX:"); ok {
+				// Shell reports its live kubeconfig context — the engine
+				// process cannot see exports made inside zsh, so the shell
+				// pushes it over the protocol (danger gate depends on it).
+				danger.SetLiveContext(kctx)
+				continue
+			}
 
 			if query == "IRIS_CMD_START" {
 				isCommandActive.Store(true)

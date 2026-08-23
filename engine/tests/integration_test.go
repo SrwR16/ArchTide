@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/SrwR16/flow-engine/spec"
 	_ "github.com/SrwR16/flow-engine/commands"
+	"github.com/SrwR16/flow-engine/spec"
 )
 
 func TestIntegration_ZoxideMultiWord(t *testing.T) {
@@ -33,7 +33,7 @@ func TestIntegration_ZoxideMultiWord(t *testing.T) {
 		// Simulating user typing "z My Awe"
 		input := "z My Awe"
 		results := spec.Lookup(input)
-		
+
 		found := false
 		for _, r := range results {
 			// Expected result should be "z My Awesome Project/"
