@@ -2643,6 +2643,16 @@ cmd_project() {
             [[ "$OPT_VERBOSE" == true ]] && profile_args+=("-v")
             exec bash "$path" "${profile_args[@]}"
             ;;
+        trust)
+            local path="" d
+            for d in "$SCRIPT_DIR" "$MIRROR_DIR"; do
+                [[ -f "$d/sdata/lib/trust.sh" ]] && {
+                    path="$d/sdata/lib/trust.sh"; break; }
+            done
+            [[ -n "$path" ]] || ui_die "Missing helper" "sdata/lib/trust.sh not found"
+            # subcmd already shifted off; pass remaining args positionally
+            exec bash "$path" "$@"
+            ;;
         env)
             local path="" d
             for d in "$SCRIPT_DIR" "$MIRROR_DIR"; do
