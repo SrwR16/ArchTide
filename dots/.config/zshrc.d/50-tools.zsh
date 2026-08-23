@@ -1,10 +1,8 @@
 # Flow Zsh Tools
 # Initialize installed CLI tools
 
-# zoxide - smarter cd
-# Plain `cd` stays literal (stock builtin); fuzzy frecency jumps are
-# deliberate via z / zi — initialized in 70-zoxide.zsh with --cmd z.'
-fi
+# zoxide - smarter cd: plain `cd` stays literal (stock builtin); fuzzy
+# frecency jumps are deliberate via z / zi (70-zoxide.zsh, --cmd z).
 
 # fzf - fuzzy finder (keybindings loaded in 40-keybindings.zsh)
 if command -v fzf >/dev/null 2>&1; then

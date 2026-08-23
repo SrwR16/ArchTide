@@ -20,12 +20,12 @@ $character"""
 palette = "flow"
 
 # ─── Prompt Character ──────────────────────────────────────────
+
+# Large repos can exceed starship's default 500ms git scan.
+command_timeout = 2000
 [character]
 success_symbol = "[╰─❯](bold fg:flow_success)"
 error_symbol = "[╰─⚠❯](bold fg:flow_error)"
-
-# Large repos (e.g. archdotfiles) can exceed the default 500ms git scan.
-command_timeout = 2000
 
 [package]
 disabled = true
