@@ -100,6 +100,21 @@ var (
 	stdoutMu     sync.Mutex
 )
 
+func protoLog(msg string) {
+	msg = strings.ReplaceAll(msg, "\x00", "<NUL>")
+	if len(msg) > 120 {
+		msg = msg[:120]
+	}
+	st, err := os.Stat("/tmp/flow-proto2.log")
+	if err == nil && st.Size() > 500_000 {
+		os.Remove("/tmp/flow-proto2.log")
+	}
+	if f, e := os.OpenFile("/tmp/flow-proto2.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600); e == nil {
+		fmt.Fprintf(f, "%s\n", msg)
+		f.Close()
+	}
+}
+
 func writeStdout(data []byte) {
 	if len(data) == 0 {
 		return
@@ -585,7 +600,9 @@ func runWrapper() {
 					f.Close()
 				}
 			}
+			protoLog("MSG:" + query)
 			if kctx, ok := strings.CutPrefix(query, "IRIS_KUBECTX:"); ok {
+				protoLog("KCTX-HIT:" + kctx)
 				// Shell reports its live kubeconfig context — the engine
 				// process cannot see exports made inside zsh, so the shell
 				// pushes it over the protocol (danger gate depends on it).

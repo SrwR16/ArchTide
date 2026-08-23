@@ -65,3 +65,8 @@ _flow_context_compute() {
     export FLOW_ENV_TARGET="production"
   fi
 }
+
+# register: runs on every prompt (this was accidentally dropped during a
+# cleanup edit — the function existed but never executed)
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd _flow_context_compute
