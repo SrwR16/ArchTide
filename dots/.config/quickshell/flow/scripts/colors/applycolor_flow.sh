@@ -23,6 +23,11 @@ apply_kitty() {
     return
   fi
   mkdir -p "$STATE_DIR"/user/generated/terminal
+  # Guarantee command_timeout exists in the generated config: large repos
+  # (archdotfiles-scale) exceed starship's 500ms git-scan default.
+  if ! grep -q '^command_timeout' "$base_starship"; then
+    sed -i '/^\[character\]/i # Large repos can exceed starship'"'"'s default 500ms git scan.\ncommand_timeout = 2000\n' "$base_starship"
+  fi
   # Apply colors using Python for robust literal string replacement (no regex or sed shell escaping issues)
   python3 -c '
 import sys
