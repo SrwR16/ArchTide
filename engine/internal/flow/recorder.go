@@ -12,13 +12,30 @@ import (
 
 var recMu sync.Mutex // single-writer gate across processes via flock below too
 
-// Record ingests one executed command into aggregates.tsv using the canonical
-// schema. Read-merge-write under an exclusive lockfile; atomic rename.
+// Record ingests one executed command into the default store.
 func Record(cmd, dir string, exitCode int) error {
-	if strings.TrimSpace(cmd) == "" {
+	return GlobalStore().RecordInto(cmd, dir, exitCode)
+}
+
+// RecordTransition persists a transition pair into the default store.
+func RecordTransition(prev, next, dir string, exitCode int) error {
+	return GlobalStore().RecordTransitionInto(prev, next, dir, exitCode)
+}
+
+// NewStoreAt returns an isolated store backed by an explicit file path
+// (testing, migrations). Empty path maps to the default location.
+func NewStoreAt(path string) *Store {
+	if path == "" {
+		return GlobalStore()
+	}
+	return &Store{path: path}
+}
+
+// RecordInto ingests one executed command into THIS store.
+func (s *Store) RecordInto(cmd, dir string, exitCode int) error {
+	if strings.TrimSpace(cmd) == "" || s == nil || s.path == "" {
 		return nil
 	}
-	s := GlobalStore()
 	recMu.Lock()
 	defer recMu.Unlock()
 
@@ -107,14 +124,11 @@ func Record(cmd, dir string, exitCode int) error {
 	return nil
 }
 
-// RecordTransition persists a workflow pair (prev skeleton -> next skeleton)
-// as a canonical T line. Mirrors IRIS's RecordTransition semantics: counts
-// accumulate per pair, success tallied by exit code, last timestamp bumped.
-func RecordTransition(prev, next, dir string, exitCode int) error {
+// RecordTransitionInto persists a workflow pair into THIS store.
+func (s *Store) RecordTransitionInto(prev, next, dir string, exitCode int) error {
 	if strings.TrimSpace(prev) == "" || strings.TrimSpace(next) == "" {
 		return nil
 	}
-	s := GlobalStore()
 	recMu.Lock()
 	defer recMu.Unlock()
 

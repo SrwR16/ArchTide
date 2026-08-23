@@ -454,3 +454,47 @@ type Candidate struct {
 func (c *Candidate) String() string {
 	return fmt.Sprintf("%s score=%.0f [%s]", c.Key, c.Score, strings.Join(c.Reasons, ","))
 }
+
+// SnapshotEntries returns a copy of the current entry map values (for
+// cross-package reads; callers must not mutate).
+func (s *Store) SnapshotEntries() map[string]*Entry {
+	return s.snapshot()
+}
+
+// HasDir reports whether this command has recorded evidence in dir.
+func (e *Entry) HasDir(dir string) bool {
+	if dir == "" || len(e.Dirs) == 0 {
+		return false
+	}
+	needle := dir + ":"
+	for _, d := range e.Dirs {
+		if d == dir || strings.HasPrefix(d, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+// AllTransitions parses all T records from the aggregate file (last-wins).
+func (s *Store) AllTransitions() map[string]*TEntry {
+	s.mu.RLock()
+	path := s.path
+	s.mu.RUnlock()
+	return readTRecords(path)
+}
+
+// PrevOf extracts the prev skeleton from a pair key.
+func (t *TEntry) PrevOf(pair string) string {
+	if i := strings.IndexByte(pair, 0x1f); i >= 0 {
+		return pair[:i]
+	}
+	return ""
+}
+
+// NextOf extracts the next skeleton from a pair key.
+func (t *TEntry) NextOf(pair string) string {
+	if i := strings.IndexByte(pair, 0x1f); i >= 0 {
+		return pair[i+1:]
+	}
+	return ""
+}

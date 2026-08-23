@@ -608,12 +608,8 @@ func runWrapper() {
 						}()
 						ctxRecord, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 						defer cancel()
-						// Flow store is the single source of truth
-						_ = flow.Record(c, d, code)
-						if pSkel != "" && cSkel != "" {
-							_ = flow.RecordTransition(pSkel, cSkel, d, code)
-						}
-						// legacy sqlite path kept until FrecencyStore swap lands
+						// FrecencyStore now fronts the Flow store directly —
+						// one write path, one source of truth.
 						if store, err := scoring.GetFrecencyStore(); err == nil && store != nil {
 							_ = store.Record(ctxRecord, c, d, code)
 							if pSkel != "" && cSkel != "" {
