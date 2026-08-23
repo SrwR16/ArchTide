@@ -164,7 +164,7 @@ flow_dep docker devops docker "Containers" docker
 flow_dep kubectl devops kubectl "Kubernetes CLI" kubectl
 flow_dep helm devops helm "Kubernetes package manager" helm
 flow_dep terraform devops terraform "Infrastructure as code (Terraform)" terraform
-flow_dep opentofu devops tofu "OpenTofu (Terraform drop-in)" tofu
+flow_dep opentofu devops opentofu "OpenTofu (Terraform drop-in)" tofu
 flow_dep ansible devops ansible "Configuration management" ansible
 flow_dep gh devops github-cli "GitHub CLI" gh
 flow_dep aws-cli devops aws-cli "AWS CLI" aws
