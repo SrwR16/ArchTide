@@ -1779,6 +1779,7 @@ EXTRA_DOTFILES=(
     zshrc.d
     starship.toml
     zsh
+    matugen
 )
 
 # install_extras_config <repo_root> <verb>
