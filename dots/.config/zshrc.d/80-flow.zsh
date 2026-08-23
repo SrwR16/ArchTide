@@ -200,9 +200,8 @@ _flow_rec_precmd() {
   _FLOW_REC_CMD=""
   [[ -n "$cmd" ]] || return 0
   command -v iris >/dev/null 2>&1 || return 0
-  {
-    iris record --cmd "$cmd" --dir "$PWD" --exit "$ec"
-  } >/dev/null 2>&1 &
+  # &! = background + disown: no [1] PID / [1] done job announcements
+  iris record --cmd "$cmd" --dir "$PWD" --exit "$ec" >/dev/null 2>&1 &!
 }
 add-zsh-hook preexec _flow_rec_preexec
 add-zsh-hook precmd _flow_rec_precmd

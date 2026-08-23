@@ -106,3 +106,87 @@ func Record(cmd, dir string, exitCode int) error {
 	}
 	return nil
 }
+
+// RecordTransition persists a workflow pair (prev skeleton -> next skeleton)
+// as a canonical T line. Mirrors IRIS's RecordTransition semantics: counts
+// accumulate per pair, success tallied by exit code, last timestamp bumped.
+func RecordTransition(prev, next, dir string, exitCode int) error {
+	if strings.TrimSpace(prev) == "" || strings.TrimSpace(next) == "" {
+		return nil
+	}
+	s := GlobalStore()
+	recMu.Lock()
+	defer recMu.Unlock()
+
+	pair := prev + "\x1f" + next
+	now := time.Now().Unix()
+
+	existing := readTRecords(s.path)
+	e := existing[pair]
+	if e == nil {
+		e = &TEntry{Pair: pair, Count: 0}
+	}
+	e.Count++
+	if exitCode == 0 {
+		e.Success++
+	} else {
+		e.Fail++
+	}
+	e.Last = now
+	existing[pair] = e
+
+	return appendTRecord(s.path, e)
+}
+
+// TEntry is one canonical transition record.
+type TEntry struct {
+	Pair    string // prev\x1fnext
+	Count   int
+	Success int
+	Fail    int
+	Last    int64
+}
+
+// readTRecords loads current T lines (last-wins).
+func readTRecords(path string) map[string]*TEntry {
+	m := map[string]*TEntry{}
+	f, err := os.Open(path)
+	if err != nil {
+		return m
+	}
+	defer f.Close()
+	sc := bufioScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		if !strings.HasPrefix(line, "T\t") {
+			continue
+		}
+		fields := splitTabs(line[2:])
+		if len(fields) < 4 {
+			continue
+		}
+		e := &TEntry{
+			Pair:    fields[0],
+			Count:   sanitizeInt(fields[1]),
+			Success: sanitizeInt(fields[2]),
+			Fail:    e_fail(fields),
+			Last:    int64(sanitizeInt(fields[3])),
+		}
+		if e.Pair != "" {
+			m[e.Pair] = e
+		}
+	}
+	return m
+}
+
+// appendTRecord appends one refreshed T line (readers are last-wins).
+func appendTRecord(path string, e *TEntry) error {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = fmt.Fprintf(f, "T\t%s\t%d\t%d\t%d\n",
+		e.Pair, e.Count, e.Success, e.Last)
+	return err
+}

@@ -18,3 +18,10 @@ func openWrite(path string) *os.File {
 	}
 	return f
 }
+
+func e_fail(fields []string) int {
+	if len(fields) >= 5 {
+		return sanitizeInt(fields[4])
+	}
+	return 0
+}

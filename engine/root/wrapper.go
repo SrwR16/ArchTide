@@ -600,7 +600,7 @@ func runWrapper() {
 					cwd := spec.GetCWD()
 					prevSkeleton, prevCwd := getPrevRecordedInfo()
 					currSkeleton := scoring.ExtractSkeleton(cmdToRecord)
-					go func(c, d string, code int, pSkel, pCwd, cSkel string) {
+					go func(c, d string, code int, pSkel, _, cSkel string) {
 						defer func() {
 							if r := recover(); r != nil {
 								WriteCrashLog(r)
@@ -608,6 +608,12 @@ func runWrapper() {
 						}()
 						ctxRecord, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 						defer cancel()
+						// Flow store is the single source of truth
+						_ = flow.Record(c, d, code)
+						if pSkel != "" && cSkel != "" {
+							_ = flow.RecordTransition(pSkel, cSkel, d, code)
+						}
+						// legacy sqlite path kept until FrecencyStore swap lands
 						if store, err := scoring.GetFrecencyStore(); err == nil && store != nil {
 							_ = store.Record(ctxRecord, c, d, code)
 							if pSkel != "" && cSkel != "" {
