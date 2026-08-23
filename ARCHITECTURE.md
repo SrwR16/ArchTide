@@ -110,6 +110,9 @@ Wallpaper → matugen → tokens → QuickShell, Kitty, Starship palette, and no
 ### D-009 · 2026-08-23 — Startup performance is a product requirement
 Target ≤100ms interactive. Current ≈87ms. Techniques locked in: single compinit, `_flow_cached_eval` (weekly-TTL caches for atuin/mise/starship/direnv/zoxide inits — five forks replaced by file sources), project detection deferred to first precmd. Remaining costs are behavioral (mise env hook, compinit audit, syntax highlighting) — cutting them means feature trade-offs.
 
+### D-010 · 2026-08-23 — Danger gate removed (built, then retired)
+Phase 8 shipped twice: engine-side (typed confirmation at Enter) and shell-side (accept-line wrapper). Both worked in isolation but conflicted with the engine's Enter ownership, the inline strip fought overlay redraws, and mid-session context switching needed /proc-environ tricks to arm correctly. Net: more friction than protection at current maturity. Removed fully (engine package, wrapper hooks, config field, shell fragment). The **production prompt segment (⚠ + context name) remains** as the standing safety signal. Revisit only if a real incident demands hard gating.
+
 ### Historical (pre-this-document, honored)
 - Custom ZLE predictor/HUD deleted in favor of engine-native presentation — root cause of instability was triple widget-wrapping plus the broken record pipeline (now fixed), not ZLE itself.
 - Atuin remains the history search surface (`^R`); Flow's aggregates are derived analytics, deliberately decoupled.
@@ -163,7 +166,7 @@ Planned: `~/.local/state/flow/trust.json` gating any future auto-environment.
 | — | Flow Intelligence engine | ✅ single-store, live-learning |
 | — | Flow Engine (fork) ownership + provider | ✅ this document's era |
 | 7 | DevOps context providers (AWS/K8s/TF/SSH) | ⬜ needs Tier-1 tools |
-| 8 | Production safety gate | ⬜ |
+| 8 | Production safety gate | 🚫 removed (D-010) |
 | 9 | Tier-1 toolchain installs | 🔶 partial (git, docker) |
 | 10 | Kitty polish | ⬜ |
 | 11 | Benchmarks + docs | 🔶 benchmarks inline; this doc started |

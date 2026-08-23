@@ -52,7 +52,6 @@ func DefaultConfig() *Config {
 		Flow: FlowConfig{
 			Enabled:       true,
 			MaxSuggestion: 6,
-			DangerGate:    true,
 		},
 		Keybindings: KeybindingsConfig{
 			ToggleMode:       "ctrl+r",

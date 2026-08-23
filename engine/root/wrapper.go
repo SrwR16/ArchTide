@@ -22,7 +22,6 @@ import (
 	"github.com/SrwR16/flow-engine/integration/shell"
 	"github.com/SrwR16/flow-engine/internal/ai"
 	"github.com/SrwR16/flow-engine/internal/config"
-	"github.com/SrwR16/flow-engine/internal/danger"
 	"github.com/SrwR16/flow-engine/internal/flow"
 	"github.com/SrwR16/flow-engine/internal/logger"
 	"github.com/SrwR16/flow-engine/internal/scoring"
@@ -177,11 +176,6 @@ func runWrapper() {
 	var naiveBuffer string
 	var lastSubmittedCommand string
 
-	// ── Flow Danger Gate (Phase 8) ──────────────────────────────────────
-	// When a destructive command targets a production context, Enter is
-	// intercepted: a red confirmation strip renders below the prompt and
-	// the user must type the required token. Esc cancels cleanly.
-	var dangerState *danger.GateSession
 	cursorOffset := 0
 	var bufferMu sync.Mutex
 	var userNavigated atomic.Bool
@@ -240,7 +234,6 @@ func runWrapper() {
 		return
 	}
 	_ = tts.Close()
-	danger.SetChildPid(int(c.Process.Pid))
 
 	stdinFile := os.Stdin
 	if !term.IsTerminal(int(stdinFile.Fd())) {
@@ -594,21 +587,6 @@ func runWrapper() {
 				}
 				continue
 			}
-			if st, err := os.Stat("/tmp/flow-proto.log"); err == nil && st.Size() < 1_000_000 {
-				if f, e := os.OpenFile("/tmp/flow-proto.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600); e == nil {
-					fmt.Fprintf(f, "%.80s\n", query)
-					f.Close()
-				}
-			}
-			protoLog("MSG:" + query)
-			if kctx, ok := strings.CutPrefix(query, "IRIS_KUBECTX:"); ok {
-				protoLog("KCTX-HIT:" + kctx)
-				// Shell reports its live kubeconfig context — the engine
-				// process cannot see exports made inside zsh, so the shell
-				// pushes it over the protocol (danger gate depends on it).
-				danger.SetLiveContext(kctx)
-				continue
-			}
 
 			if query == "IRIS_CMD_START" {
 				isCommandActive.Store(true)
@@ -874,53 +852,6 @@ func runWrapper() {
 				b := inputSlice[i]
 				intercepted = false
 
-				// ── Danger Gate input capture ────────────────────────
-				if dangerState != nil {
-					intercepted = true
-					switch {
-					case b == 0x1b: // Esc cancels — nothing executes
-						writeStdout([]byte(danger.EraseSeq(dangerState.SegLen)))
-						dangerState = nil
-					case b == 0x0d || b == 0x0a: // Enter verifies token
-						if dangerState.Match() {
-							cmd := dangerState.Cmd
-							approvedEnter := b
-							writeStdout([]byte(danger.EraseSeq(dangerState.SegLen)))
-							dangerState = nil
-							integration.RecordSessionCommand(cmd)
-							bufferMu.Lock()
-							lastSubmittedCommand = strings.TrimSpace(cmd)
-							naiveBuffer = ""
-							cursorOffset = 0
-							bufferMu.Unlock()
-							activeModeMu.Lock()
-							activeMode = loadMode()
-							activeModeMu.Unlock()
-							isCommandActive.Store(true)
-							_, _ = ptmx.Write([]byte{approvedEnter})
-							continue
-						}
-						dangerState.Attempts++
-						dangerState.Typed = ""
-						flash := dangerState.Render(true)
-						dangerState.SegLen = danger.VisibleLen(flash)
-						writeStdout([]byte(flash))
-					case b == 0x7f || b == 0x08:
-						if rr := []rune(dangerState.Typed); len(rr) > 0 {
-							dangerState.Typed = string(rr[:len(rr)-1])
-							writeStdout([]byte("\b \b"))
-							dangerState.SegLen -= 2
-						}
-					default:
-						if b >= 0x20 && b < 0x7f {
-							dangerState.Feed(rune(b))
-							writeStdout([]byte(string(rune(b))))
-							dangerState.SegLen++
-						}
-					}
-					continue
-				}
-
 				if matched, consumed := config.MatchKey(inputSlice[i:], config.Get().Keybindings.ToggleMenu); matched {
 					intercepted = true
 					suggestionsEnabled = !suggestionsEnabled
@@ -1073,18 +1004,6 @@ func runWrapper() {
 						shouldOverlayDraw = false
 						userNavigated.Store(false)
 						continue
-					}
-
-					// ── Danger Gate evaluation ───────────────────────────
-					if config.Get().Flow.DangerGate && dangerState == nil {
-						if g := danger.Evaluate(cmdToSubmit); g.Triggered {
-							dangerState = danger.NewSession(g, cmdToSubmit)
-							strip := dangerState.Render(false)
-							dangerState.SegLen = danger.VisibleLen(strip)
-							writeStdout([]byte(strip))
-							intercepted = true
-							continue
-						}
 					}
 
 					integration.RecordSessionCommand(cmdToSubmit)

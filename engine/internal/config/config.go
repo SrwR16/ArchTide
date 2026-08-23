@@ -136,7 +136,6 @@ type Config struct {
 type FlowConfig struct {
 	Enabled       bool `toml:"enabled"`
 	MaxSuggestion int  `toml:"max-suggestions"`
-	DangerGate    bool `toml:"danger-gate"`
 }
 
 var (
