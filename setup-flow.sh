@@ -2342,6 +2342,7 @@ handle_base_config() {
 
 cmd_apply() {
     require_base
+    partition_early_deploy_targets || return 1
     load_local_src
     local origin url branch fork
     origin="$(local_origin)"
