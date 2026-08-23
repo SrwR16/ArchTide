@@ -82,7 +82,10 @@ _flow_proj_on_root_change() {
       (.ci_cd[]?       | .name) ] | unique | join(" ")
   ' "$cache" 2>/dev/null)"
   name="$(command jq -r '.name // "project"' "$cache" 2>/dev/null)"
-  print -u2 -- "[flow] ${name}: ${caps:-no markers} — no profile yet (flow project profile create)"
+  # Styled to match the Starship grammar: bold identity, muted detail,
+  # '·' separators, tool icon — colors resolve through the terminal palette.
+  local R=$'\e[0m' B=$'\e[1m' D=$'\e[2m' M=$'\e[90m' ID=$'\e[97m'
+  print -u2 -- "  ${M}󰣀${R} ${B}${ID}${name}${R} ${M}·${R} ${caps:-no markers} ${M}· no profile yet —${R} ${D}flow project profile create${R}"
 }
 add-zsh-hook chpwd _flow_proj_on_root_change
 
