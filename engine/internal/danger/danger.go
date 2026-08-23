@@ -106,19 +106,17 @@ func Evaluate(cmd string) Verdict {
 	}
 
 	ctx := CurrentKubeContext()
-	if os.Getenv("FLOW_DANGER_DEBUG") == "1" {
-		// engine stderr may be detached by the watchdog — write somewhere
-		// guaranteed visible: /dev/tty AND a durable file.
-		msg := fmt.Sprintf("[danger] cmd=%q liveCtx=%q resolvedCtx=%q aws=%q\n",
-			trimmed, liveContext, ctx, os.Getenv("AWS_PROFILE"))
-		if tty, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0); err == nil {
-			tty.WriteString(msg)
-			tty.Close()
-		}
-		if f, err := os.OpenFile("/tmp/flow-danger-debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600); err == nil {
-			f.WriteString(msg)
-			f.Close()
-		}
+	// UNCONDITIONAL debug while Phase 8 stabilizes: every evaluation is
+	// logged (engine env cannot see shell exports, so env-gating the debug
+	// silently disabled it). Capped at ~1MB.
+	msg := fmt.Sprintf("[danger] cmd=%q liveCtx=%q resolvedCtx=%q aws=%q\n",
+		trimmed, liveContext, ctx, os.Getenv("AWS_PROFILE"))
+	if st, err := os.Stat("/tmp/flow-danger-debug.log"); err == nil && st.Size() > 1_000_000 {
+		os.Remove("/tmp/flow-danger-debug.log")
+	}
+	if f, err := os.OpenFile("/tmp/flow-danger-debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600); err == nil {
+		f.WriteString(msg)
+		f.Close()
 	}
 	prodCtx := ""
 	if IsProd(ctx) {

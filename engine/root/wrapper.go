@@ -578,6 +578,12 @@ func runWrapper() {
 				}
 				continue
 			}
+			if st, err := os.Stat("/tmp/flow-proto.log"); err == nil && st.Size() < 1_000_000 {
+				if f, e := os.OpenFile("/tmp/flow-proto.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600); e == nil {
+					fmt.Fprintf(f, "%.80s\n", query)
+					f.Close()
+				}
+			}
 			if kctx, ok := strings.CutPrefix(query, "IRIS_KUBECTX:"); ok {
 				// Shell reports its live kubeconfig context — the engine
 				// process cannot see exports made inside zsh, so the shell
