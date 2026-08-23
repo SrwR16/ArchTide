@@ -8,7 +8,9 @@
 #   cargo install zoxide --locked
 
 if command -v zoxide >/dev/null 2>&1; then
-  eval "$(zoxide init zsh)"
+  # Explicit --cmd z: define only z / zi. Plain `cd` stays literal stock
+# semantics; fuzzy frecency jumps are deliberate via `z <fragment>`.
+eval "$(zoxide init zsh --cmd z)"
   # Import from atuin: zoxide import atuin
 else
   # Silently skip if not installed

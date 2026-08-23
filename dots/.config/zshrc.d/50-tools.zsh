@@ -2,10 +2,8 @@
 # Initialize installed CLI tools
 
 # zoxide - smarter cd
-if command -v zoxide >/dev/null 2>&1; then
-  eval "$(zoxide init zsh)"
-  alias cd='z'
-  alias cdi='zi'
+# Plain `cd` stays literal (stock builtin); fuzzy frecency jumps are
+# deliberate via z / zi — initialized in 70-zoxide.zsh with --cmd z.'
 fi
 
 # fzf - fuzzy finder (keybindings loaded in 40-keybindings.zsh)
