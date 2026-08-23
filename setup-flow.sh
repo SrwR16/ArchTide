@@ -1364,9 +1364,21 @@ quickshell_running() {
     pgrep -x qs >/dev/null 2>&1 || pgrep -x quickshell >/dev/null 2>&1
 }
 
+FLOW_QS_STOPPED=0
+
+# If a failure happens while QuickShell is stopped, this brings the panel
+# back before exiting — a failed deploy must never leave the desktop dead.
+ensure_quickshell_back() {
+    if (( FLOW_QS_STOPPED )); then
+        start_quickshell
+        FLOW_QS_STOPPED=0
+    fi
+}
+
 stop_quickshell() {
     [[ "$OPT_RESTART" == true ]] || return 0
     quickshell_running || return 0
+    FLOW_QS_STOPPED=1
 
     # A signalled Quickshell exits without reaping the processes it spawned, so
     # each restart leaves its long-lived children — the nmcli monitor above all —
@@ -1413,6 +1425,7 @@ start_quickshell() {
         ui_note "Restart skipped (--no-restart)."
         return 0
     }
+    FLOW_QS_STOPPED=0
     local bin=""
     if have qs; then
         bin="qs"
@@ -1443,6 +1456,7 @@ restart_quickshell() {
         ui_note "Restart skipped (--no-restart)."
         return 0
     }
+    FLOW_QS_STOPPED=0
     if ! have qs && ! have quickshell; then
         ui_warn "Neither qs nor quickshell on PATH — start Quickshell yourself."
         return 0
@@ -1826,6 +1840,7 @@ install_extras_config() {
                 [[ "$n" == "$t" ]] && ok=true
             done
             if [[ "$ok" != true ]]; then
+                ensure_quickshell_back
                 ui_fail "Unknown config \"$t\"" "available: ${EXTRA_DOTFILES[*]}"
                 return 1
             fi
@@ -1917,6 +1932,25 @@ partition_bootstrap_tiers() {
 
 # bootstrap_deps <tier...> — detect missing binaries in a tier, show one plan,
 # install in a single transaction.
+partition_early_deploy_targets() {
+    # Pre-flight: unknown --extras/config targets must fail BEFORE cloning,
+    # stopping QuickShell, or swapping anything (regression: late failure
+    # left the desktop panel dead).
+    ((${#DEPLOY_TARGETS[@]} > 0)) || return 0
+    local t ok
+    for t in "${DEPLOY_TARGETS[@]}"; do
+        ok=false
+        local n
+        for n in "${EXTRA_DOTFILES[@]}"; do
+            [[ "$n" == "$t" ]] && ok=true
+        done
+        if [[ "$ok" != true ]]; then
+            ui_fail "Unknown config \"$t\"" "available: ${EXTRA_DOTFILES[*]}"
+            return 1
+        fi
+    done
+}
+
 bootstrap_deps() {
     local -a missing=()
     local tier k
@@ -2221,7 +2255,10 @@ apply_config() {
     # shell is down.
     stop_quickshell
 
-    swap_in "$STAGE_DIR" "$fork" "$branch" || return 1
+    if ! swap_in "$STAGE_DIR" "$fork" "$branch"; then
+        ensure_quickshell_back
+        return 1
+    fi
 
     # After the swap: a swap that failed leaves ~/.config/hypr untouched too,
     # so a half-applied pair of configs is not a state you can end up in.
@@ -2327,6 +2364,7 @@ cmd_install() {
 
     # `install core|ux|devops|missing` are bootstrap tiers, not config names.
     partition_bootstrap_tiers
+    partition_early_deploy_targets || return 1
 
     # A bare tier request (`flow install ux`) is a light, dependency-only run:
     # no Quickshell redeploy, no extras prompt, just that tier plus the core
