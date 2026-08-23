@@ -3,7 +3,7 @@
 
 if command -v direnv >/dev/null 2>&1; then
   # Load direnv hook for Zsh
-  eval "$(direnv hook zsh)"
+  _flow_cached_eval direnv direnv hook zsh
   
   # Direnv configuration
   export DIRENV_WARN_TIMEOUT=5s

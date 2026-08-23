@@ -22,5 +22,5 @@ unset fragment
 
 # Ensure Starship is initialized last (after all fragments)
 if command -v starship >/dev/null 2>&1; then
-  eval "$(starship init zsh)"
+  _flow_cached_eval starship starship init zsh
 fi

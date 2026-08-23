@@ -866,11 +866,11 @@ cmd_activate() {
             ;;
         none)
             # No activation
-            activation_commands+="# Flow: none - no activation\n"
+            activation_commands+="# Flow: none - no activation"$'\n'
             ;;
         unconfigured)
-            activation_commands+="# Flow: environment not configured\n"
-            activation_commands+='# Run "flow project env set <profile> --strategy <strategy>" to configure\n'
+            activation_commands+="# Flow: environment not configured"$'\n'
+            activation_commands+=$'\\nRun "flow project env set <profile> --strategy <strategy>" to configure'
             ;;
         *)
             activation_commands+="# Flow: unknown strategy '$saved_strategy' - no activation\n"

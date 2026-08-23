@@ -89,5 +89,9 @@ _flow_proj_on_root_change() {
 }
 add-zsh-hook chpwd _flow_proj_on_root_change
 
-# fire once at startup so the first prompt already knows where it is
-_flow_proj_on_root_change
+# first detection rides the first prompt instead of shell startup
+_flow_proj_boot() {
+  add-zsh-hook -d precmd _flow_proj_boot
+  _flow_proj_on_root_change
+}
+add-zsh-hook precmd _flow_proj_boot

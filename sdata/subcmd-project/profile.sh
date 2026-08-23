@@ -390,7 +390,15 @@ cmd_create() {
         print_human "  $name"
         print_human ""
         print_human "Detected capabilities:"
-        printf '%s\n' "$detect_output" | grep -E '^(Languages|Frameworks|Package managers|Containers|Databases|Infrastructure|Kubernetes|CI/CD|Task runners)' | sed 's/^/  /'
+        local caps_line=""
+        caps_line=$(bash "$SCRIPT_DIR/detect.sh" --json 2>/dev/null | jq -r '
+          [ (select(.repository.type == "git") | "git"),
+            (.languages[]?      | .name),
+            (.frameworks[]?     | .name),
+            (.containers[]?     | .name),
+            (.infrastructure[]? | .name),
+            (.ci_cd[]?          | .name) ] | unique | join(" · ")' 2>/dev/null)
+        [[ -n "$caps_line" ]] && printf '  %s\n' "$caps_line"
         print_human ""
 
         # Get profile name

@@ -10,7 +10,7 @@
 if command -v zoxide >/dev/null 2>&1; then
   # Explicit --cmd z: define only z / zi. Plain `cd` stays literal stock
 # semantics; fuzzy frecency jumps are deliberate via `z <fragment>`.
-eval "$(zoxide init zsh --cmd z)"
+_flow_cached_eval zoxide zoxide init zsh --cmd z
 
 # Flow z: exact-name beats frecency.
 #   z <name>        1) an existing path as typed      -> stock cd

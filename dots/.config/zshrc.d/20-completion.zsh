@@ -6,9 +6,9 @@ local zcompdir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
 [[ -d "$zcompdir" ]] || mkdir -p "$zcompdir"
 local zcompdump="$zcompdir/zcompdump-${ZSH_VERSION}"
 
-# Load completion system
+# Load completion system — ONE call below (daily-rebuild block).
+# A second compinit here doubled startup cost (~15ms) for nothing.
 autoload -Uz compinit
-compinit -d "$zcompdump" -C
 
 # Completion styles
 zstyle ':completion:*' cache-path "$zcompdir"

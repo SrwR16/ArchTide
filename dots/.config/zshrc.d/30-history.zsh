@@ -11,6 +11,6 @@ export SAVEHIST=50000
 # Atuin integration (if installed)
 if command -v atuin >/dev/null 2>&1; then
   # Initialize Atuin for Zsh
-  eval "$(atuin init zsh --disable-up-arrow)"
+  _flow_cached_eval atuin atuin init zsh --disable-up-arrow
   bindkey '^R' atuin-search
 fi
