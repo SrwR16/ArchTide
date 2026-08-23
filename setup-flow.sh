@@ -1908,7 +1908,7 @@ partition_bootstrap_tiers() {
     local t
     for t in "${DEPLOY_TARGETS[@]:-}"; do
         case "$t" in
-            core | ux | devops | missing) BOOTSTRAP_TIERS+=("$t") ;;
+            core | ux | devops | devops-gui | missing) BOOTSTRAP_TIERS+=("$t") ;;
             *) cfg+=("$t") ;;
         esac
     done

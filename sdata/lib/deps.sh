@@ -134,6 +134,7 @@ deps_tier_label() {
         core) printf 'Core' ;;
         ux) printf 'UX' ;;
         devops) printf 'DevOps' ;;
+        devops-gui) printf 'DevOps GUI' ;;
         terminal) printf 'Terminal' ;;
         *) printf '%s' "$1" ;;
     esac
@@ -174,6 +175,27 @@ flow_dep kubectx devops kubectx "Kube context switcher" kubectx
 flow_dep kubens devops kubectx "Kube namespace switcher (part of kubectx)" kubens
 flow_dep lazydocker devops lazydocker "Docker TUI" lazydocker
 flow_dep delta devops git-delta "Diff pager" delta
+flow_dep docker-compose devops docker-compose "Compose v2" docker-compose
+flow_dep yq devops go-yq "YAML/TOML processor (mikefarah yq)" yq
+flow_dep trivy devops trivy "Container/IaC vulnerability scanner" trivy
+flow_dep ansible-lint devops ansible-lint "Ansible playbook linter" ansible-lint
+flow_dep tflint devops tflint "Terraform linter" tflint
+flow_dep terragrunt devops terragrunt "Terraform wrapper (DRY infra)" terragrunt
+flow_dep sops devops sops "Secrets encryption for git" sops
+flow_dep age devops age "Modern encryption (sops backend)" age
+flow_dep dive devops dive "Docker image layer inspector" dive
+flow_dep cosign devops cosign "Container signing/verification" cosign
+flow_dep vault devops vault "HashiCorp Vault CLI" vault
+flow_dep pre-commit devops pre-commit "Git hook framework (tf/ansible linting)" pre-commit
+flow_dep tmux devops tmux "Terminal multiplexer (long-running ops)" tmux
+flow_dep argocd devops argocd "GitOps CD CLI" argocd
+flow_dep eksctl devops eksctl "EKS cluster CLI" eksctl
+flow_dep kustomize devops kustomize "K8s templating" kustomize
+
+# GUIs — AUR (-bin builds). CNCF Headlamp is the maintained standard;
+# Freelens is the MIT continuation of the classic Lens UX.
+flow_dep headlamp devops-gui headlamp-bin "Kubernetes desktop IDE (CNCF)" headlamp
+flow_dep freelens devops-gui freelens-bin "Kubernetes desktop IDE (Lens fork)" freelens
 
 # Fonts are verified, never force-installed: the terminal font preference is the
 # user's own. `package` is the pacman extra package that satisfies it.

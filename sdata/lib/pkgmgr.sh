@@ -81,7 +81,22 @@ pkgmgr_install() {
     mgr="$(detect_package_manager)"
     ui_info "$(pkgmgr_plan "$@")"
     case "$mgr" in
-        pacman) run_logged sudo pacman -S --needed --noconfirm "$@" ;;
+        pacman)
+            local -a _repo=() _aur=() _p
+            for _p in "$@"; do
+                if pacman -Si "$_p" >/dev/null 2>&1; then _repo+=("$_p"); else _aur+=("$_p"); fi
+            done
+            if ((${#_repo[@]})); then
+                run_logged sudo pacman -S --needed --noconfirm "${_repo[@]}"
+            fi
+            if ((${#_aur[@]})); then
+                local _h=""
+                for _h in yay paru; do command -v "$_h" >/dev/null 2>&1 && break; done
+                _h="${_h:-yay}"
+                ui_info "AUR ($_h): ${_aur[*]}"
+                run_logged "$_h" -S --needed --noconfirm "${_aur[@]}"
+            fi
+            ;;
         apt) run_logged sudo apt-get install -y "$@" ;;
         dnf) run_logged sudo dnf install -y "$@" ;;
         apk) run_logged sudo apk add "$@" ;;
