@@ -151,7 +151,10 @@ flow_dep starship core starship "Starship prompt" starship
 flow_dep mise core mise "Runtime version manager (project profiles)" mise
 flow_dep direnv core direnv "Per-project environment switching" direnv
 flow_dep atuin core atuin "Shell history (local only, no sync)" atuin
-flow_dep iris core iris-autocomplete "Intelligent Real-time Input Suggestion" iris
+# NOTE: the Flow Engine is NOT a pacman dependency — setup-flow.sh builds it
+# from engine/ and installs to ~/.local/bin/iris (install_engine). Never point
+# this tier at the upstream AUR "iris-autocomplete": that would install stock
+# IRIS over our fork.
 flow_dep fzf core fzf "Fuzzy finder" fzf
 flow_dep fd core fd "Fast find (FZF default command)" fd
 flow_dep ripgrep core rg "Fast grep (zshrc.d, FZF)" rg
