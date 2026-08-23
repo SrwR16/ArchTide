@@ -198,7 +198,7 @@ when = '[ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "com
 shell = ["bash"]
 style = "bold fg:flow_tool"
 format = "[ $output]($style)"
-disabled = false
+disabled = true
 
 [custom.flow_terraform]
 description = "Terraform"
@@ -211,22 +211,18 @@ when = '[ -d ".terraform" ] || ls ./*.tf &>/dev/null 2>&1'
 shell = ["bash"]
 style = "bold fg:flow_tool"
 format = "[ $output]($style)"
-disabled = false
+disabled = true
 
 [custom.flow_kubernetes]
-description = "Kubernetes / Helm"
+description = "Active Kubernetes context (from kubeconfig, no CLI)"
 command = """
-if [ -d "charts" ] || [ -f "Chart.yaml" ] || [ -f "helmfile.yaml" ]; then
-  echo "· ${FLOW_ICON_HELM:-$'\uE7FB'} Helm"
-elif [ -d "k8s" ] || [ -d "kubernetes" ] || [ -d "manifests" ]; then
-  echo "· ${FLOW_ICON_KUBERNETES:-$'\uE81D'} Kubernetes"
+if [ -n "$FLOW_STARSHIP_K8S" ]; then
+  echo "· ${FLOW_ICON_KUBERNETES:-$'\uE81D'} $FLOW_STARSHIP_K8S"
 fi
 """
-when = '[ -d "charts" ] || [ -f "Chart.yaml" ] || [ -f "helmfile.yaml" ] || [ -d "k8s" ] || [ -d "kubernetes" ] || [ -d "manifests" ]'
-shell = ["bash"]
-style = "bold fg:flow_tool"
-format = "[ $output]($style)"
+when = '[ -n "$FLOW_STARSHIP_K8S" ]'
 disabled = false
+
 
 [custom.flow_ansible]
 description = "Ansible"
@@ -239,22 +235,20 @@ when = '[ -f "ansible.cfg" ] || [ -d "playbooks" ] || [ -d "roles" ]'
 shell = ["bash"]
 style = "bold fg:flow_tool"
 format = "[ $output]($style)"
-disabled = false
+disabled = true
 
 # ─── Layer 6: Infrastructure Context (provider slots for Phase 7) ───
 
 [custom.flow_aws]
-description = "AWS context"
+description = "Active AWS profile"
 command = """
-if [ -d ".aws" ] || [ -f "aws.config" ]; then
-  echo "· ${FLOW_ICON_AWS:-$'\uE7AD'} AWS"
+if [ -n "$FLOW_STARSHIP_AWS" ]; then
+  echo "· ${FLOW_ICON_AWS:-$'\uE7AD'} $FLOW_STARSHIP_AWS"
 fi
 """
-when = '[ -d ".aws" ] || [ -f "aws.config" ]'
-shell = ["bash"]
-style = "bold fg:flow_infra"
-format = "[ $output]($style)"
+when = '[ -n "$FLOW_STARSHIP_AWS" ]'
 disabled = false
+
 
 [custom.flow_gcp]
 description = "GCP context"
@@ -267,7 +261,7 @@ when = '[ -d ".gcp" ] || [ -f "gcloud.config" ]'
 shell = ["bash"]
 style = "bold fg:flow_infra"
 format = "[ $output]($style)"
-disabled = false
+disabled = true
 
 [custom.flow_azure]
 description = "Azure context"
@@ -280,7 +274,7 @@ when = '[ -d ".azure" ] || [ -f "azure.config" ]'
 shell = ["bash"]
 style = "bold fg:flow_infra"
 format = "[ $output]($style)"
-disabled = false
+disabled = true
 
 # ─── Layer 7: Risk / Remote Visual Treatment ───────────────────
 
