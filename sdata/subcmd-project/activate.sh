@@ -641,12 +641,12 @@ deactivate_previous() {
 
 # Main activation function
 cmd_activate() {
-    local profile_name="${1:-}"
-    shift || true
-
     local NO_ENV=false
+    local -a pos=()
 
-    # Parse args
+    # Flags may appear in any order; first non-flag arg is the profile name.
+    # This makes `activate --no-env <name>` and `activate <name> --no-env`
+    # both valid — and `fa` (no args, --no-env appended by the wrapper) works.
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --json) JSON_OUTPUT=true ;;
@@ -655,10 +655,11 @@ cmd_activate() {
             -v|--verbose) VERBOSE=true ;;
             -h|--help) print_help; exit 0 ;;
             --version) printf 'activate.sh %s\n' "1.0.0"; exit 0 ;;
-            *) printf 'Unknown option: %s\n' "$1" >&2; return 1 ;;
+            *) pos+=("$1") ;;
         esac
         shift
     done
+    local profile_name="${pos[0]:-}"
 
     # Get project context
     local root name git_root

@@ -480,7 +480,7 @@ cmd_use() {
     exists=$(printf '%s' "$state_json" | jq -r ".profiles[\"$profile_name\"] // empty")
     [[ -n "$exists" ]] || { print_human "${C_RED}Profile '$profile_name' does not exist.${C_RESET}"; release_lock; return 1; }
 
-    # For Phase 3A, just report selection (no activation)
+    # Selection persists default_profile; shell activation happens via fa
     if [[ "$JSON_OUTPUT" == true ]]; then
         local profile_type profile_scope
         profile_type=$(printf '%s' "$state_json" | jq -r ".profiles[\"$profile_name\"].type")
@@ -491,8 +491,12 @@ cmd_use() {
             --arg scope "$profile_scope" \
             '{selected: true, profile: {name: $name, type: $type, scope: $scope}, activation: {implemented: false}}'
     else
-        print_human "${C_GREEN}Selected profile: $profile_name${C_RESET}"
-        print_human "${C_DIM}(Phase 3A: environment activation not implemented)${C_RESET}"
+        # Persist the selection as the project's default profile — this is
+        # what `fa`/activate resolves on every future activation.
+        state_json=$(printf '%s' "$state_json" | jq --arg n "$profile_name" '.default_profile = $n')
+        save_project_state "$state_file" "$state_json"
+        print_human "${C_GREEN}Selected profile: $profile_name (default)${C_RESET}"
+        print_human "${C_DIM}Activate this shell with: fa${C_RESET}"
     fi
 
     release_lock
@@ -663,7 +667,7 @@ cmd_status() {
     print_human ""
 
     print_human "Activation"
-    print_human "  ${C_DIM}Phase 3A: not implemented${C_RESET}"
+    print_human "  ${C_DIM}run: fa  (activates selected profile in this shell)${C_RESET}"
 }
 
 # Delete a profile
