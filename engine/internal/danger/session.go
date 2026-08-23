@@ -51,7 +51,7 @@ func visibleLen(s string) int {
 func (g *GateSession) Render(wrong bool) string {
 	tok := g.RequiredText
 	var b strings.Builder
-	b.WriteString(ansiRed + ansiBold + " ⛔ " + tok + "/prod")
+	b.WriteString(ansiRed + ansiBold + " ⛔ PROD · type \"" + tok + "\"")
 	if g.Reason != "" {
 		b.WriteString(" · " + g.Reason)
 	}
