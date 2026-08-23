@@ -75,6 +75,19 @@ pkgmgr_plan() {
 }
 
 # pkgmgr_install <pkgs...> — installs everything in one transaction.
+# Stream package-manager output LIVE to the terminal while still logging.
+# Silent multi-minute installs read as "hung" — users must see progress.
+pkg_run_stream() {
+    local rc=0
+    if [[ -n "${LOG_FILE:-}" && -w "$(dirname "$LOG_FILE")" ]]; then
+        "$@" 2>&1 | tee -a "$LOG_FILE"
+        rc=${PIPESTATUS[0]}
+    else
+        "$@"; rc=$?
+    fi
+    return $rc
+}
+
 pkgmgr_install() {
     (($# == 0)) && return 0
     local mgr
@@ -97,11 +110,11 @@ pkgmgr_install() {
                 run_logged "$_h" -S --needed --noconfirm "${_aur[@]}"
             fi
             ;;
-        apt) run_logged sudo apt-get install -y "$@" ;;
-        dnf) run_logged sudo dnf install -y "$@" ;;
-        apk) run_logged sudo apk add "$@" ;;
-        brew) run_logged brew install "$@" ;;
-        zypper) run_logged sudo zypper install -y "$@" ;;
+        apt) pkg_run_stream sudo apt-get install -y "$@" ;;
+        dnf) pkg_run_stream sudo dnf install -y "$@" ;;
+        apk) pkg_run_stream sudo apk add "$@" ;;
+        brew) pkg_run_stream brew install "$@" ;;
+        zypper) pkg_run_stream sudo zypper install -y "$@" ;;
         none)
             ui_fail "No supported package manager" "install these yourself: $*"
             return 1
