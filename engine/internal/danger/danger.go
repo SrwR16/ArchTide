@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 )
 
 // Verdict describes a gate decision.
@@ -51,11 +52,38 @@ func SetLiveContext(ctx string) { liveContext = strings.TrimSpace(ctx) }
 // CurrentKubeContext prefers the live shell-reported value, then falls back
 // to reading current-context from $KUBECONFIG / ~/.kube/config
 // with a minimal parser — no YAML library, no subprocess.
+// childKubeconfigPath reads KUBECONFIG from the child shell's environment
+// (/proc/<pid>/environ). Exports made inside zsh never reach this process,
+// but its /proc entry reflects the LIVE child environment.
+var childPid atomic.Int32
+
+func SetChildPid(pid int) { childPid.Store(int32(pid)) }
+
+func childKubeconfigPath() string {
+	pid := childPid.Load()
+	if pid <= 0 {
+		return ""
+	}
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/environ", pid))
+	if err != nil {
+		return ""
+	}
+	for _, entry := range strings.Split(string(data), "\x00") {
+		if strings.HasPrefix(entry, "KUBECONFIG=") {
+			return strings.TrimPrefix(entry, "KUBECONFIG=")
+		}
+	}
+	return ""
+}
+
 func CurrentKubeContext() string {
 	if liveContext != "" {
 		return liveContext
 	}
 	cfg := os.Getenv("KUBECONFIG")
+	if cfg == "" {
+		cfg = childKubeconfigPath()
+	}
 	if cfg == "" {
 		if home, err := os.UserHomeDir(); err == nil {
 			cfg = filepath.Join(home, ".kube", "config")

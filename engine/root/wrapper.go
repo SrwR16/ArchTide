@@ -225,6 +225,7 @@ func runWrapper() {
 		return
 	}
 	_ = tts.Close()
+	danger.SetChildPid(int(c.Process.Pid))
 
 	stdinFile := os.Stdin
 	if !term.IsTerminal(int(stdinFile.Fd())) {
