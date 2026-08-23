@@ -191,6 +191,7 @@ flow_dep tmux devops tmux "Terminal multiplexer (long-running ops)" tmux
 flow_dep argocd devops argocd "GitOps CD CLI" argocd
 flow_dep eksctl devops eksctl "EKS cluster CLI" eksctl
 flow_dep kustomize devops kustomize "K8s templating" kustomize
+flow_dep kind devops kind "Local K8s clusters in Docker (test before prod)" kind
 
 # GUIs — AUR (-bin builds). CNCF Headlamp is the maintained standard;
 # Freelens is the MIT continuation of the classic Lens UX.
