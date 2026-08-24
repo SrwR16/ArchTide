@@ -69,16 +69,13 @@ COMMAND="${1:-status}"
 shift 2>/dev/null || true
 
 case "$COMMAND" in
-    install|apply|update)
-        source "$CMD_DIR/$COMMAND.sh"
-        cmd_main "$@"
-        ;;
     doctor)       source "$CMD_DIR/doctor.sh"; cmd_doctor ;;
     project)      source "$CMD_DIR/project.sh"; cmd_project "$@" ;;
     trust)        source "$CMD_DIR/project.sh"; cmd_trust "$@" ;;
     engine)       source "$CMD_DIR/engine.sh"; cmd_engine "$@" ;;
     suggest)      source "$CMD_DIR/suggest.sh"; cmd_suggest "$@" ;;
     status)       source "$CMD_DIR/status.sh"; cmd_status ;;
+    install)      source "$CMD_DIR/install.sh"; cmd_install "$@" ;;
     uninstall)    source "$CMD_DIR/uninstall.sh"; cmd_uninstall ;;
     bench)        source "$CMD_DIR/bench.sh"; cmd_bench ;;
     help)         show_help ;;
