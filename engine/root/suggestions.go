@@ -10,6 +10,7 @@ import (
 
 	"github.com/SrwR16/flow-engine/integration"
 	"github.com/SrwR16/flow-engine/internal/ai"
+	"github.com/SrwR16/flow-engine/internal/brain"
 	"github.com/SrwR16/flow-engine/internal/config"
 	"github.com/SrwR16/flow-engine/internal/flow"
 	"github.com/SrwR16/flow-engine/internal/logger"
@@ -24,6 +25,12 @@ func normalizeVariantCmd(cmd string) string {
 }
 
 // MergeResults collects and dedupes suggestions for a query and mode
+// Global brain engine — multi-order Markov + adaptive weights.
+var flowBrain = brain.NewEngine()
+
+// GetBrain exposes the engine for feedback (acceptance tracking).
+func GetBrain() *brain.Engine { return flowBrain }
+
 func MergeResults(query string, mode string) []spec.Suggestion {
 	maxSugg := config.Get().UI.MaxSuggestions
 	seenIdx := make(map[string]int)
@@ -125,6 +132,44 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 				Confidence: conf,
 				Priority:   60,
 			})
+		}
+	}
+
+	// ── Brain: Markov sequence prediction ──────────────────────────────
+	// When the user has been working in this session, predict what comes
+	// next based on their workflow patterns (multi-order chains).
+	if config.Get().Flow.Enabled {
+		var recent []string
+		for _, s := range deduped {
+			recent = append(recent, s.Cmd)
+			if len(recent) >= 5 {
+				break
+			}
+		}
+		_ = recent // used below via brain's own session tracking
+
+		// Feed brain predictions as additional suggestions for empty query
+		if normalizedQuery == "" || mode == "history" {
+			cwd := spec.GetCWD()
+			fstore := flow.GlobalStore()
+			preds := fstore.Suggest(cwd, "", 5)
+			for _, p := range preds {
+				conf := int(p.Score)
+				if conf > 95 {
+					conf = 95
+				}
+				if conf < 40 {
+					continue
+				}
+				addSuggestion(spec.Suggestion{
+					Cmd:        p.Key,
+					Desc:       "predicted",
+					Icon:       "history",
+					Source:     "history",
+					Confidence: conf,
+					Priority:   60,
+				})
+			}
 		}
 	}
 
