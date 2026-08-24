@@ -1,0 +1,266 @@
+<div align="center">
+
+<img src="./dotfiles/.config/quickshell/nandoroid/assets/icons/NAnDoroid.svg" alt="NAnDoroid" width="128"/>
+
+# NAnDoroid-shell
+
+[![Last Commit](https://img.shields.io/github/last-commit/na-ive/nandoroid-shell?style=for-the-badge&logo=git&color=8bd5ca&logoColor=D9E0EE&labelColor=303446)](https://github.com/na-ive/nandoroid-shell/commits/main)
+[![Stars](https://img.shields.io/github/stars/na-ive/nandoroid-shell?style=for-the-badge&logo=github&color=c6a0f6&logoColor=D9E0EE&labelColor=303446)](https://github.com/na-ive/nandoroid-shell/stargazers)
+[![Repo Size](https://img.shields.io/github/repo-size/na-ive/nandoroid-shell?style=for-the-badge&logo=folder&color=8caaee&logoColor=D9E0EE&labelColor=303446)](https://github.com/na-ive/nandoroid-shell)
+[![Tako Support](https://img.shields.io/badge/SUPPORT-TAKO-FF69B4?style=for-the-badge&logo=kofi&logoColor=white&labelColor=555555)](https://tako.id/naive)
+
+A Quickshell-based desktop shell for Hyprland adopting Android 16 design elements.
+
+</div>
+
+> **Note**: This shell and its dependencies are designed strictly for **Arch Linux based distributions** (Arch, CachyOS, EndeavourOS, etc.).
+> 
+> **Opinionated Design**: NAnDoroid is highly opinionated. Many design choices, UI layouts, and workflows are built specifically to suit my personal preferences. While some features are customizable, core paradigms remain fixed by design.
+
+**Version:** v1.5.0
+**License:** AGPL-3.0
+
+## Key Features
+
+- **Universal Dynamic Island:** Displays media playback indicators, workspace switching, pomodoro timers, and popup notifications inside a single central notch.
+- **Deep Customizability:** Extensive personalization options (clocks, lockscreen visuals, UI sizing) accessible directly via the built-in Settings panel.
+- **Auto-generated Colors:** Entire shell theme dynamically generated from your wallpaper's colors using Material 3 design tokens (via Matugen).
+- **Online Wallpaper Collections:** Browse and apply wallpapers from Wallhaven and personal GitHub collections directly from the shell.
+- **...and So Much More:** Dive into a seamless ecosystem packed with built-in OCR tools, smart screen recording, intuitive system monitors, and countless micro-interactions crafted to elevate your desktop experience.
+
+## Screenshots
+
+|                                  **Desktop Widget**                                 |                                  **Overlay Panels**                                   |
+| :-------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------: |
+| <img src="https://raw.githubusercontent.com/na-ive/nandoroid-docs/refs/heads/main/public/showcase1.png" /> | <img src="https://raw.githubusercontent.com/na-ive/nandoroid-docs/refs/heads/main/public/showcase2.png" /> |
+|                                 **Configurable**                                 |                                    **Online Wallpapers**                                     |
+| <img src="https://raw.githubusercontent.com/na-ive/nandoroid-docs/refs/heads/main/public/showcase3.png" /> | <img src="https://raw.githubusercontent.com/na-ive/nandoroid-docs/refs/heads/main/public/showcase4.png" /> |
+
+<div align="center">
+
+**[View more screenshots!](https://nandoroid.naive.my.id/general/showcase/)**
+
+</div>
+
+## Installation
+
+> **Nandoroid Shell is a _shell_, not a full dotfiles package.** It replaces your desktop panels, notifications, and system controls, but does not provide file pickers, screen sharing dialogs, or a file manager. See the guides below for details.
+
+### Quick Install
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/na-ive/nandoroid-shell/main/install.sh)"
+```
+
+The interactive installer guides you through dependency installation, config copying, and optional injection into your existing Hyprland/Kitty/Fish setup.
+
+- **[Installation Guide (Clean Arch/CachyOS)](docs/INSTALL.md)**: Step-by-step from a fresh system
+- **[Migration Guide (from KDE/GNOME)](docs/MIGRATION.md)**: What gets replaced, portal setup, keybind migration
+
+## Requirements & Dependencies
+
+<details>
+<summary>Click to view full dependency list</summary>
+
+### Core Components
+
+| Component | Package | Description |
+| :--- | :--- | :--- |
+| **Compositor** | `hyprland` | The tiling Wayland compositor hosting the shell. |
+| **Framework** | `quickshell` | The engine (0.5.0+) used to build and run the shell. |
+| **Monitor** | `dgop` | System monitoring (CPU, RAM, Temp) stats. |
+| **Theme** | `matugen` | Material 3 theme generation from wallpapers. |
+| **GTK Theme** | `adw-gtk-theme` | Libadwaita-like theme for GTK3 applications. |
+| **Scripting** | `python3` | Used by terminal color scripts and utilities. |
+| **JSON** | `jq` | Command-line JSON processor for configs and state. |
+
+### System Services & Protocols
+
+| Service | Command | Description |
+| :--- | :--- | :--- |
+| **Audio** | `pipewire` | Audio management via `wpctl`. |
+| **Network** | `networkmanager` | Wi-Fi and Ethernet controls via `nmcli`. |
+| **Bluetooth** | `bluez` | Bluetooth management via `bluetoothctl`. |
+| **Notify** | `libnotify` | System notifications via `notify-send`. |
+| **Auth** | `polkit` | Privileged actions via `pkexec`. |
+| **Session** | `systemd` | Power management and session locking. |
+| **Portal (H)** | `xdg-desktop-portal-hyprland` | Screen sharing and desktop integration. |
+| **Portal (G)** | `xdg-desktop-portal-gtk` | File picker and standard desktop integration. |
+
+### CLI Utilities (Functional)
+
+| Utility | Command | Description |
+| :--- | :--- | :--- |
+| **Backlight** | `brightnessctl` | Internal screen brightness control. |
+| **External Br.** | `ddcutil` | External monitor brightness control. |
+| **Media** | `playerctl` | MPRIS media playback controls. |
+| **Screenshot** | `grim` | Wayland screenshot utility. |
+| **Region** | `slurp` | Region selection for screenshots/recording. |
+| **Recorder** | `wf-recorder` | Screen recording functionality. |
+| **Image** | `imagemagick` | Color detection and image processing (`magick`). |
+| **Sound** | `ffmpeg` | System sounds playback via `ffplay`. |
+| **Clipboard** | `wl-clipboard` | Wayland clipboard operations. |
+| **Clip. Hist.** | `cliphist` | Clipboard history management in Spotlight. |
+| **Recognition** | `songrec` | Shazam-like music recognition feature. |
+| **Visualizer** | `cava` | Audio visualization in the shell. |
+| **Wallpaper Eng.** | `linux-wallpaperengine-git` | Steam Wallpaper Engine support (Optional). |
+| **Effects** | `easyeffects` | Audio effects and equalization management. |
+| **Picker** | `hyprpicker` | System-wide color picker tool. |
+| **Lock** | `hyprlock` | The lock screen provider. |
+| **Night Light** | `hyprsunset` | Blue light filter functionality. |
+| **Search** | `fd` | Fast file search functionality in Spotlight. |
+| **Calculator** | `libqalculate` | Math calculator functionality in Spotlight (`qalc`). |
+| **Dialogs** | `zenity` | File and directory selection dialogs. |
+| **QR Scan** | `zbar` | QR code scanning functionality (`zbarimg`). |
+| **OCR (Opt.)** | `tesseract` | OCR functionality in region tools. |
+| **Biometric (Opt.)** | `fprintd` | Fingerprint sensor support on lockscreen. |
+| **VPN (Opt.)** | `warp-cli` | Cloudflare WARP client integration. |
+
+### Fonts
+
+| Font | Package | Source / Purpose |
+| :--- | :--- | :--- |
+| **UI Font** | `Google Sans Flex` | Primary variable font (from GitHub). |
+| **Icons** | `ttf-material-symbols-variable-git` | Material Symbols icon font. |
+| **Monospace** | `ttf-jetbrains-mono-nerd` | Default monospace and nerd font. |
+
+### Shell & Terminal (Optional)
+
+| Tool | Package | Purpose |
+| :--- | :--- | :--- |
+| **Terminal** | `kitty` | Terminal emulator with theme injection support. |
+| **Shell** | `fish` | Interactive shell. |
+| **Prompt** | `starship` | Cross-shell prompt. |
+| **Utils** | `bash`, `awk`, `grep` | Standard Unix utilities used by core scripts. |
+
+</details>
+
+## Configuration
+
+The `.config/` directory distributed with this repository contains necessary supplementary configurations:
+
+- **`quickshell/nandoroid/`**: The shell itself.
+- **`matugen/`**: Template configs for Material 3 theme generation.
+- **`starship.toml`**: Prompt configuration (requires starship).
+- **`extras/`**: Clean base configurations for Hyprland and Fish, including essential environment variables for dynamic theming.
+- **`nandoroid-cli`**: (Optional) A powerful command-line interface to control shell panels, media, and system settings. Available at [na-ive/nandoroid-cli](https://github.com/na-ive/nandoroid-cli).
+
+## IPC Commands
+
+<details>
+<summary>Click to view IPC commands & Keybinds</summary>
+
+The basic syntax for calling a command via terminal is:
+
+```bash
+qs -c nandoroid ipc call <target> <method>
+```
+
+_(Note: `qs` is an alias for `quickshell`. Replace it if you use the full command.)_
+
+### Sidebar & Panels
+
+Manage the visibility of all UI panels.
+
+| Feature                 | Target          | Method   | Terminal Command                                |
+| :---------------------- | :-------------- | :------- | :---------------------------------------------- |
+| **App Launcher**        | `launcher`      | `toggle` | `qs -c nandoroid ipc call launcher toggle`      |
+| **Spotlight Search**    | `spotlight`     | `toggle` | `qs -c nandoroid ipc call spotlight toggle`     |
+| **Notification Center** | `notifications` | `toggle` | `qs -c nandoroid ipc call notifications toggle` |
+| **Quick Settings**      | `quicksettings` | `toggle` | `qs -c nandoroid ipc call quicksettings toggle` |
+| **System Monitor**      | `systemmonitor` | `toggle` | `qs -c nandoroid ipc call systemmonitor toggle` |
+| **Sys. Monitor (Direct)**| `systemmonitor` | `open_direct`| `qs -c nandoroid ipc call systemmonitor open_direct`|
+| **Overview Panel**      | `overview`      | `toggle` | `qs -c nandoroid ipc call overview toggle`      |
+| **Session (Power)**     | `session`       | `toggle` | `qs -c nandoroid ipc call session toggle`       |
+| **Dashboard**           | `dashboard`     | `toggle` | `qs -c nandoroid ipc call dashboard toggle`     |
+| **Quick Actions**       | `quickactions`  | `toggle` | `qs -c nandoroid ipc call quickactions toggle`  |
+| **Nandoroid Settings**  | `settings`      | `toggle` | `qs -c nandoroid ipc call settings toggle`      |
+| **Settings (Direct)**   | `settings`      | `open_direct`| `qs -c nandoroid ipc call settings open_direct` |
+
+### Region Tools (Screenshots & Recording)
+
+Trigger selection-based actions.
+
+| Action                | Target   | Method            | Terminal Command                                  |
+| :-------------------- | :------- | :---------------- | :------------------------------------------------ |
+| **Region Screenshot** | `region` | `screenshot`      | `qs -c nandoroid ipc call region screenshot`      |
+| **Visual Search**     | `region` | `search`          | `qs -c nandoroid ipc call region search`          |
+| **Text OCR**          | `region` | `ocr`             | `qs -c nandoroid ipc call region ocr`             |
+| **QR Code Scan**      | `region` | `qrcode`          | `qs -c nandoroid ipc call region qrcode`          |
+| **Record Region**     | `region` | `record`          | `qs -c nandoroid ipc call region record`          |
+| **Record w/ Audio**   | `region` | `recordWithSound` | `qs -c nandoroid ipc call region recordWithSound` |
+
+### Media & System
+
+Control specific system services.
+
+| Feature              | Target       | Method        | Terminal Command                                 |
+| :------------------- | :----------- | :------------ | :----------------------------------------------- |
+| **Brightness +**     | `brightness` | `increment`   | `qs -c nandoroid ipc call brightness increment`  |
+| **Brightness -**     | `brightness` | `decrement`   | `qs -c nandoroid ipc call brightness decrement`  |
+| **Pomodoro Start**   | `pomodoro`   | `start`       | `qs -c nandoroid ipc call pomodoro start`        |
+| **Pomodoro Pause**   | `pomodoro`   | `pause`       | `qs -c nandoroid ipc call pomodoro pause`        |
+| **Pomodoro Stop**    | `pomodoro`   | `stop`        | `qs -c nandoroid ipc call pomodoro stop`         |
+| **Pomodoro Reset**   | `pomodoro`   | `reset`       | `qs -c nandoroid ipc call pomodoro reset`        |
+| **Wallpaper (Home)** | `wallpaper`  | `openDesktop` | `qs -c nandoroid ipc call wallpaper openDesktop` |
+| **Wallpaper (Lock)** | `wallpaper`  | `openLock`    | `qs -c nandoroid ipc call wallpaper openLock`    |
+| **Wallpaper (Toggle)**| `wallpaper`  | `toggle`      | `qs -c nandoroid ipc call wallpaper toggle`      |
+| **Change Avatar**    | `spotlight`  | `browse_avatar`| `qs -c nandoroid ipc call spotlight browse_avatar`|
+
+### Global Shortcuts (Native Quickshell)
+
+Nandoroid uses native Quickshell Global Shortcuts for specialized tool operations. These are triggered using the `global` dispatcher in Hyprland with the format `quickshell:<name>`.
+
+| Shortcut Name           | Description                      | Hyprland Lua Bind Example                                                                  |
+| :---------------------- | :------------------------------- | :----------------------------------------------------------------------------------------- |
+| `spotlightFiles`        | Open Spotlight in File search    | `hl.bind("SUPER + F", hl.dsp.global("quickshell:spotlightFiles"))`                         |
+| `spotlightCommand`      | Open Spotlight in Quick Commands | `hl.bind("SUPER + G", hl.dsp.global("quickshell:spotlightCommand"))`                       |
+| `spotlightTools`        | Open Spotlight in Tools mode     | `hl.bind("SUPER + T", hl.dsp.global("quickshell:spotlightTools"))`                         |
+| `spotlightClipboard`    | Open Spotlight in Clipboard mode | `hl.bind("SUPER + V", hl.dsp.global("quickshell:spotlightClipboard"))`                     |
+| `spotlightEmoji`        | Open Spotlight in Emoji mode     | `hl.bind("SUPER + E", hl.dsp.global("quickshell:spotlightEmoji"))`                         |
+| `quickActions`          | Toggle Quick Actions HUD         | `hl.bind("SUPER + X", hl.dsp.global("quickshell:quickActions"))`                           |
+| `regionScreenshot`      | Capture selected region          | `hl.bind("SUPER + S", hl.dsp.global("quickshell:regionScreenshot"))`                       |
+| `regionOcr`             | Extract text from region         | `hl.bind("SUPER + SHIFT + S", hl.dsp.global("quickshell:regionOcr"))`                      |
+| `regionSearch`          | Visual search from region        | `hl.bind("SUPER + Z", hl.dsp.global("quickshell:regionSearch"))`                           |
+| `regionQRCode`          | Scan QR code from region         | `hl.bind("SUPER + SHIFT + Z", hl.dsp.global("quickshell:regionQRCode"))`                   |
+| `regionRecord`          | Record selected region           | `hl.bind("SUPER + R", hl.dsp.global("quickshell:regionRecord"))`                           |
+| `regionRecordWithSound` | Record region with audio         | `hl.bind("SUPER + SHIFT + R", hl.dsp.global("quickshell:regionRecordWithSound"))`          |
+
+### Panel Shortcuts
+
+When any major NAnDoroid panel is open and focused, you can use built-in keyboard shortcuts to navigate efficiently:
+
+| Key | Action |
+| :--- | :--- |
+| `/` | Open the Keyboard Shortcuts Cheatsheet |
+| `Esc` | Close the current panel |
+
+</details>
+
+## Contributing
+
+I am open to Pull Requests! If you find bugs, want to fix issues, or have minor improvements, feel free to contribute. However, because this project is highly **opinionated**, please understand that I might politely decline PRs that introduce major changes or features that don't align with my personal workflow and vision for the shell. 
+
+If you have a different direction or vision in mind, you are highly encouraged to **fork** the repository and customize it to your own liking! For significant changes intended for this upstream repository, it is best to open an issue first to discuss it.
+
+## Credits
+
+NAnDoroid draws inspiration from several open-source Quickshell projects. Their ideas, architecture, and design references helped shape this project, while many aspects have been adapted and expanded to fit Nandoroid's own direction.
+
+### Core Framework
+
+- **[Quickshell](https://github.com/outfoxxed)** - The QML-based framework powering NAnDoroid.
+
+### Design References & Special Thanks
+
+This project is a personal creation inspired by the following open-source developers and their projects:
+
+- **[end-4](https://github.com/end-4)** - Core architecture, project structure, and shell logic inspired by [dots-hyprland](https://github.com/end-4/dots-hyprland).
+- **[pC](https://github.com/pctrade)** - UI design, layout, and interaction references from [end4-pC](https://github.com/pctrade/end4-pC).
+- **[vaguesyntax (Vynx)](https://github.com/vaguesyntax)** - UI design and interaction references from [ii-vynx](https://github.com/vaguesyntax/ii-vynx).
+- **[AvengeMedia](https://github.com/AvengeMedia)** - System monitoring implementation inspired by [DankMaterialShell](https://github.com/AvengeMedia/DankMaterialShell) and powered by [dgop](https://github.com/AvengeMedia/dgop).
+- **[Axenide](https://github.com/Axenide)** - Spatial UI and Dynamic Island (notch) design references from [Ambxst](https://github.com/Axenide/Ambxst).
+
+### Assets
+
+- **Weather Icons:** Sourced from [mrdarrengriffin/google-weather-icons](https://github.com/mrdarrengriffin/google-weather-icons).

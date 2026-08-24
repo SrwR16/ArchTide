@@ -172,35 +172,14 @@ hl.bind("SUPER + ALT + F", hl.dsp.window.fullscreen_state({ internal = 0, client
     { description = "Window: Fullscreen spoof" })
 hl.bind("SUPER + P", hl.dsp.window.pin(), { description = "Window: Pin" })
 
---#/# bind = SUPER+ALT, Hash,, # Silently send to workspace (1, 2, 3,...)
---# We use raw keycodes because some keyboard layouts register number keys as different chars. The codes can be verified with `wev`
+--#/# bind = SUPER+SHIFT, Hash,, # Send window to workspace (follows like archdotfiles)
 for i = 1, 10 do
     local numberkey = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }
-
-    hl.bind("SUPER + ALT + code:" .. numberkey[i], function()
-        hl.dispatch(
-            hl.dsp.window.move({
-                workspace = workspace_in_group(i),
-                follow = false,
-                silent = true
-            })
-        )
-    end)
+    hl.bind("SUPER + SHIFT + code:" .. numberkey[i],
+        hl.dsp.window.move({ workspace = workspace_in_group(i) }),
+        { description = "Move window to workspace " .. i })
 end
---# keypad numbers
-for i = 1, 10 do
-    local numpadkey = { 87, 88, 89, 83, 84, 85, 79, 80, 81, 90 }
 
-    hl.bind("SUPER + ALT + code:" .. numpadkey[i], function()
-        hl.dispatch(
-            hl.dsp.window.move({
-                workspace = workspace_in_group(i),
-                follow = false,
-                silent = true
-            })
-        )
-    end)
-end
 
 --#/# bind = SUPER+SHIFT, Scroll ↑/↓,, # Send to workspace left/right
 for i = 1, 4 do
@@ -325,6 +304,42 @@ hl.define_submap("virtual-machine", function()
     end, { submap_universal = true })
 end)
 
+
+
+
+-- ── Ported from archdotfiles: quality-of-life additions ────────────────────
+
+-- Kill ALL instances of the same application (not just the focused window)
+hl.bind("SUPER + SHIFT + Q", hl.dsp.exec_cmd(
+    "hyprctl activewindow | grep pid | tr -d 'pid:' | xargs -I{} sh -c 'APP_PID={}; APP_CLASS=$(hyprctl clients -j | jq -r ".[] | select(.pid == $APP_PID) | .class"); hyprctl clients -j | jq -r \".[] | select(.class == \\\"$APP_CLASS\\\") | .pid\" | xargs -r kill'"),
+    { description = "Kill all instances of same app" })
+
+-- Toggle window group (tab multiple windows in one tile)
+hl.bind("CTRL + SUPER + G", hl.dsp.group.toggle(), { description = "Window: Toggle group" })
+
+-- Directional swap (exchange positions with neighbour — different from move)
+hl.bind("CTRL + ALT + Left",  hl.dsp.window.swap({ direction = "l" }), { description = "Swap tiled window left" })
+hl.bind("CTRL + ALT + Right", hl.dsp.window.swap({ direction = "r" }), { description = "Swap tiled window right" })
+hl.bind("CTRL + ALT + Up",    hl.dsp.window.swap({ direction = "u" }), { description = "Swap tiled window up" })
+hl.bind("CTRL + ALT + Down",  hl.dsp.window.swap({ direction = "d" }), { description = "Swap tiled window down" })
+
+-- Keyboard resize (hold and repeat)
+hl.bind("SUPER + CTRL + Left",  hl.dsp.window.resize({ x = -40, y = 0, "exact", relative = true }), { repeating = true })
+hl.bind("SUPER + CTRL + Right", hl.dsp.window.resize({ x = 40, y = 0, "exact", relative = true }), { repeating = true })
+hl.bind("SUPER + CTRL + Up",    hl.dsp.window.resize({ x = 0, y = -40, "exact", relative = true }), { repeating = true })
+hl.bind("SUPER + CTRL + Down",  hl.dsp.window.resize({ x = 0, y = 40, "exact", relative = true }), { repeating = true })
+
+-- Toggle all-float for entire workspace
+hl.bind("CTRL + SHIFT + T", function()
+    local cmd = "hyprctl dispatch workspaceopt allfloat"
+    hl.exec_cmd(cmd)
+end, { description = "Workspace: Toggle all-float" })
+
+-- Float + pin combo toggle
+hl.bind("CTRL + SUPER + T", function()
+    hl.exec_cmd("hyprctl dispatch togglefloating")
+    hl.exec_cmd("hyprctl dispatch pin")
+end, { description = "Window: Toggle float + pin" })
 
 --#!
 --# Testing
