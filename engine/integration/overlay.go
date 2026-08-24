@@ -391,10 +391,37 @@ func (o *Overlay) GetGhostText(buffer string, cursorAtEnd bool) string {
 		topCmd = o.Items[0].Cmd
 	}
 
-	if strings.HasPrefix(strings.ToLower(topCmd), strings.ToLower(buffer)) {
-		return topCmd[len(buffer):]
+	if !strings.HasPrefix(strings.ToLower(topCmd), strings.ToLower(buffer)) {
+		return ""
 	}
-	return ""
+	suffix := topCmd[len(buffer):]
+
+	// Progressive path disclosure: for cd/ls/cat-style commands, show only
+	// the next path segment as ghost — NOT the full deep destination.
+	// "cd ~/Pro" ghost shows "gramming/" not "gramming/ArchTide/src/..."
+	// User accepts segment by segment with →, building the path naturally.
+	lowerBuf := strings.ToLower(buffer)
+	isPathContext := false
+	for _, verb := range []string{"cd ", "ls ", "cat ", "rm ", "mv ", "cp ", "mkdir ", "rmdir ", "pushd ", "rmdir"} {
+		if strings.HasPrefix(lowerBuf, strings.ToLower(verb)) || strings.Contains(lowerBuf, " "+strings.ToLower(verb)) {
+			isPathContext = true
+			break
+		}
+	}
+	// Also: any buffer ending in / is a path context
+	if strings.HasSuffix(buffer, "/") {
+		isPathContext = true
+	}
+	if !isPathContext {
+		// For non-path commands (git, docker, etc.), full suffix is fine
+		return suffix
+	}
+
+	// Truncate at the first / after the buffer prefix
+	if idx := strings.IndexByte(suffix, '/'); idx >= 0 && idx < len(suffix)-1 {
+		return suffix[:idx+1]
+	}
+	return suffix
 }
 
 func (o *Overlay) ClearGhostTextState() {
