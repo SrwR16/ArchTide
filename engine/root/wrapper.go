@@ -22,6 +22,7 @@ import (
 	"github.com/SrwR16/flow-engine/integration/shell"
 	"github.com/SrwR16/flow-engine/internal/ai"
 	"github.com/SrwR16/flow-engine/internal/config"
+	"github.com/SrwR16/flow-engine/internal/flow"
 	"github.com/SrwR16/flow-engine/internal/logger"
 	"github.com/SrwR16/flow-engine/internal/scoring"
 	"github.com/SrwR16/flow-engine/spec"
@@ -403,6 +404,16 @@ func runWrapper() {
 
 	suggestionsEnabled := true
 
+	// Flow: directory transition learning
+	stateHome := os.Getenv("XDG_STATE_HOME")
+	if stateHome == "" {
+		home, _ := os.UserHomeDir()
+		stateHome = filepath.Join(home, ".local", "state")
+	}
+	dirChain := flow.NewDirChain(filepath.Join(stateHome, "flow", "predictor", "dir-transitions.tsv"))
+	dirChain.Load()
+	var lastShellCwd string
+
 	// Shared handler for configured navigation keys (e.g. ctrl+j / ctrl+k).
 	// Moves the overlay cursor when visible, otherwise opens history/spec
 	// list and selects the next item in the requested direction.
@@ -526,6 +537,10 @@ func runWrapper() {
 
 			if cwd, ok := strings.CutPrefix(query, "IRIS_CWD:"); ok {
 				spec.SetCWD(cwd)
+				if lastShellCwd != "" && lastShellCwd != cwd {
+					dirChain.Record(lastShellCwd, cwd)
+				}
+				lastShellCwd = cwd
 				syncProcessCWD(cwd)
 				if watchdogCWD != nil {
 					_, _ = fmt.Fprintf(watchdogCWD, "%s\x00", cwd)
