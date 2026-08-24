@@ -569,13 +569,20 @@ func runWrapper() {
 						}()
 						ctxRecord, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 						defer cancel()
-						// FrecencyStore now fronts the Flow store directly —
-						// one write path, one source of truth.
+						// Flow store: single source of truth
 						if store, err := scoring.GetFrecencyStore(); err == nil && store != nil {
 							_ = store.Record(ctxRecord, c, d, code)
 							if pSkel != "" && cSkel != "" {
 								_ = store.RecordTransition(ctxRecord, pSkel, cSkel, d, code)
 							}
+						}
+						// Brain: observe sequence for Markov chain learning
+						flowBrain.ObserveSession(cSkel)
+						if pSkel != "" {
+							flowBrain.Chain.Observe(
+								strings.Fields(pSkel),
+								cSkel,
+							)
 						}
 					}(cmdToRecord, cwd, exitCode, prevSkeleton, prevCwd, currSkeleton)
 					setPrevRecordedInfo(cmdToRecord, cwd)
