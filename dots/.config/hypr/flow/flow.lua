@@ -1,12 +1,12 @@
 -- ─────────────────────────────────────────────────────────────────────────────
---  Nandoroid Shell: Keybinds & Layer Rules
+--  Flow Shell: Keybinds & Layer Rules
 --  Sourced automatically by hyprland.conf
 -- ─────────────────────────────────────────────────────────────────────────────
 
 local flow = "quickshell -c flow ipc call"
 local scripts = "~/.config/quickshell/flow/scripts"
 
--- Start Nandoroid Shell
+-- Start Flow Shell
 hl.on("hyprland.start", function() hl.exec_cmd("quickshell -c flow") end)
 
 -- ─────────────────────────────────────────────────────────────────────────────

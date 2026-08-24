@@ -49,3 +49,7 @@ end
 -- Shell overrides --
 safe_require("hyprland.shellOverrides.main")
 
+
+
+-- Flow Shell: panel layer rules + keybind overrides
+safe_require("flow.flow")
