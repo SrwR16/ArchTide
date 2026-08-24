@@ -591,13 +591,14 @@ func runWrapper() {
 								_ = store.RecordTransition(ctxRecord, pSkel, cSkel, d, code)
 							}
 						}
-						// Brain: observe sequence for Markov chain learning
+						// Brain: observe sequence + adapt weights
 						flowBrain.ObserveSession(cSkel)
 						if pSkel != "" {
 							flowBrain.Chain.Observe(
 								strings.Fields(pSkel),
 								cSkel,
 							)
+							flowBrain.Adapt(cSkel, code == 0)
 						}
 					}(cmdToRecord, cwd, exitCode, prevSkeleton, prevCwd, currSkeleton)
 					setPrevRecordedInfo(cmdToRecord, cwd)

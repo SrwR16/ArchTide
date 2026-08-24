@@ -113,6 +113,27 @@ Target ≤100ms interactive. Current ≈87ms. Techniques locked in: single compi
 ### D-010 · 2026-08-23 — Danger gate removed (built, then retired)
 Phase 8 shipped twice: engine-side (typed confirmation at Enter) and shell-side (accept-line wrapper). Both worked in isolation but conflicted with the engine's Enter ownership, the inline strip fought overlay redraws, and mid-session context switching needed /proc-environ tricks to arm correctly. Net: more friction than protection at current maturity. Removed fully (engine package, wrapper hooks, config field, shell fragment). The **production prompt segment (⚠ + context name) remains** as the standing safety signal. Revisit only if a real incident demands hard gating.
 
+### D-010 · 2026-08-23 — Danger gate removed (built, then retired)
+Phase 8 shipped twice: engine-side (typed confirmation at Enter) and shell-side (accept-line wrapper). Both worked in isolation but conflicted with the engine's Enter ownership, the inline strip fought overlay redraws, and mid-session context switching needed /proc-environ tricks to arm correctly. Net: more friction than protection at current maturity. Removed fully (engine package, wrapper hooks, config field, shell fragment). The **production prompt segment (⚠ + context name) remains** as the standing safety signal. Revisit only if a real incident demands hard gating.
+
+### D-011 · 2026-08-23 — Navigation model simplified
+Navigation keys are engine-owned ONLY while the menu is visible. Hidden overlay => up/down unconditionally pass through to zsh natively (one entry per press). Removed predictive down-panel, cached multiline flag, and walk-state machine that caused inconsistent behaviour ("sometimes only one shows").
+
+### D-012 · 2026-08-23 — Multi-line buffer suppression
+ZLE renders multi-line buffers natively and correctly; the engine's single-line overlay math erases trailing rows when drawn over them. Fix: engine suppresses ghost text + suggestion overlays entirely when buffer contains \n. Checked live at every draw site — no cached flag to go stale.
+
+### D-013 · 2026-08-23 — Progressive path ghost disclosure
+For cd/ls/mv/cp-style commands, ghost text shows only the NEXT path segment instead of the full deep destination. "cd ~/Pro" ghost shows "gramming/" not "gramming/ArchTide/src/main.go". User accepts segment-by-segment building paths naturally.
+
+### D-014 · 2026-08-24 — Brain package: multi-order Markov + adaptive scoring
+internal/brain implements multi-order Markov chains (orders 1-3) with interpolated backoff over command skeletons, continuous exponential time-decay frecency (half-life 6h), per-signal weight normalisation, and acceptance feedback adaptation (α=0.01 perceptron update on CMD_STOP exit code). Wired into suggestion pipeline via MergeResults.
+
+### D-015 · 2026-08-24 — Directory transition learning
+DirChain records (from→to) directory navigation pairs on every chpwd event. Persisted as TSV. PredictFrom ranks likely next directories by visit count. Enables workflow-aware ghost text: after cd ~/Programming, ghost suggests ArchTide/ because P(ArchTide|~/Programming)=0.85 from learned transitions.
+
+### D-016 · 2026-08-24 — Zoxide destination capture
+chpwd hook fires iris record-dir on every directory change regardless of how it was triggered (cd, z, pushd), capturing zoxide jumps that bypass regular command recording. DirFrecency query counts distinct commands per directory from C-record evidence for depth-weighted ranking.
+
 ### Historical (pre-this-document, honored)
 - Custom ZLE predictor/HUD deleted in favor of engine-native presentation — root cause of instability was triple widget-wrapping plus the broken record pipeline (now fixed), not ZLE itself.
 - Atuin remains the history search surface (`^R`); Flow's aggregates are derived analytics, deliberately decoupled.
@@ -166,7 +187,7 @@ Planned: `~/.local/state/flow/trust.json` gating any future auto-environment.
 | — | Flow Intelligence engine | ✅ single-store, live-learning |
 | — | Flow Engine (fork) ownership + provider | ✅ this document's era |
 | 7 | DevOps context providers (AWS/K8s/TF/SSH) | ⬜ needs Tier-1 tools |
-| 8 | Production safety gate | 🚫 removed (D-010) |
+| 8 | Production safety gate | 🚫 removed (D-010); ⚠ prompt segment remains |
 | 9 | Tier-1 toolchain installs | 🔶 partial (git, docker) |
 | 10 | Kitty polish | ⬜ |
 | 11 | Benchmarks + docs | 🔶 benchmarks inline; this doc started |
