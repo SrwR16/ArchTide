@@ -14,6 +14,7 @@ RESTRICT="strip"
 DEPEND=""
 RDEPEND="
 	media-sound/cava
+	media-sound/easyeffects
 	media-sound/pavucontrol-qt
 	media-video/wireplumber
 	dev-libs/libdbusmenu[gtk3]

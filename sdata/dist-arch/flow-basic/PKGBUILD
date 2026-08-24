@@ -1,7 +1,7 @@
 groups=(flow)
 pkgname=flow-basic
 pkgver=1.0
-pkgrel=3
+pkgrel=4
 pkgdesc='Illogical Impulse Basic Dependencies'
 arch=(any)
 license=(None)
@@ -15,6 +15,9 @@ depends=(
   ripgrep
   jq
   xdg-user-dirs
+  # Dialogs and notifications used by the Quickshell config
+  zenity
+  libnotify
   # Used in install script
   rsync
   go-yq # https://github.com/mikefarah/yq

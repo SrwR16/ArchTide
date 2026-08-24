@@ -20,12 +20,19 @@ font_jetbrains_nerd() {
 
 # doctor_section <title> <tier> — one row per dependency.
 doctor_section() {
-    local title="$1" tier="$2" k v state
+    local title="$1" tier="$2" k v state bin
     ui_frame_open "$title"
     while IFS= read -r k; do
         [[ -z "$k" ]] && continue
         if deps_installed "$k"; then
-            v="$(tool_version "$(deps_bin "$k")" 2>/dev/null)"
+            # Font and library entries have no executable to version — the
+            # family match / package ownership is the whole report.
+            bin="$(deps_bin "$k")"
+            if [[ "$bin" == fc:* || "$bin" == pkg:* ]]; then
+                v=""
+            else
+                v="$(tool_version "$bin" 2>/dev/null)"
+            fi
             ui_kv "$k" "installed ${v:+· $v}"
         else
             ui_kv "$k" "missing"
@@ -47,6 +54,8 @@ doctor_report() {
 
     doctor_section "Core" core
     doctor_section "UX (recommended)" ux
+    doctor_section "Shell runtime" shell
+    doctor_section "Fonts" fonts
 
     ui_frame_open "Terminal"
     if have kitty; then

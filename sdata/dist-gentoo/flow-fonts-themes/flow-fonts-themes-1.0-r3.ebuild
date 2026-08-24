@@ -28,6 +28,9 @@ RDEPEND="
 	media-fonts/readex-pro
 	media-fonts/rubik-vf
 	media-fonts/twemoji
+	media-fonts/noto-emoji
+	media-fonts/noto-cjk
+	kde-plasma/breeze-icons
 "
 ##### CUSTOM EBUILDS
 # x11-themes/adw-gtk3

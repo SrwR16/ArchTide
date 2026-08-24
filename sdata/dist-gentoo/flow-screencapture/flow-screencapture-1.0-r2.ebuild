@@ -13,6 +13,7 @@ KEYWORDS="~amd64 ~arm64 ~x86"
 DEPEND=""
 RDEPEND="
 	gui-apps/hyprshot
+	gui-apps/grim
 	gui-apps/slurp
 	gui-apps/swappy
 	app-text/tesseract

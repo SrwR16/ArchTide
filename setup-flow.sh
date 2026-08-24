@@ -216,7 +216,7 @@ PASSTHRU_ARGS=()
 PROJECT_ARGS=()
 SHELL_ARGS=()
 DEPLOY_TARGETS=() # extras to install individually: install kitty, update starship.toml, ...
-BOOTSTRAP_TIERS=() # install tiers requested on the command line: core, ux, devops, missing
+BOOTSTRAP_TIERS=() # install tiers requested on the command line: core, ux, devops, shell, fonts, missing
 
 # ── Run state (used by the exit trap) ────────────────────────────────────────
 STAGE_DIR=""
@@ -1915,15 +1915,15 @@ install_extras_config() {
 # startup stays <100 ms; it must not run pacman, atuin, mise or friends merely
 # to find out whether they exist.
 
-# partition_bootstrap_tiers — moves tier targets (core/ux/devops/missing) out of
-# DEPLOY_TARGETS into BOOTSTRAP_TIERS so they are never mistaken for config
-# names.
+# partition_bootstrap_tiers — moves tier targets (core/ux/devops/shell/fonts/
+# missing) out of DEPLOY_TARGETS into BOOTSTRAP_TIERS so they are never
+# mistaken for config names.
 partition_bootstrap_tiers() {
     local -a cfg=()
     local t
     for t in "${DEPLOY_TARGETS[@]:-}"; do
         case "$t" in
-            core | ux | devops | devops-gui | missing) BOOTSTRAP_TIERS+=("$t") ;;
+            core | ux | devops | devops-gui | shell | fonts | terminal | missing) BOOTSTRAP_TIERS+=("$t") ;;
             *) cfg+=("$t") ;;
         esac
     done
@@ -1970,6 +1970,9 @@ bootstrap_deps() {
     local pkg
     for k in "${missing[@]}"; do
         pkg="$(deps_packages "$k")"
+        # "-" marks capability-only entries with no distro package (e.g. the
+        # Google Sans Flex font): never enter them into a package transaction.
+        [[ "$pkg" == "-" || -z "$pkg" ]] && continue
         [[ -n "${seen_pkg[$pkg]:-}" ]] && continue
         seen_pkg[$pkg]=1
         pkgs+=("$pkg")
@@ -1990,27 +1993,32 @@ bootstrap_deps() {
         return 0
     fi
 
-    if [[ "$OPT_ASSUME_YES" != true ]]; then
-        ui_confirm "Install ${#pkgs[@]} package(s) with sudo?" yes || {
-            ui_note "Cancelled — dependencies left as they are."
+    if ((${#pkgs[@]} > 0)); then
+        if [[ "$OPT_ASSUME_YES" != true ]]; then
+            ui_confirm "Install ${#pkgs[@]} package(s) with sudo?" yes || {
+                ui_note "Cancelled — dependencies left as they are."
+                return 1
+            }
+        elif ! pkgmgr_sudo_ok; then
+            ui_note "sudo will prompt for a password (non-interactive run)."
+        fi
+
+        pkgmgr_install "${pkgs[@]}" || {
+            ui_fail "Package install failed" "re-run with --verbose or fix it manually"
             return 1
         }
-    elif ! pkgmgr_sudo_ok; then
-        ui_note "sudo will prompt for a password (non-interactive run)."
     fi
-
-    pkgmgr_install "${pkgs[@]}" || {
-        ui_fail "Package install failed" "re-run with --verbose or fix it manually"
-        return 1
-    }
 
     # Report the outcome, then any stragglers.
     local still=0
     for k in "${missing[@]}"; do
-        deps_installed "$k" || {
-            ui_warn "$k still not on PATH — install it manually (package: $(deps_packages "$k"))"
+        pkg="$(deps_packages "$k")"
+        if [[ "$pkg" == "-" || -z "$pkg" ]]; then
+            ui_warn "$k not present and has no package — $(deps_reason "$k") (installed by Flow's font step or manually)"
+        elif ! deps_installed "$k"; then
+            ui_warn "$k still not on PATH — install it manually (package: $pkg)"
             still=$((still + 1))
-        }
+        fi
     done
     ((still == 0)) && ui_ok "Dependencies" "$(deps_tier_label "$1") installed"
     return 0
@@ -2026,7 +2034,36 @@ bootstrap_zsh() {
     zsh_install_managed_block "$repo_root"
 }
 
+# install_google_sans_flex — the shell's UI font has no distro package on any
+# supported distro. Mirror the upstream approach: clone it from GitHub into
+# ~/.local/share/fonts and refresh fontconfig.
+install_google_sans_flex() {
+    have fc-list && fc-list 2>/dev/null | grep -qiF 'Google Sans Flex' && return 0
+    if [[ "$OPT_DRY_RUN" == true ]]; then
+        ui_note "Dry run — would clone Google Sans Flex into ~/.local/share/fonts."
+        return 0
+    fi
+    have git || {
+        ui_warn "git missing — cannot fetch Google Sans Flex; UI text will fall back."
+        return 0
+    }
+    local src="/tmp/flow-google-sans-flex"
+    local dst="$HOME/.local/share/fonts/flow-google-sans-flex"
+    ui_step "Google Sans Flex (UI font)"
+    rm -rf "$src" "$dst"
+    git clone --depth 1 https://github.com/end-4/google-sans-flex.git "$src" || {
+        ui_warn "Clone failed — install Google Sans Flex manually."
+        return 0
+    }
+    mkdir -p "$dst"
+    cp -r "$src"/. "$dst"/
+    rm -rf "$src"
+    have fc-cache && fc-cache -f "$dst" >/dev/null 2>&1
+    ui_ok "Google Sans Flex" "installed to $(tilde "$dst")"
+}
+
 bootstrap_fonts() {
+    install_google_sans_flex
     local nerd
     if nerd="$(font_nerd_detect)"; then
         ui_ok "Nerd Font" "$nerd"
@@ -2363,7 +2400,8 @@ cmd_install() {
         exit 1
     fi
 
-    # `install core|ux|devops|missing` are bootstrap tiers, not config names.
+    # `install core|ux|devops|shell|fonts|missing` are bootstrap tiers, not
+    # config names.
     partition_bootstrap_tiers
     partition_early_deploy_targets || return 1
 
@@ -2418,15 +2456,16 @@ cmd_install() {
 
     apply_config "$url" "$branch" "$fork" "install"
 
-    # Fresh-machine bootstrap: the core terminal stack, Zsh integration, and a
-    # font check. A tier named on the command line (`install ux kitty`) wins;
-    # otherwise the core tier is bootstrapped. Skipped under --dry-run (the
-    # config dry-run already returned) and --no-bootstrap.
+    # Fresh-machine bootstrap: the core terminal stack, the Quickshell runtime
+    # (the desktop cannot start without it), Zsh integration, and a font check.
+    # A tier named on the command line (`install ux kitty`) wins; otherwise core
+    # plus shell are bootstrapped. Skipped under --dry-run (the config dry-run
+    # already returned) and --no-bootstrap.
     local -a boot=()
     if ((${#BOOTSTRAP_TIERS[@]} > 0)); then
         boot=("${BOOTSTRAP_TIERS[@]}")
     else
-        boot=(core)
+        boot=(core shell)
     fi
     if [[ "$OPT_DRY_RUN" == true ]]; then
         ui_banner "Flow" "dry-run"

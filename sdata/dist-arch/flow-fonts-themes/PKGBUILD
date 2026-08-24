@@ -1,7 +1,7 @@
 groups=(flow)
 pkgname=flow-fonts-themes
 pkgver=1.0
-pkgrel=6
+pkgrel=7
 pkgdesc='Illogical Impulse Fonts and Theming Dependencies'
 arch=(any)
 license=(None)
@@ -22,4 +22,8 @@ depends=(
   ttf-readex-pro
   ttf-rubik-vf
   ttf-twemoji
+  # Emoji + CJK fallbacks expected by the shell, and the icon set it names
+  noto-fonts-emoji
+  noto-fonts-cjk
+  breeze-icons
 )

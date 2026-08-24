@@ -57,6 +57,7 @@ quickshell, home_attrs, ... }:
       # NOTE: below are migrated from dist-arch. For each package, must know why it's needed and how it's used specifically, cuz things may be need tweak to properly use the package installed by Nix, for example those have hardcoded path /usr/* . See sdata/deps-info.md
       ### flow-audio
       libcava #cava
+      easyeffects #easyeffects (EasyEffects service panel)
       lxqt.pavucontrol-qt #pavucontrol-qt
       wireplumber #wireplumber
       pipewire #pipewire-pulse
@@ -80,6 +81,8 @@ quickshell, home_attrs, ... }:
       ripgrep #ripgrep
       jq #jq
       xdg-user-dirs #xdg-user-dirs
+      zenity #zenity (shell dialogs)
+      libnotify #libnotify (notify-send, shell notifications)
       rsync #rsync
       yq-go #go-yq
       yt-dlp #yt-dlp
@@ -108,6 +111,8 @@ quickshell, home_attrs, ... }:
       #ttf-readex-pro (TODO: seems not available as nixpkg)
       rubik #ttf-rubik-vf
       twemoji-color-font #ttf-twemoji
+      noto-fonts-emoji #noto-fonts-emoji (emoji fallback expected by the shell)
+      noto-fonts-cjk #noto-fonts-cjk (CJK fallback)
 
 
       ### flow-hyprland
@@ -140,6 +145,7 @@ quickshell, home_attrs, ... }:
 
       ### flow-python
       #clang (Not needed for Nix. However, when cmake is installed by Nix, then pkg-config, cairo etc will be used but they can only be accessible in Nix development environment for example nix-shell, nix develop, etc. See `sdata/uv/shell.nix`. )
+      python3 #python (bare interpreter used by the shell theme scripts; uv alone does not provide python3)
       uv #uv
       gtk4 #gtk4
       libadwaita #libadwaita
@@ -150,6 +156,7 @@ quickshell, home_attrs, ... }:
 
       ### flow-screencapture
       hyprshot #hyprshot
+      grim #grim (QuickActions + RegionSelector screenshots)
       slurp #slurp
       swappy #swappy
       tesseract #tesseract

@@ -15,6 +15,7 @@ repos = [
 [groups.audio]
 packages = [
   "cava",
+  "easyeffects",
   "pavucontrol",
   "wireplumber",
   "libdbusmenu-gtk3-devel",
@@ -42,6 +43,8 @@ packages = [
   "ripgrep",
   "jq",
   "xdg-utils",
+  "zenity",
+  "libnotify",
   "rsync",
   "yq",
   # Media Downloader (yt-dlp, ffmpeg, aria2)
@@ -174,6 +177,7 @@ packages = [
 [groups.screencapture]
 packages = [
   "hyprshot",
+  "grim",
   "slurp",
   "swappy",
   "tesseract",
@@ -214,4 +218,22 @@ packages = [
   "unzip"
 ]
 install_opts = ["--setopt=install_weak_deps=False"]
+
+# Theming — GTK/Qt theme engines and icon sets the shell names or applies.
+# nwg-look / qt5ct / qt6ct are not carried: nothing in the config executes them.
+[groups.theming]
+packages = [
+  "adw-gtk3-theme",
+  "breeze-icon-theme"
+]
+
+# Fonts — UI font, icon font, and emoji/CJK fallbacks.
+# Material Symbols has no Fedora package; install ttf-material-symbols-variable
+# manually (see deps-info.md) until one exists.
+[groups.fonts]
+packages = [
+  "jetbrains-mono-fonts",
+  "google-noto-emoji-fonts",
+  "google-noto-sans-cjk-ttc-fonts"
+]
 

@@ -1,12 +1,13 @@
 groups=(flow)
 pkgname=flow-audio
 pkgver=1.0
-pkgrel=3
+pkgrel=4
 pkgdesc='Illogical Impulse Audio Dependencies'
 arch=(any)
 license=(None)
 depends=(
   cava
+  easyeffects
   pavucontrol-qt
   wireplumber
   pipewire-pulse

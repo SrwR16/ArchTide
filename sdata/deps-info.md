@@ -12,6 +12,8 @@ Tips:
 ## flow-audio
 - `cava`
   - Used in Quickshell config.
+- `easyeffects`
+  - Audio enhancement; the shell ships a dedicated EasyEffects panel/service (`services/EasyEffects.qml`).
 - `pavucontrol-qt`
   - Used in Hyprland and Quickshell config.
 - `wireplumber`
@@ -48,6 +50,10 @@ Tips:
   - Not sure where been used.
 - `jq`
   - Widely used.
+- `zenity`
+  - Used in Quickshell config for file/dialog prompts (`--file-selection`).
+- `libnotify`
+  - Provides `notify-send`; used by the Quickshell config for desktop notifications.
 - `xdg-user-dirs`
   - Used in Hyprland and Quickshell config.
 - `rsync`
@@ -95,6 +101,14 @@ Tips:
   - Used in Hyprland, kdeglobals, matugen, qt5ct, qt6ct and Quickshell config.
 - `ttf-twemoji`
   - Not explicitly used, but it may help as fallback for displaying emoji characters.
+- `noto-fonts-emoji`
+  - Emoji fallback the shell expects (nandoroid dependency list); family name `Noto Color Emoji`.
+- `noto-fonts-cjk`
+  - CJK fallback glyphs (Japanese, Chinese, Korean).
+- `breeze-icons`
+  - Icon set referenced by the shell's KDE theming integration.
+
+Note: the UI font **Google Sans Flex** has no package on any distro. It is cloned from [GitHub](https://github.com/end-4/google-sans-flex) into `~/.local/share/fonts/flow-google-sans-flex` by the installer (`bootstrap_fonts`).
 
 ## flow-hyprland
 - `hyprland`
@@ -137,6 +151,8 @@ Tips:
   - Some python package may need this to be built, e.g. #1235. This may varies on different distros though.
 - `uv`
   - Used for python venv.
+- `python`
+  - Provides the bare `python3` interpreter used by the Quickshell config's theme scripts (`apply_terminal_colors.sh` etc.). `uv` alone does not put `python3` on PATH.
 - `gtk4`
   - Not explicitly used.
 - `libadwaita`
@@ -151,6 +167,8 @@ Tips:
 ## flow-screencapture
 - `hyprshot`
   - Used in Hyprland `keybinds.conf` as fallback.
+- `grim`
+  - Screenshot capture used by Quickshell QuickActions and the RegionSelector panel.
 - `slurp`
   - Used in Hyprland and Quickshell config.
 - `swappy`

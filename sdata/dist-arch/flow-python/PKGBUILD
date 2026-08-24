@@ -1,13 +1,14 @@
 groups=(flow)
 pkgname=flow-python
 pkgver=1.1
-pkgrel=5
+pkgrel=6
 pkgdesc='Illogical Impulse Python Dependencies'
 arch=(any)
 license=(None)
 depends=(
   clang
   uv
+  python
   gtk4
   libadwaita
   libsoup3

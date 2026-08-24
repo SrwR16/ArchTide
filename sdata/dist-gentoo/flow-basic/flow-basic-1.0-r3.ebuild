@@ -21,6 +21,8 @@ RDEPEND="
 	net-misc/wget
 	sys-apps/ripgrep
 	dev-python/jq
+	gnome-extra/zenity
+	x11-libs/libnotify
 	x11-misc/xdg-user-dirs
 	net-misc/rsync
 	app-misc/yq-go
