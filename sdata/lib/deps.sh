@@ -43,14 +43,14 @@ flow_dep() {
 
 deps_entries() {
     local e
-    for e in "${FLOW_DEPS[@]:-}"; do
+    for e in ${FLOW_DEPS[@]+"${FLOW_DEPS[@]}"}; do
         printf '%s\n' "$e"
     done
 }
 
 deps_by_tier() {
     local tier="$1" e key t
-    for e in "${FLOW_DEPS[@]:-}"; do
+    for e in ${FLOW_DEPS[@]+"${FLOW_DEPS[@]}"}; do
         key="${e%%|*}"
         rest="${e#*|}"
         t="${rest%%|*}"
@@ -62,7 +62,7 @@ deps_by_tier() {
 
 deps_installed() {
     local key="$1" e bin
-    for e in "${FLOW_DEPS[@]:-}"; do
+    for e in ${FLOW_DEPS[@]+"${FLOW_DEPS[@]}"}; do
         [[ "${e%%|*}" == "$key" ]] || continue
         bin="${e##*|}"
         # "fc:<family>" bins are font checks: the capability is a fontconfig
@@ -100,7 +100,7 @@ deps_missing() {
 deps_packages() {
     local key e key_ tier pkg reason bin
     for key in "$@"; do
-        for e in "${FLOW_DEPS[@]:-}"; do
+        for e in ${FLOW_DEPS[@]+"${FLOW_DEPS[@]}"}; do
             IFS='|' read -r key_ tier pkg reason bin <<<"$e"
             [[ "$key_" == "$key" ]] || continue
             printf '%s\n' "$pkg"
@@ -111,7 +111,7 @@ deps_packages() {
 
 deps_reason() {
     local key="$1" e key_ tier pkg reason bin
-    for e in "${FLOW_DEPS[@]:-}"; do
+    for e in ${FLOW_DEPS[@]+"${FLOW_DEPS[@]}"}; do
         IFS='|' read -r key_ tier pkg reason bin <<<"$e"
         [[ "$key_" == "$key" ]] || continue
         printf '%s\n' "$reason"
@@ -122,7 +122,7 @@ deps_reason() {
 
 deps_bin() {
     local key="$1" e key_ tier pkg reason bin
-    for e in "${FLOW_DEPS[@]:-}"; do
+    for e in ${FLOW_DEPS[@]+"${FLOW_DEPS[@]}"}; do
         IFS='|' read -r key_ tier pkg reason bin <<<"$e"
         [[ "$key_" == "$key" ]] || continue
         printf '%s\n' "$bin"

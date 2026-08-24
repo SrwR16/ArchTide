@@ -1921,7 +1921,10 @@ install_extras_config() {
 partition_bootstrap_tiers() {
     local -a cfg=()
     local t
-    for t in "${DEPLOY_TARGETS[@]:-}"; do
+    # `${arr[@]:-}` would expand an EMPTY array to one empty string, injecting
+    # a phantom "" target that later stages reject as `Unknown config ""`.
+    # This form skips the loop entirely when nothing was requested.
+    for t in ${DEPLOY_TARGETS[@]+"${DEPLOY_TARGETS[@]}"}; do
         case "$t" in
             core | ux | devops | devops-gui | shell | fonts | terminal | missing) BOOTSTRAP_TIERS+=("$t") ;;
             *) cfg+=("$t") ;;
