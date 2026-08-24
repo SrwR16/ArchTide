@@ -22,7 +22,6 @@ import (
 	"github.com/SrwR16/flow-engine/integration/shell"
 	"github.com/SrwR16/flow-engine/internal/ai"
 	"github.com/SrwR16/flow-engine/internal/config"
-	"github.com/SrwR16/flow-engine/internal/flow"
 	"github.com/SrwR16/flow-engine/internal/logger"
 	"github.com/SrwR16/flow-engine/internal/scoring"
 	"github.com/SrwR16/flow-engine/spec"
@@ -182,15 +181,6 @@ func runWrapper() {
 	cursorOffset := 0
 	var bufferMu sync.Mutex
 
-	// multi-line buffers: ZLE renders them natively; engine overlays drawn
-	// over them erase trailing rows. Fail-silent suppression flag.
-	var multilineBuf atomic.Bool
-	refreshMultiline := func() {
-		bufferMu.Lock()
-		ml := strings.Contains(naiveBuffer, "\n")
-		bufferMu.Unlock()
-		multilineBuf.Store(ml)
-	}
 	var userNavigated atomic.Bool
 	var renderMenuNow func()
 	var intercepted bool
@@ -407,119 +397,59 @@ func runWrapper() {
 		return pgrp != shellPGID
 	}
 
+	// multilineContains reports whether s spans multiple terminal rows.
+	// Checked LIVE at every draw site — no cached flag to go stale.
+	multilineContains := func(s string) bool { return strings.Contains(s, "\n") }
+
 	suggestionsEnabled := true
 
 	// Shared handler for configured navigation keys (e.g. ctrl+j / ctrl+k).
 	// Moves the overlay cursor when visible, otherwise opens history/spec
 	// list and selects the next item in the requested direction.
 	handleNavKey := func(dir string, consumed *bool) {
-		bufferMu.Lock()
-		bufEmpty := naiveBuffer == ""
-		bufferMu.Unlock()
-
-		// Flow: UP on an empty buffer is NATIVE shell history — do not
-		// intercept. zsh walks its own history line-by-line like stock.
-		if dir == "up" && bufEmpty && !overlay.IsVisible() {
+		// Flow policy (aligned with mature tools): navigation keys are
+		// engine-owned ONLY while the menu is visible. Hidden overlay =>
+		// unconditionally native: zsh walks its own history, predictably,
+		// one entry per press — no modes, no races, no stale mirrors.
+		if !overlay.IsVisible() {
 			*consumed = false
 			return
 		}
-
 		*consumed = true
-		if overlay.IsVisible() {
-			intercepted = true
-			userNavigated.Store(true)
+		intercepted = true
+		userNavigated.Store(true)
 
-			arrowDir := "down"
-			if dir == "up" {
-				arrowDir = "up"
-			}
-			moved, selectedCmd := overlay.MoveCursor(arrowDir)
-			if !moved {
-				return
-			}
-
-			bufferMu.Lock()
-			activeModeMu.RLock()
-			isHistMode := activeMode == "history"
-			activeModeMu.RUnlock()
-			var toWrite []byte
-			if isHistMode && selectedCmd != "" {
-				naiveBuffer = selectedCmd
-				cursorOffset = 0
-				toWrite = append([]byte{0x15}, selectedCmd...)
-			}
-			bufCopy := naiveBuffer
-			offsetCopy := cursorOffset
-			bufferMu.Unlock()
-
-			if len(toWrite) > 0 {
-				_, _ = ptmx.Write(toWrite)
-			}
-
-			var b strings.Builder
-			if !disableGhostText.Load() && !multilineBuf.Load() {
-				b.WriteString(overlay.RenderGhostText(bufCopy, true, offsetCopy == 0))
-			}
-			if !multilineBuf.Load() {
-				b.WriteString(overlay.Render())
-			}
-			writeStdout([]byte(b.String()))
-		} else if suggestionsEnabled {
-			// hidden-overlay history navigation only when suggestions are enabled;
-			// otherwise let the navigation keys pass through to the shell
-			intercepted = true
-			userNavigated.Store(true)
-
-			activeModeMu.Lock()
-			if activeMode == "" {
-				activeMode = loadMode()
-			}
-			activeModeMu.Unlock()
-
-			activeModeMu.RLock()
-			currentMode := activeMode
-			activeModeMu.RUnlock()
-
-			bufferMu.Lock()
-			bufQuery := naiveBuffer
-			bufferMu.Unlock()
-
-			var results []spec.Suggestion
-			if dir == "down" && bufQuery == "" {
-				// Flow: empty buffer + down arrow = "what can I do here"
-				// contextual next-actions instead of plain history.
-				results = predictiveSuggestions(spec.GetCWD(), 15)
-			}
-			if len(results) == 0 {
-				results = MergeResults(bufQuery, currentMode)
-			}
-			if len(results) > 0 {
-				limit := min(len(results), 100)
-				var historyList []spec.Suggestion
-
-				if dir == "up" {
-					for j := limit - 1; j >= 0; j-- {
-						historyList = append(historyList, results[j])
-					}
-				} else {
-					for j := range limit {
-						historyList = append(historyList, results[j])
-					}
-				}
-
-				selected := overlay.SetHistoryList(historyList, dir == "up")
-				if selected != "" {
-					bufferMu.Lock()
-					naiveBuffer = selected
-					cursorOffset = 0
-					bufferMu.Unlock()
-
-					userNavigated.Store(true)
-					writeStdout([]byte(overlay.Render()))
-					_, _ = ptmx.Write(append([]byte{0x15}, selected...))
-				}
-			}
+		moved, selectedCmd := overlay.MoveCursor(dir)
+		if !moved {
+			return
 		}
+
+		bufferMu.Lock()
+		activeModeMu.RLock()
+		isHistMode := activeMode == "history"
+		activeModeMu.RUnlock()
+		var toWrite []byte
+		if isHistMode && selectedCmd != "" {
+			naiveBuffer = selectedCmd
+			cursorOffset = 0
+			toWrite = append([]byte{0x15}, selectedCmd...)
+		}
+		bufCopy := naiveBuffer
+		offsetCopy := cursorOffset
+		bufferMu.Unlock()
+
+		if len(toWrite) > 0 {
+			_, _ = ptmx.Write(toWrite)
+		}
+
+		var b strings.Builder
+		if !disableGhostText.Load() && !multilineContains(bufCopy) {
+			b.WriteString(overlay.RenderGhostText(bufCopy, true, offsetCopy == 0))
+		}
+		if !multilineContains(bufCopy) {
+			b.WriteString(overlay.Render())
+		}
+		writeStdout([]byte(b.String()))
 	}
 
 	// bridge pty output to actual stdout
@@ -803,7 +733,7 @@ func runWrapper() {
 		}
 
 		overlay.SetUserNavigated(navCopy)
-		if !disableGhostText.Load() && !multilineBuf.Load() {
+		if !disableGhostText.Load() && !multilineContains(naiveBuffer) {
 			b.WriteString(overlay.RenderGhostText(bufCopy, navCopy, offsetCopy == 0))
 		}
 		currentCmd := overlay.GetCurrentCmd()
@@ -816,7 +746,7 @@ func runWrapper() {
 		renderMu.Lock()
 		defer renderMu.Unlock()
 
-		if !suggestionsEnabled || isExecuting() || multilineBuf.Load() {
+		if !suggestionsEnabled || isExecuting() || multilineContains(naiveBuffer) {
 			if renderTimer != nil {
 				renderTimer.Stop()
 				renderTimer = nil
@@ -863,7 +793,6 @@ func runWrapper() {
 			}
 
 			shouldOverlayDraw := false
-			refreshMultiline()
 			for i := 0; i < n; i++ {
 				b := inputSlice[i]
 				intercepted = false
@@ -1396,52 +1325,4 @@ func runWrapper() {
 			}
 		}
 	}
-}
-
-// predictiveSuggestions builds the empty-buffer, down-arrow panel: Flow
-// context candidates (directory-anchored aggregates + local scripts).
-func predictiveSuggestions(cwd string, limit int) []spec.Suggestion {
-	fs := flow.GlobalStore()
-	out := make([]spec.Suggestion, 0, limit)
-	added := make(map[string]bool)
-	for _, c := range fs.Suggest(cwd, "", limit) {
-		if added[c.Key] {
-			continue
-		}
-		conf := int(c.Score)
-		if conf > 95 {
-			conf = 95
-		}
-		if conf < 40 || c.Total() == 0 {
-			continue
-		}
-		added[c.Key] = true
-		out = append(out, spec.Suggestion{
-			Cmd:        c.Key,
-			Desc:       "flow",
-			Icon:       "history",
-			Source:     "flow",
-			Confidence: conf,
-			Priority:   60,
-		})
-	}
-	for _, c := range fs.SuggestScripts(cwd, "./", limit/3+2) {
-		if added[c.Key] {
-			continue
-		}
-		conf := int(c.Score)
-		if conf > 90 {
-			conf = 90
-		}
-		added[c.Key] = true
-		out = append(out, spec.Suggestion{
-			Cmd:        c.Key,
-			Desc:       "script",
-			Icon:       "history",
-			Source:     "flow",
-			Confidence: conf,
-			Priority:   55,
-		})
-	}
-	return out
 }
