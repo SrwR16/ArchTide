@@ -58,6 +58,17 @@ deps_init() {
     flow_dep lazydocker           devops     lazydocker                "Docker TUI"                             lazydocker
     flow_dep terragrunt           devops     terragrunt                "Terraform wrapper (DRY infra)"          terragrunt
     flow_dep tflint               devops     tflint                    "Terraform linter"                       tflint
+flow_dep freelens             devops-gui freelens-bin              "K8s IDE (Lens fork)"
+flow_dep headlamp             devops-gui headlamp-bin              "K8s IDE (CNCF)"
+
+    # ── Shell runtime (nandoroid → Flow desktop shell) ────────────────
+    flow_dep hyprland        shell  hyprland         "Wayland compositor"          hyprctl
+    flow_dep quickshell-git  shell  quickshell-git   "Desktop shell framework"     quickshell
+    flow_dep qt6-declarative shell  qt6-declarative  "Qt6 QML library"             qml6
+    flow_dep qt6-svg         shell  qt6-svg          "Qt6 SVG support"
+    flow_dep qt6-wayland     shell  qt6-wayland      "Qt6 Wayland support"
+    flow_dep python3         shell  python3          "Theme generation backend"    python3
+    flow_dep matugen-bin     shell  matugin-bin      "Material theme generator"    matugen
 }
 
 deps_missing() {

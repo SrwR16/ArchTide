@@ -15,6 +15,7 @@ source "$LIB_DIR/platform.sh"
 source "$LIB_DIR/deps.sh"
 source "$LIB_DIR/conflict.sh"
 source "$LIB_DIR/trust.sh"
+source "$LIB_DIR/panels.sh"
 
 # ── Global flags ──
 OPT_VERBOSE=false
