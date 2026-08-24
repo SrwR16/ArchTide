@@ -1,87 +1,10 @@
 -- ─────────────────────────────────────────────────────────────────────────────
---  Flow Shell: Keybinds & Layer Rules
---  Sourced automatically by hyprland.conf
+--  Flow Shell: Layer Rules & Window Rules
+--  Sourced automatically by hyprland.conf. All Flow shell keybinds live in
+--  hyprland/keybinds.lua and target the same IPC surface (`qs -c $qsConfig`).
+--  The shell itself is launched by hyprland/execs.lua.
 -- ─────────────────────────────────────────────────────────────────────────────
 
-local flow = "quickshell -c flow ipc call"
-local scripts = "~/.config/quickshell/flow/scripts"
-
--- Start Flow Shell
-hl.on("hyprland.start", function() hl.exec_cmd("quickshell -c flow") end)
-
--- ─────────────────────────────────────────────────────────────────────────────
---  Unbinds (Prevent conflicts with default configs)
--- ─────────────────────────────────────────────────────────────────────────────
-hl.unbind("SUPER + Q")
-hl.unbind("SUPER + T")
-hl.unbind("SUPER + Return")
-hl.unbind("SUPER + W")
-hl.unbind("SUPER + E")
-hl.unbind("CTRL + ALT + Delete")
-hl.unbind("XF86MonBrightnessUp")
-hl.unbind("XF86MonBrightnessDown")
-hl.unbind("SUPER + Period")
-hl.unbind("SUPER + V")
-hl.unbind("SUPER + G")
-hl.unbind("SUPER + SHIFT + S")
-hl.unbind("SUPER + SHIFT + R")
-hl.unbind("SUPER + SHIFT + X")
-hl.unbind("SUPER + Tab")
-
--- ─────────────────────────────────────────────────────────────────────────────
---  Default App Binds
--- ─────────────────────────────────────────────────────────────────────────────
-hl.bind("SUPER + Q", hl.dsp.window.close())
-hl.bind("SUPER + T", hl.dsp.exec_cmd(scripts .. "/launch_first_available.sh kitty foot alacritty"))
-hl.bind("SUPER + Return", hl.dsp.exec_cmd(scripts .. "/launch_first_available.sh kitty foot alacritty"))
-hl.bind("SUPER + W", hl.dsp.exec_cmd(scripts .. "/launch_first_available.sh zen-browser firefox chromium google-chrome-stable"))
-hl.bind("SUPER + E", hl.dsp.exec_cmd(scripts .. "/launch_first_available.sh dolphin nautilus thunar thunar-mobile"))
-
--- ─────────────────────────────────────────────────────────────────────────────
---  Panel Toggles (via CLI)
--- ─────────────────────────────────────────────────────────────────────────────
--- Tapping Super opens Spotlight
-hl.bind("SUPER + Super_L", hl.dsp.exec_cmd(flow .. " spotlight toggle"), { release = true })
-
-hl.bind("SUPER + Space", hl.dsp.exec_cmd(flow .. " launcher toggle"))
-hl.bind("SUPER + V", hl.dsp.exec_cmd(flow .. " spotlight toggle clipboard"))
-hl.bind("CTRL + SUPER + T", hl.dsp.exec_cmd(flow .. " wallpaper toggle"))
-hl.bind("SUPER + A", hl.dsp.exec_cmd(flow .. " notifications toggle"))
-hl.bind("SUPER + N", hl.dsp.exec_cmd(flow .. " quicksettings toggle"))
-hl.bind("SUPER + G", hl.dsp.exec_cmd(flow .. " quickactions toggle"))
-hl.bind("SUPER + D", hl.dsp.exec_cmd(flow .. " dashboard toggle"))
-hl.bind("SUPER + I", hl.dsp.exec_cmd(flow .. " settings toggle"))
-hl.bind("SUPER + Tab", hl.dsp.exec_cmd(flow .. " overview toggle"))
-hl.bind("SUPER + L", hl.dsp.exec_cmd(flow .. " lock activate"))
-hl.bind("CTRL + ALT + Delete", hl.dsp.exec_cmd(flow .. " systemmonitor toggle"))
-
--- ─────────────────────────────────────────────────────────────────────────────
---  Region Tools (Screenshots & Recording)
--- ─────────────────────────────────────────────────────────────────────────────
-hl.bind("SUPER + SHIFT + S", hl.dsp.global("quickshell:regionScreenshot"))
-hl.bind("SUPER + SHIFT + R", hl.dsp.global("quickshell:regionRecord"), { locked = true })
-hl.bind("SUPER + SHIFT + X", hl.dsp.global("quickshell:regionOcr"))
-
--- ─────────────────────────────────────────────────────────────────────────────
---  Spotlight Specifics
--- ─────────────────────────────────────────────────────────────────────────────
-hl.bind("SUPER + Period", hl.dsp.global("quickshell:spotlightEmoji"), { description = "Emoji >> clipboard" })
-hl.bind("SUPER + V", hl.dsp.global("quickshell:spotlightClipboard"), { description = "Clipboard history >> clipboard" })
-
--- ─────────────────────────────────────────────────────────────────────────────
---  Utility & Power
--- ─────────────────────────────────────────────────────────────────────────────
-hl.bind("CTRL + SUPER + R", hl.dsp.exec_cmd(scripts .. "/restartshell.sh"))
-
--- ─────────────────────────────────────────────────────────────────────────────
---  Brightness & OSD
--- ─────────────────────────────────────────────────────────────────────────────
-hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd(flow .. " brightness increment"), { locked = true, repeating = true })
-hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd(flow .. " brightness decrement"), { locked = true, repeating = true })
-
--- ─────────────────────────────────────────────────────────────────────────────
---  Layer Rules
--- ─────────────────────────────────────────────────────────────────────────────
 hl.config({
     layerrule = {
         "blur, quickshell:.*",
@@ -92,7 +15,7 @@ hl.config({
         "ignore_alpha 0.5, launcher",
         "no_anim, overview",
         "blur, session",
-        
+
         -- Instantly show region tools
         "no_anim, quickshell:regionSelector",
         "blur off, quickshell:regionSelector",
@@ -101,7 +24,7 @@ hl.config({
     }
 })
 
--- NAnDoroid Panels (Native Floating)
+-- Flow Panels (Native Floating)
 hl.window_rule({ match = { title = "^(Settings)$" },       float = 1, center = 1, border_size = 0 })
 hl.window_rule({ match = { title = "^(System Monitor)$" },  float = 1, center = 1, border_size = 0 })
-hl.window_rule({ match = { title = "^(Welcome to NAnDoroid)$" }, float = 1, center = 1, border_size = 0 })
+hl.window_rule({ match = { title = "^(Welcome to Flow)$" }, float = 1, center = 1, border_size = 0 })

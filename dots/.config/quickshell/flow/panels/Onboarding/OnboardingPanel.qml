@@ -19,7 +19,7 @@ Scope {
     FloatingWindow {
         id: onboardingWindow
         visible: GlobalStates.onboardingOpen
-        title: "Welcome to NAnDoroid"
+        title: "Welcome to Flow"
         
         readonly property var screen: Quickshell.screens[0]
 

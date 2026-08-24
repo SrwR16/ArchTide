@@ -320,6 +320,18 @@ ShellRoot {
         function toggle() { GlobalStates.activateSystemMonitor() }
     }
 
+    // Liveness probe: keybind guards run `ipc call TEST_ALIVE ping` and only
+    // fall back to standalone tools when the shell is not running.
+    IpcHandler {
+        target: "TEST_ALIVE"
+        function ping(): void {}
+    }
+
+    IpcHandler {
+        target: "welcome"
+        function toggle() { GlobalStates.onboardingOpen = !GlobalStates.onboardingOpen }
+    }
+
     // ── Phase 14: Region Selector ──
     RegionSelector { id: regionSelector }
     RecordingMarker {}

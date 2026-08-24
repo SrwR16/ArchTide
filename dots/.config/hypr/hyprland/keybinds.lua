@@ -7,35 +7,29 @@ end
 local qsScripts = "$HOME/.config/quickshell/$qsConfig/scripts"
 local hyprScripts = "$HOME/.config/hypr/hyprland/scripts"
 local qsIpcCall = "qs -c $qsConfig ipc call"
-local qsIsAlive = qsIpcCall .. " TEST_ALIVE"
+local qsIsAlive = qsIpcCall .. " TEST_ALIVE ping"
 
-hl.bind("SUPER + SUPER_L", hl.dsp.global("quickshell:searchToggleRelease"), { description = "Shell: Toggle search" })
-hl.bind("SUPER + SUPER_R", hl.dsp.global("quickshell:searchToggleRelease"))
-hl.bind("SUPER + SUPER_L", hl.dsp.exec_cmd(qsIsAlive .. " || pkill fuzzel || fuzzel"))
-hl.bind("SUPER + SUPER_R", hl.dsp.exec_cmd(qsIsAlive .. " || pkill fuzzel || fuzzel"))
+-- Super tap toggles Spotlight (release-bound so chords don't trigger it);
+-- falls back to fuzzel only when the shell is not running.
+hl.bind("SUPER + Super_L", hl.dsp.exec_cmd(qsIpcCall .. " spotlight toggle || pkill fuzzel || fuzzel"),
+    { release = true, description = "Shell: Toggle search" })
+hl.bind("SUPER + Super_R", hl.dsp.exec_cmd(qsIpcCall .. " spotlight toggle || pkill fuzzel || fuzzel"),
+    { release = true })
 
-hl.bind("SUPER_L", hl.dsp.global("quickshell:workspaceNumber"), { ignore_mods = true, transparent = true })
-hl.bind("SUPER_R", hl.dsp.global("quickshell:workspaceNumber"), { ignore_mods = true, transparent = true })
-hl.bind("SUPER_L", hl.dsp.global("quickshell:workspaceNumber"), { ignore_mods = true, transparent = true, release = true })
-hl.bind("SUPER_R", hl.dsp.global("quickshell:workspaceNumber"), { ignore_mods = true, transparent = true, release = true })
-hl.bind("SUPER + Tab", hl.dsp.global("quickshell:overviewWorkspacesToggle"), { description = "Shell: Toggle overview" })
--- hl.bind("CTRL + Space", hl.dsp.global("quickshell:searchOnlyToggle"), { description = "Shell: Open search only" }) -- Disabled by default for those who play games
-hl.bind("SUPER + V", hl.dsp.global("quickshell:overviewClipboardToggle"))
-hl.bind("SUPER + Period", hl.dsp.global("quickshell:overviewEmojiToggle"))
-hl.bind("SUPER + A", hl.dsp.global("quickshell:sidebarLeftToggle"), { description = "Shell: Toggle left sidebar" })
-hl.bind("SUPER + ALT + A", hl.dsp.global("quickshell:sidebarLeftToggleDetach"))
-hl.bind("SUPER + B", hl.dsp.global("quickshell:sidebarLeftToggle"))
-hl.bind("SUPER + O", hl.dsp.global("quickshell:sidebarLeftToggle"))
-hl.bind("SUPER + N", hl.dsp.global("quickshell:sidebarRightToggle"), { description = "Shell: Toggle right sidebar" })
-hl.bind("SUPER + Slash", hl.dsp.global("quickshell:cheatsheetToggle"), { description = "Shell: Toggle cheatsheet" })
-hl.bind("SUPER + U", hl.dsp.global("quickshell:usageToggle"), { description = "Shell: Toggle app usage stats" })
-hl.bind("SUPER + K", hl.dsp.global("quickshell:oskToggle"), { description = "Shell: Toggle on-screen keyboard" })
-hl.bind("SUPER + M", hl.dsp.global("quickshell:ControlsToggle"), { description = "Shell: Toggle media controls" })
-hl.bind("SUPER + G", hl.dsp.global("quickshell:overlayToggle"), { description = "Shell: Toggle widget overlay" })
-hl.bind("CTRL + ALT + Delete", hl.dsp.global("quickshell:sessionToggle"), { description = "Shell: Toggle session menu" })
-hl.bind("SUPER + J", hl.dsp.global("quickshell:barToggle"), { description = "Shell: Toggle bar" })
-hl.bind("CTRL + ALT + Delete", hl.dsp.exec_cmd(qsIsAlive .. " || pkill wlogout || wlogout -p layer-shell"))
-hl.bind("SHIFT + SUPER + ALT + Slash", hl.dsp.exec_cmd("qs -c flow ipc call welcome toggle"), { description = "Shell: Toggle welcome" })
+hl.bind("SUPER + Tab", hl.dsp.exec_cmd(qsIpcCall .. " overview toggle"), { description = "Shell: Toggle overview" })
+-- hl.bind("CTRL + Space", hl.dsp.global("quickshell:spotlightFiles"), { description = "Shell: Open search only" }) -- Disabled by default for those who play games
+hl.bind("SUPER + V", hl.dsp.global("quickshell:spotlightClipboard"))
+hl.bind("SUPER + Period", hl.dsp.global("quickshell:spotlightEmoji"))
+hl.bind("SUPER + A", hl.dsp.exec_cmd(qsIpcCall .. " notifications toggle"),
+    { description = "Shell: Toggle notification center" })
+hl.bind("SUPER + N", hl.dsp.exec_cmd(qsIpcCall .. " quicksettings toggle"),
+    { description = "Shell: Toggle quick settings" })
+hl.bind("SUPER + M", hl.dsp.exec_cmd(qsIpcCall .. " dashboard toggle"), { description = "Shell: Toggle media controls" })
+hl.bind("SUPER + G", hl.dsp.exec_cmd(qsIpcCall .. " quickactions toggle"), { description = "Shell: Toggle quick actions" })
+hl.bind("CTRL + ALT + Delete", hl.dsp.exec_cmd(qsIpcCall .. " session toggle || pkill wlogout || wlogout -p layer-shell"),
+    { description = "Shell: Toggle session menu" })
+hl.bind("SHIFT + SUPER + ALT + Slash", hl.dsp.exec_cmd(qsIpcCall .. " welcome toggle"),
+    { description = "Shell: Toggle welcome" })
 
 -- Toggle keyboard layout safely without triggering search release
 hl.bind("SUPER + Space", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"), { description = "Switch keyboard layout" })
@@ -49,20 +43,14 @@ hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO
 hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"),
     { locked = true, repeating = true })
 
-hl.bind("CTRL + SUPER + T", hl.dsp.global("quickshell:wallpaperSelectorToggle"),
+hl.bind("CTRL + SUPER + T", hl.dsp.exec_cmd(qsIpcCall .. " wallpaper toggle"),
     { description = "Shell: Toggle wallpaper selector" })
-hl.bind("CTRL + SUPER + ALT + T", hl.dsp.global("quickshell:wallpaperSelectorRandom"),
-    { description = "Shell: Select random wallpaper" })
-hl.bind("CTRL + SUPER + SHIFT + D", hl.dsp.global("quickshell:toggleLightDark"),
-    { description = "Shell: Toggle light/dark mode" })
-hl.bind("CTRL + SUPER + T", hl.dsp.exec_cmd(qsIsAlive .. " || " .. qsScripts .. "/colors/switchwall.sh"))
 -- `qs kill` is the only shutdown that also takes the shell's child processes
 -- down with it, and it returns once the instance is really gone; killall is
 -- kept for an instance too wedged to answer over IPC.
 hl.bind("CTRL + SUPER + R",
     hl.dsp.exec_cmd("killall ydotool; qs kill -c $qsConfig || killall qs quickshell 2>/dev/null; qs -c $qsConfig &"),
     { description = "Shell: Restart widgets" })
-hl.bind("CTRL + SUPER + P", hl.dsp.global("quickshell:panelFamilyCycle"), { description = "Shell: Cycle panel family" })
 
 --##! Utilities
 --# Screenshot, Record, OCR, Color picker, Clipboard history
@@ -80,26 +68,22 @@ hl.bind("SUPER + SHIFT + A", hl.dsp.exec_cmd(qsIsAlive .. " || pidof slurp || " 
 --# OCR
 hl.bind("SUPER + SHIFT + X", hl.dsp.global("quickshell:regionOcr"),
     { description = "Utilities: Character recognition >> clipboard" })
-hl.bind("SUPER + SHIFT + T", hl.dsp.global("quickshell:screenTranslate"),
-    { description = "Utilities: Translate screen content" })
 hl.bind("SUPER + SHIFT + X", hl.dsp.exec_cmd(
     qsIsAlive ..
     " || pidof slurp || grim -g \"$(slurp $SLURP_ARGS)\" \"/tmp/ocr_image.png\" && tesseract \"/tmp/ocr_image.png\" stdout -l $(tesseract --list-langs | awk 'NR>1{print $1}' | tr '\\\\n' '+' | sed 's/\\\\+$/\\\\n/') | wl-copy && rm \"/tmp/ocr_image.png\""
 ))
 --# Color picker
-hl.bind("SUPER + SHIFT + C", hl.dsp.global("quickshell:colorPickerLaunch"),
+hl.bind("SUPER + SHIFT + C", hl.dsp.exec_cmd("hyprpicker -a"),
     { description = "Utilities: Pick color #RRGGBB >> clipboard" })
-hl.bind("SUPER + SHIFT + C",
-    hl.dsp.exec_cmd(qsIpcCall .. " colorPickerLaunch trigger || hyprpicker -a"))
 --# Recording stuff
 hl.bind("SUPER + SHIFT + R", hl.dsp.global("quickshell:regionRecord"),
     { locked = true, description = "Utilities: Record region (no sound)" })
 hl.bind("SUPER + SHIFT + R", hl.dsp.exec_cmd(qsIsAlive .. " || " .. qsScripts .. "/videos/record.sh"), { locked = true })
-hl.bind("SUPER + ALT + R", hl.dsp.global("quickshell:regionRecord"), { locked = true })
-hl.bind("SUPER + ALT + R", hl.dsp.exec_cmd(qsIsAlive .. " || " .. qsScripts .. "/videos/record.sh"), { locked = true })
 hl.bind("CTRL + ALT + R", hl.dsp.exec_cmd(qsScripts .. "/videos/record.sh --fullscreen"), { locked = true })
-hl.bind("SUPER + SHIFT + ALT + R", hl.dsp.exec_cmd(qsScripts .. "/videos/record.sh --fullscreen --sound"),
+hl.bind("SUPER + SHIFT + ALT + R", hl.dsp.global("quickshell:regionRecordWithSound"),
     { locked = true, description = "Utilities: Record screen (with sound)" })
+hl.bind("SUPER + SHIFT + ALT + R",
+    hl.dsp.exec_cmd(qsIsAlive .. " || " .. qsScripts .. "/videos/record.sh --fullscreen --sound"), { locked = true })
 --# Fullscreen screenshot
 local grimhyprctl = "grim -o \"$(hyprctl activeworkspace -j | jq -r '.monitor')\""
 hl.bind("Print", hl.dsp.exec_cmd(grimhyprctl .. " - | wl-copy"),
@@ -120,11 +104,6 @@ hl.bind("SUPER + SHIFT + ALT + mouse:273", hl.dsp.exec_cmd(hyprScripts .. "/ai/p
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Window: Move" })
 hl.bind("SUPER + mouse:274", hl.dsp.window.drag(), { mouse = true })
 hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true, description = "Window: Resize" })
---# Tiling assistant: report the drag to the shell alongside Hyprland's own move
---# and resize, so the zone overlay knows a window is being dragged
-hl.bind("SUPER + mouse:272", hl.dsp.global("quickshell:tilingDragMove"))   -- # [hidden]
-hl.bind("SUPER + mouse:274", hl.dsp.global("quickshell:tilingDragMove"))   -- # [hidden]
-hl.bind("SUPER + mouse:273", hl.dsp.global("quickshell:tilingDragResize")) -- # [hidden]
 --#/# bind = SUPER, ←/↑/→/↓,, # Focus in direction
 for i = 1, 6 do
     local arrowkey = { "Left", "Right", "Up", "Down", "BracketLeft", "BracketRight" }
@@ -137,19 +116,6 @@ for i = 1, 4 do
     local focusdir = { "l", "r", "u", "d" }
     hl.bind("SUPER + SHIFT + " .. arrowkey[i], hl.dsp.window.move({ direction = focusdir[i] }))
 end
---# Tiling assistant: walk the focused window through the tiling zones, leaving
---# the move-in-direction above to Hyprland's own layout
---#/# bind = SUPER + ALT, ←/↑/→/↓,, # Quick-tile in direction (again at the edge to untile)
-for i = 1, 4 do
-    local arrowkey = { "Left", "Right", "Up", "Down" }
-    hl.bind("SUPER + ALT + " .. arrowkey[i], hl.dsp.global("quickshell:tilingTile" .. arrowkey[i]))
-end
---# Tiling assistant: swap the focused monitor between zone layouts without
---# opening settings
---#/# bind = SUPER + ALT, Tab,, # Next tiling layout
-hl.bind("SUPER + ALT + Tab", hl.dsp.global("quickshell:tilingLayoutCycle"))
---#/# bind = SUPER + ALT + SHIFT, Tab,, # Previous tiling layout
-hl.bind("SUPER + ALT + SHIFT + Tab", hl.dsp.global("quickshell:tilingLayoutCyclePrev"))
 
 -- hl.bind("ALT + F4",
 --     function() hl.exec_cmd(
@@ -197,9 +163,6 @@ for i = 1, 6 do
     local prefix = { "+", "-", "+", "-", "+", "-" }
     hl.bind(keycombos[i], hl.dsp.window.move({ workspace = prefix[i] .. "1" })) -- # [hidden]
 end
-
-hl.bind("CTRL + SUPER + C", hl.dsp.exec_cmd(qsScripts .. "/hyprland/workspace_compactor"),
-    { description = "Workspaces: Compact into 1..N (remove empty gaps)" })
 
 hl.bind("SUPER + ALT + S", function()
     local ok, err = pcall(function()
@@ -333,8 +296,9 @@ hl.bind("CTRL + SHIFT + T", function()
     hl.exec_cmd(cmd)
 end, { description = "Workspace: Toggle all-float" })
 
--- Float + pin combo toggle
-hl.bind("CTRL + SUPER + T", function()
+-- Float + pin combo toggle (moved off CTRL+SUPER+T, which toggles the shell's
+-- wallpaper selector)
+hl.bind("SUPER + SHIFT + F", function()
     hl.exec_cmd("hyprctl dispatch togglefloating")
     hl.exec_cmd("hyprctl dispatch pin")
 end, { description = "Window: Toggle float + pin" })
@@ -380,10 +344,6 @@ hl.bind("SUPER + Equal", function() zoomfunction(0.3) end, { repeating = true, d
 hl.bind("SUPER + code:82", function() zoomfunction(-0.3) end, { repeating = true })
 hl.bind("SUPER + code:86", function() zoomfunction(0.3) end, { repeating = true })
 
--- Toggle OLED saver (blackout overlay on the focused monitor)
-hl.bind("SUPER + R", hl.dsp.global("quickshell:oledSaverToggle"),
-    { locked = true, description = "Utilities: Toggle OLED saver (blackout)" })
-
 --##! Media
 local mediaNextCommand =
 "playerctl next || playerctl position `bc <<< \"100 * $(playerctl metadata mpris:length) / 1000000 / 100\"`"
@@ -404,7 +364,6 @@ hl.bind("ALT + XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ 
 hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ toggle"), { locked = true })
 hl.bind("SUPER + ALT + M", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_SOURCE@ toggle"),
     { locked = true, description = "Misc: Toggle mic" })
-hl.bind("SUPER + Z", hl.dsp.global("quickshell:mediaModeToggle"), { locked = true, description = "Shell: Toggle media mode" })
 
 --##! Apps
 hl.bind("SUPER + Return", hl.dsp.exec_cmd(terminal), { description = "App: Terminal" })
@@ -416,7 +375,7 @@ hl.bind("SUPER + C", hl.dsp.exec_cmd(codeEditor), { description = "App: Code edi
 hl.bind("CTRL + SUPER + SHIFT + ALT + W", hl.dsp.exec_cmd(officeSoftware), { description = "App: Office software" })
 hl.bind("SUPER + X", hl.dsp.exec_cmd(textEditor), { description = "App: Text editor" })
 hl.bind("CTRL + SUPER + V", hl.dsp.exec_cmd(volumeMixer), { description = "App: Volume mixer" })
-hl.bind("SUPER + I", hl.dsp.global("quickshell:settingsToggle"), { description = "App: Settings app" })
+hl.bind("SUPER + I", hl.dsp.exec_cmd(qsIpcCall .. " settings toggle"), { description = "Shell: Toggle settings" })
 hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd(taskManager), { description = "App: Task manager" })
 
 --# Cursed stuff
