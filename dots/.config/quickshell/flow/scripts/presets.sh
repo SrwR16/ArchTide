@@ -1,169 +1,132 @@
 #!/usr/bin/env bash
+# presets.sh - manage shell config presets
+# Usage:
+#   presets.sh --save <name> [description]
+#   presets.sh --remove <name>
+#   presets.sh --apply <name>
 
-PRESETS_DIR="$HOME/.config/flow/presets"
-CONFIG_FILE="$HOME/.config/flow/config.json"
-SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_DIR="$HOME/.config/flow"
+CONFIG_FILE="$CONFIG_DIR/config.json"
+PRESETS_DIR="$CONFIG_DIR/presets"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Matugen-generated files watched by Quickshell (see core/Directories.qml)
+COLOR_JSON="$HOME/.local/state/quickshell/user/generated/colors.json"
+LOCK_COLOR_JSON="$HOME/.local/state/quickshell/user/generated/lockscreencolors.json"
+
 mkdir -p "$PRESETS_DIR"
 
-action=$1
-name=$2
+action="$1"
+name="$2"
 
-case $action in
-    save)
-        if [[ -z "$name" ]]; then exit 1; fi
-        cp "$CONFIG_FILE" "$PRESETS_DIR/$name.json"
-        
-        # Also copy the wallpaper if configured
-        wall_path=$(jq -r '.background.wallpaperPath // ""' "$CONFIG_FILE" 2>/dev/null)
-        if [[ -f "$wall_path" ]]; then
-            ext="${wall_path##*.}"
-            cp "$wall_path" "$PRESETS_DIR/$name.$ext"
+if [ -z "$name" ]; then
+    echo "Error: missing preset name" >&2
+    exit 1
+fi
+
+case "$action" in
+    --save)
+        description="$3"
+        jq 'del(._presetMeta)' "$CONFIG_FILE" > "$PRESETS_DIR/${name}.json"
+        if [ -n "$description" ]; then
+            jq --arg desc "$description" '._presetMeta = {"description": $desc}' \
+                "$PRESETS_DIR/${name}.json" > "$PRESETS_DIR/${name}.json.tmp" \
+                && mv "$PRESETS_DIR/${name}.json.tmp" "$PRESETS_DIR/${name}.json"
         fi
         ;;
-    update)
-    if [[ -z "$name" ]]; then exit 1; fi
-    if [[ ! -f "$PRESETS_DIR/$name.json" ]]; then exit 1; fi
-    # Remove stale wallpaper files for this preset before overwriting
-    for file in "$PRESETS_DIR/$name".*; do
-        if [[ -f "$file" && "${file##*.}" != "json" ]]; then
-            rm -f "$file"
+    --remove)
+        rm -f "$PRESETS_DIR/${name}.json"
+        ;;
+    --apply)
+        preset_file="$PRESETS_DIR/${name}.json"
+        if [ ! -f "$preset_file" ]; then
+            echo "Error: preset not found: $name" >&2
+            exit 1
         fi
-    done
-    cp "$CONFIG_FILE" "$PRESETS_DIR/$name.json"
-    wall_path=$(jq -r '.background.wallpaperPath // ""' "$CONFIG_FILE" 2>/dev/null)
-    if [[ -f "$wall_path" ]]; then
-        ext="${wall_path##*.}"
-        cp "$wall_path" "$PRESETS_DIR/$name.$ext"
-    fi
-    ;;
-    load)
-        if [[ -z "$name" ]]; then exit 1; fi
-        if [[ -f "$PRESETS_DIR/$name.json" ]]; then
-            # Use python helper to expand paths and fallbacks
-            python3 "$SCRIPTS_DIR/presets_helper.py" expand "$PRESETS_DIR/$name.json" "$CONFIG_FILE" "$PRESETS_DIR" "$name"
-            
-            # Read colorEngine from the newly expanded config.json to run the correct script
-            color_engine=$(jq -r '.appearance.colorEngine // "flow"' "$CONFIG_FILE" 2>/dev/null)
-            switch_script="switchwall_flow.sh"
-            if [[ "$color_engine" == "fork" ]]; then
-                switch_script="switchwall.sh"
-            elif [[ "$color_engine" == "flow" ]]; then
-                switch_script="switchwall_flow.sh"
+
+        # Read settings from preset_file first to run matugen BEFORE updating config.json
+        # This prevents Quickshell from reloading active.json with outdated/fallback colors first
+        merged_json=$(jq -s '.[0] * .[1] | del(._presetMeta)' "$CONFIG_FILE" "$preset_file")
+
+        matugen_enabled=$(echo "$merged_json" | jq -r '.appearance.background.matugen // false')
+        custom_color=$(echo "$merged_json" | jq -r '.appearance.background.matugenCustomColor // .appearance.palette.accentColor // .palette.accentColor // ""')
+        theme_file=$(echo "$merged_json" | jq -r '.appearance.background.matugenThemeFile // ""')
+
+        scheme=$(echo "$merged_json" | jq -r '.appearance.background.matugenScheme // "scheme-tonal-spot"')
+        darkmode=$(echo "$merged_json" | jq -r '.appearance.background.darkmode // true')
+        [ "$darkmode" = "true" ] && mode="dark" || mode="light"
+
+        # Regenerate lockscreen colors, mirroring the Wallpapers service behavior.
+        # Only needed when a separate lockscreen wallpaper is used; otherwise the
+        # shell mirrors desktop colors to the lockscreen automatically.
+        refresh_lock_colors() {
+            lock_sep=$(echo "$merged_json" | jq -r '.lock.useSeparateWallpaper // false')
+            [ "$lock_sep" = "true" ] || return 0
+
+            # Custom accent colors always derive tonal-spot schemes (matches the
+            # desktop generation in the custom-color branch and the Wallpapers service)
+            lock_scheme="$scheme"
+            if [ "$matugen_enabled" = "false" ]; then
+                lock_scheme="scheme-tonal-spot"
             fi
-            
-            # Apply wallpaper and colors from the newly loaded config
-            env -u LD_LIBRARY_PATH -u PYTHONHOME -u PYTHONPATH PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH" "$SCRIPTS_DIR/colors/$switch_script" --noswitch > /tmp/presets_switchwall.log 2>&1 &
-        fi
-        ;;
-    delete)
-        if [[ -z "$name" ]]; then exit 1; fi
-        rm -f "$PRESETS_DIR/$name.json"
-        # Delete any associated wallpaper file
-        for file in "$PRESETS_DIR/$name".*; do
-            if [[ -f "$file" && "${file##*.}" != "json" ]]; then
-                rm -f "$file"
+
+            matugen_source=$(echo "$merged_json" | jq -r '.appearance.background.matugenSource // "desktop"')
+            if [ "$matugen_source" = "lockscreen" ]; then
+                # Desktop colors already derive from the lockscreen wallpaper
+                cp "$COLOR_JSON" "$LOCK_COLOR_JSON"
+                return 0
             fi
-        done
-        ;;
-    list)
-        python3 "$SCRIPTS_DIR/presets_helper.py" list "$PRESETS_DIR"
-        ;;
-    export)
-        if [[ -z "$name" ]]; then exit 1; fi
-        if [[ ! -f "$PRESETS_DIR/$name.json" ]]; then exit 1; fi
-        
-        if command -v zenity >/dev/null; then
-            DEST_ZIP=$(zenity --file-selection --save --confirm-overwrite --filename="$HOME/${name}.zip" --file-filter="ZIP | *.zip" 2>/dev/null)
+
+            lock_wallpaper=$(echo "$merged_json" | jq -r '.lock.wallpaperPath // ""')
+            lock_wallpaper="${lock_wallpaper#file://}"
+            desktop_wallpaper=$(echo "$merged_json" | jq -r '.appearance.background.wallpaperPath // ""')
+            desktop_wallpaper="${desktop_wallpaper#file://}"
+            [ -n "$lock_wallpaper" ] && [ -f "$lock_wallpaper" ] || return 0
+
+            if [ "$lock_wallpaper" = "$desktop_wallpaper" ]; then
+                # Same wallpaper as desktop: reuse the just-generated desktop colors
+                cp "$COLOR_JSON" "$LOCK_COLOR_JSON"
+            else
+                # Different wallpaper: derive lockscreen colors from the lockscreen wallpaper
+                lock_json=$(matugen --dry-run -t "$lock_scheme" -m "$mode" image "$lock_wallpaper" --source-color-index 0 -j hex --old-json-output 2>/dev/null)
+                if [ -n "$lock_json" ]; then
+                    echo "$lock_json" | jq --arg mode "$mode" '.colors | with_entries(.value = (.value[$mode] // .value["default"]))' > "$LOCK_COLOR_JSON"
+                fi
+            fi
+        }
+
+        if [ "$matugen_enabled" = "false" ] && [ -n "$custom_color" ] && [ "$custom_color" != "null" ] && [ "$custom_color" != '""' ]; then
+            custom_color_clean="${custom_color#\#}"
+            # Ensure both matugenCustomColor and palette.accentColor in merged_json have the '#' prefix
+            merged_json=$(echo "$merged_json" | jq --arg c "#$custom_color_clean" '.appearance.background.matugenCustomColor = $c | .appearance.palette.accentColor = $c')
+            
+            # Generate theme files via Matugen first
+            matugen -c ~/.config/matugen/config.toml -t "scheme-tonal-spot" -m "$mode" color hex "$custom_color_clean"
+            
+            # Write config.json after matugen finishes
+            echo "$merged_json" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+            refresh_lock_colors
+        elif [ "$matugen_enabled" = "false" ] && [ -n "$theme_file" ] && [ "$theme_file" != "null" ]; then
+            # Cache the theme colors so lockscreen mirroring stays consistent
+            theme_source="$SCRIPT_DIR/../assets/themes/$theme_file"
+            [ -f "$theme_source" ] && cp "$theme_source" "$COLOR_JSON"
+            echo "$merged_json" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+            # Basic themes apply to both desktop and lockscreen
+            if [ "$(echo "$merged_json" | jq -r '.lock.useSeparateWallpaper // false')" = "true" ]; then
+                cp "$COLOR_JSON" "$LOCK_COLOR_JSON"
+            fi
         else
-            DEST_ZIP=$(kdialog --getsavefilename "$HOME/${name}.zip" "*.zip" 2>/dev/null)
-        fi
-        
-        if [[ -n "$DEST_ZIP" ]]; then
-            # If the user selected .zip but extension wasn't appended automatically:
-            if [[ "$DEST_ZIP" != *.zip ]]; then
-                DEST_ZIP="${DEST_ZIP}.zip"
+            wallpaper=$(echo "$merged_json" | jq -r '.appearance.background.wallpaperPath // ""')
+            wallpaper="${wallpaper#file://}"
+            if [ -n "$wallpaper" ] && [ -f "$wallpaper" ]; then
+                matugen -c ~/.config/matugen/config.toml -t "$scheme" -m "$mode" image "$wallpaper" --source-color-index 0
             fi
-            
-            TMP_DIR=$(mktemp -d /tmp/preset_export_XXXXXX)
-            
-            # Copy and sanitize JSON config
-            cp "$PRESETS_DIR/$name.json" "$TMP_DIR/config.json"
-            python3 "$SCRIPTS_DIR/presets_helper.py" sanitize "$TMP_DIR/config.json" "$TMP_DIR/config.json"
-            
-            # Find and copy wallpaper if it exists
-            # Look for MyPreset.* excluding .json and .zip
-            for file in "$PRESETS_DIR/$name".*; do
-                if [[ -f "$file" ]]; then
-                    ext="${file##*.}"
-                    if [[ "$ext" != "json" && "$ext" != "zip" ]]; then
-                        cp "$file" "$TMP_DIR/wallpaper.$ext"
-                        break
-                    fi
-                fi
-            done
-            
-            # Zip everything
-            (cd "$TMP_DIR" && zip -r "$DEST_ZIP" .)
-            
-            # Cleanup
-            rm -rf "$TMP_DIR"
+            echo "$merged_json" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+            refresh_lock_colors
         fi
         ;;
-    import)
-        if command -v zenity >/dev/null; then
-            FILE=$(zenity --file-selection --file-filter="Presets (*.zip *.json) | *.zip *.json" 2>/dev/null)
-        else
-            FILE=$(kdialog --getopenfilename "$HOME" "*.zip *.json" 2>/dev/null)
-        fi
-        
-        if [[ -n "$FILE" && -f "$FILE" ]]; then
-            preset_name=$(basename "$FILE" | sed 's/\.[^.]*$//')
-            ext="${FILE##*.}"
-            ext=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
-            
-            if [[ "$ext" == "json" ]]; then
-                # Clean/sanitize paths even on raw JSON import to be safe
-                mkdir -p "$PRESETS_DIR"
-                python3 "$SCRIPTS_DIR/presets_helper.py" sanitize "$FILE" "$PRESETS_DIR/$preset_name.json"
-                echo 'success'
-            elif [[ "$ext" == "zip" ]]; then
-                TMP_DIR=$(mktemp -d /tmp/preset_import_XXXXXX)
-                unzip -o "$FILE" -d "$TMP_DIR" >/dev/null
-                
-                # Check for config file
-                config_json=""
-                if [[ -f "$TMP_DIR/config.json" ]]; then
-                    config_json="$TMP_DIR/config.json"
-                else
-                    # Fallback to any json in zip
-                    for f in "$TMP_DIR"/*.json; do
-                        if [[ -f "$f" ]]; then
-                            config_json="$f"
-                            break
-                        fi
-                    done
-                fi
-                
-                if [[ -n "$config_json" ]]; then
-                    mkdir -p "$PRESETS_DIR"
-                    # Sanitize paths when importing config
-                    python3 "$SCRIPTS_DIR/presets_helper.py" sanitize "$config_json" "$PRESETS_DIR/$preset_name.json"
-                    
-                    # Find wallpaper
-                    for f in "$TMP_DIR"/*; do
-                        if [[ -f "$f" ]]; then
-                            f_ext="${f##*.}"
-                            f_ext=$(echo "$f_ext" | tr '[:upper:]' '[:lower:]')
-                            if [[ "$f_ext" != "json" && "$f_ext" != "zip" ]]; then
-                                cp "$f" "$PRESETS_DIR/$preset_name.$f_ext"
-                                break
-                            fi
-                        fi
-                    done
-                    echo 'success'
-                fi
-                rm -rf "$TMP_DIR"
-            fi
-        fi
+    *)
+        echo "Error: unknown action: $action" >&2
+        exit 1
         ;;
 esac

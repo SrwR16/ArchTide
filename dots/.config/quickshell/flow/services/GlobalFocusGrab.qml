@@ -1,67 +1,49 @@
 pragma Singleton
-pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 
-/**
- * Manages a HyprlandFocusGrab that's to be shared by all windows.
- * "Persistent" is for windows that should always be included but not closed on dismiss, like bar and onscreen keyboard.
- * "Dismissable" is for stuff like sidebars
- */
-Singleton {
-    id: root
+Item {
+  id: root
 
-    signal dismissed
+  property list<var> _persistent: []
+  property list<var> _dismissable: []
 
-    property list<var> persistent: []
-    property list<var> dismissable: []
+  signal dismissed()
 
-    function dismiss() {
-        root.dismissable = [];
-        root.dismissed();
+  function addPersistent(w) {
+    if (_persistent.indexOf(w) === -1) {
+      _persistent.push(w);
     }
-
-    Component.onCompleted: {
-        console.log("[GlobalFocusGrab] Initialized");
+  }
+  function removePersistent(w) {
+    var i = _persistent.indexOf(w);
+    if (i !== -1) {
+      _persistent.splice(i, 1);
     }
-
-    function addPersistent(window) {
-        if (root.persistent.indexOf(window) === -1) {
-            root.persistent.push(window);
-        }
+  }
+  function addDismissable(w) {
+    if (_dismissable.indexOf(w) === -1) {
+      _dismissable.push(w);
     }
-
-    function removePersistent(window) {
-        var index = root.persistent.indexOf(window);
-        if (index !== -1) {
-            root.persistent.splice(index, 1);
-        }
+    _grab.active = _dismissable.length > 0;
+  }
+  function removeDismissable(w) {
+    var i = _dismissable.indexOf(w);
+    if (i !== -1) {
+      _dismissable.splice(i, 1);
     }
+    _grab.active = _dismissable.length > 0;
+  }
+  function dismiss() {
+    _dismissable = [];
+    _grab.active = false;
+    dismissed();
+  }
 
-    function addDismissable(window) {
-        if (root.dismissable.indexOf(window) === -1) {
-            root.dismissable.push(window);
-        }
-    }
-
-    function removeDismissable(window) {
-        var index = root.dismissable.indexOf(window);
-        if (index !== -1) {
-            root.dismissable.splice(index, 1);
-        }
-    }
-
-    function hasActive(element) {
-        return element?.activeFocus || Array.from(element?.children).some(child => hasActive(child));
-    }
-
-    HyprlandFocusGrab {
-        id: grab
-        windows: [...root.dismissable, ...root.persistent]
-        active: root.dismissable.length > 0
-        onCleared: () => {
-            root.dismiss();
-        }
-    }
+  HyprlandFocusGrab {
+    id: _grab
+    windows: root._persistent.concat(root._dismissable)
+    onCleared: root.dismiss()
+  }
 }

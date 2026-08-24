@@ -4,189 +4,210 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 import Quickshell.Hyprland
-import qs.modules.common
+import "../core"
 
 /**
- * Provides access to some Hyprland data not available in Quickshell.Hyprland.
+ * Provides Hyprland workspace and window data via hyprctl JSON.
+ * Listens to raw Hyprland events and refreshes data on changes.
  */
 Singleton {
     id: root
+    signal layoutChanged()
     property var windowList: []
-    property bool windowListLoaded: false
-    property var addresses: []
     property var windowByAddress: ({})
     property var workspaces: []
-    property var workspaceIds: []
     property var workspaceById: ({})
     property var activeWorkspace: null
     property var monitors: []
-    property var layers: ({})
+    property var activeWindow: null
+    property var monitorSpecialWorkspace: ({}) // monitorName → special name or ""
 
-    // Convenient stuff
-
-    function toplevelsForWorkspace(workspace) {
-        return ToplevelManager.toplevels.values.filter(toplevel => {
-            const address = `0x${toplevel.HyprlandToplevel?.address}`;
-            var win = HyprlandData.windowByAddress[address];
-            return win?.workspace?.id === workspace;
-        })
+    function isSpecialActiveOn(monitorName) {
+        return root.monitorSpecialWorkspace[monitorName] !== undefined && root.monitorSpecialWorkspace[monitorName] !== "";
+    }
+    
+    function hyprlandClientsForWorkspace(workspaceId) {
+        return root.windowList.filter(win => win.workspace.id === workspaceId);
     }
 
-    function hyprlandClientsForWorkspace(workspace) {
-        return root.windowList.filter(win => win.workspace.id === workspace);
+    readonly property bool fullscreenActive: {
+        if (!activeWorkspace) return false;
+        return windowList.some(win => win.workspace.id === activeWorkspace.id && (win.fullscreen || win.fullscreenClient !== 0));
     }
 
-    function clientForToplevel(toplevel) {
-        if (!toplevel || !toplevel.HyprlandToplevel) {
-            return null;
-        }
-        const address = `0x${toplevel?.HyprlandToplevel?.address}`;
-        return root.windowByAddress[address];
-    }
-
-    // Internals
-
-    property bool _windowListNeedsUpdate: false
-    property bool _monitorsNeedsUpdate: false
-    property bool _layersNeedsUpdate: false
-    property bool _workspacesNeedsUpdate: false
-    property bool _activeWorkspaceNeedsUpdate: false
-
-    function updateWindowList() {
-        if (getClients.running) {
-            root._windowListNeedsUpdate = true;
-        } else {
-            getClients.running = true;
-        }
-    }
-
-    function updateLayers() {
-        if (getLayers.running) {
-            root._layersNeedsUpdate = true;
-        } else {
-            getLayers.running = true;
-        }
-    }
-
-    function updateMonitors() {
-        if (getMonitors.running) {
-            root._monitorsNeedsUpdate = true;
-        } else {
-            getMonitors.running = true;
-        }
-    }
-
+    function updateWindowList() { getClients.running = true; }
+    function updateMonitors() { getMonitors.running = true; }
     function updateWorkspaces() {
-        if (getWorkspaces.running) {
-            root._workspacesNeedsUpdate = true;
-        } else {
-            getWorkspaces.running = true;
-        }
-
-        if (getActiveWorkspace.running) {
-            root._activeWorkspaceNeedsUpdate = true;
-        } else {
-            getActiveWorkspace.running = true;
-        }
+        getWorkspaces.running = true;
+        getActiveWorkspace.running = true;
     }
-
     function updateAll() {
         updateWindowList();
         updateMonitors();
-        updateLayers();
         updateWorkspaces();
+        updateActiveWindow();
     }
 
-    function biggestWindowForWorkspace(workspaceId) {
-        const windowsInThisWorkspace = HyprlandData.windowList.filter(w => w.workspace.id == workspaceId);
-        return windowsInThisWorkspace.reduce((maxWin, win) => {
-            const maxArea = (maxWin?.size?.[0] ?? 0) * (maxWin?.size?.[1] ?? 0);
-            const winArea = (win?.size?.[0] ?? 0) * (win?.size?.[1] ?? 0);
-            return winArea > maxArea ? win : maxWin;
-        }, null);
+    function updateActiveWindow() { getActiveWindow.running = true; }
+    
+    function updateMonitorsDelayed(delayMs) {
+        const d = delayMs !== undefined ? delayMs : 800;
+        monitorUpdateTimer.interval = d;
+        monitorUpdateTimer.restart();
+    }
+    
+    // Targeted Update Timers
+    Timer { id: windowUpdateTimer; interval: 350; repeat: false; onTriggered: updateWindowList() }
+    Timer { id: workspaceUpdateTimer; interval: 200; repeat: false; onTriggered: updateWorkspaces() }
+    Timer { id: monitorUpdateTimer; interval: 1000; repeat: false; onTriggered: updateMonitors() }
+    Timer { id: activeWinUpdateTimer; interval: 150; repeat: false; onTriggered: updateActiveWindow() }
+
+    Process {
+        id: layoutProc
     }
 
-    Component.onCompleted: {
-        updateAll();
-        if (Config.ready) {
-            syncWorkspaceMap();
-            const useMap = Config.options.bar.workspaces.useWorkspaceMap;
-            const shown = Config.options.bar.workspaces.shown || 10;
-            syncWorkspaceGroupSize(useMap ? shown : 10);
+    readonly property string persistencePath: HyprlandCompat.isLua
+        ? "~/.config/hypr/flow/user_persistence.lua"
+        : "~/.config/hypr/flow/user_persistence.conf"
+
+    function cycleLayout(forward = true) {
+        const layouts = ["dwindle", "master", "scrolling"];
+        const current = root.activeWorkspace?.tiledLayout || GlobalStates.hyprlandLayout || "dwindle";
+        let index = layouts.indexOf(current);
+        if (index === -1) index = 0;
+        
+        if (forward) {
+            index = (index + 1) % layouts.length;
+        } else {
+            index = (index - 1 + layouts.length) % layouts.length;
+        }
+        
+        const nextLayout = layouts[index];
+        
+        // Apply immediately
+        layoutProc.exec(HyprlandCompat.keyword("general", "layout", `"${nextLayout}"`));
+        
+        if (HyprlandCompat.isLua) {
+            const luaBlock = `-- LAYOUT_START\n` +
+                             `hl.config({\n` +
+                             `    general = {\n` +
+                             `        layout = "${nextLayout}"\n` +
+                             `    }\n` +
+                             `})\n` +
+                             `-- LAYOUT_END`
+            const pyCmd = `import sys, re; path = sys.argv[1]; new_block = sys.argv[2]\n` +
+                          `try:\n` +
+                          `    content = open(path).read()\n` +
+                          `except Exception:\n` +
+                          `    content = ""\n` +
+                          `pattern = r"-- LAYOUT_START.*?-- LAYOUT_END\\s*"\n` +
+                          `content = re.sub(pattern, "", content, flags=re.DOTALL)\n` +
+                          `content = content.strip()\n` +
+                          `if content:\n` +
+                          `    content += chr(10) + chr(10)\n` +
+                          `content += new_block + chr(10)\n` +
+                          `open(path, "w").write(content)`
+            const realPath = root.persistencePath.replace(/^~/, Directories.home.replace("file://", ""));
+            Quickshell.execDetached(["python3", "-c", pyCmd, realPath, luaBlock]);
+        } else {
+            const cmd = `sed -i '/general:layout/d' ${root.persistencePath} 2>/dev/null || true; echo "general:layout = ${nextLayout}" >> ${root.persistencePath}`;
+            Quickshell.execDetached(["bash", "-c", cmd]);
+        }
+        
+        GlobalStates.hyprlandLayout = nextLayout;
+        root.layoutChanged();
+        workspaceUpdateTimer.restart(); // Refresh data with a small delay
+    }
+
+    function fetchInitialLayout() {
+        fetchLayoutProc.running = true;
+    }
+
+    Process {
+        id: fetchLayoutProc
+        command: ["hyprctl", "getoption", "general:layout", "-j"]
+        onExited: (code) => {
+            if (code === 0) {
+                try {
+                    const data = JSON.parse(stdout.readAll());
+                    if (data && data.str) {
+                        GlobalStates.hyprlandLayout = data.str;
+                    }
+                } catch(e) {}
+            }
         }
     }
+    
+    Component.onCompleted: {
+        updateAll();
+        fetchInitialLayout();
+        // Check initial special workspace state
+        Qt.callLater(function() {
+            getMonitors.running = true;
+        });
+    }
 
-    // Window titles can change at very high frequency (browsers,
-    // terminals, media applications, etc.). Debounce these events
-    // and refresh only the client/window list after title activity settles.
-    Timer {
-        id: windowTitleUpdateDebounce
-        interval: 250
-        repeat: false
-        onTriggered: root.updateWindowList()
+    // Also populate special workspace from monitor data
+    function reloadSpecialWorkspaceState() {
+        var temp = {};
+        var mons = root.monitors;
+        for (var i = 0; i < mons.length; i++) {
+            var sw = mons[i].specialWorkspace;
+            temp[mons[i].name] = sw && sw.name ? sw.name.replace("special:", "").trim() : "";
+        }
+        root.monitorSpecialWorkspace = temp;
+    }
+    
+    Component.onDestruction: {
+        getClients.running = false;
+        getMonitors.running = false;
+        getWorkspaces.running = false;
+        getActiveWorkspace.running = false;
+        getActiveWindow.window = null;
     }
 
     Connections {
         target: Hyprland
-
         function onRawEvent(event) {
-            // console.log("Hyprland raw event:", event.name);
-
-            // Keep window titles eventually consistent without causing
-            // repeated hyprctl calls during continuous title changes.
-            if (event.name === "windowtitle"
-                    || event.name === "windowtitlev2") {
-                windowTitleUpdateDebounce.restart();
-                return;
+            const name = event.name;
+            
+            // Ignore high-frequency / irrelevant events
+            if (["openlayer", "closelayer", "screencast", "mousemove", "power"].includes(name)) return;
+            
+            if (name === "workspace" || name === "focusedmon") {
+                workspaceUpdateTimer.restart();
+                activeWinUpdateTimer.restart();
+            } else if (name === "activewindow" || name === "activewindowv2") {
+                activeWinUpdateTimer.restart();
+            } else if (["openwindow", "closewindow", "movewindow", "windowtitle", "fullscreen", "changefloatingmode"].includes(name)) {
+                windowUpdateTimer.restart();
+            } else if (name === "monitoradded" || name === "monitorremoved") {
+                monitorUpdateTimer.restart();
+            } else if (name === "activelayout") {
+                // Just refresh data without heavy window listing if possible
+                workspaceUpdateTimer.restart();
+            } else if (name === "activespecial" || name === "activespecialv2") {
+                var parts = event.data.split(',');
+                var monName = name === "activespecial" ? parts[1] : parts[2];
+                var specialName = name === "activespecial" ? parts[0] : parts[1];
+                var temp = Object.assign({}, root.monitorSpecialWorkspace);
+                temp[monName] = specialName.replace("special:", "").trim();
+                root.monitorSpecialWorkspace = temp;
+            } else {
+                // Fallback for other events
+                refreshTimer.restart();
             }
+        }
+    }
 
-            switch (event.name) {
-                case "workspace":
-                case "workspacev2":
-                case "focusedmon":
-                case "activespecial":
-                case "activespecialv2":
-                    root.updateMonitors();
-                    root.updateWorkspaces();
-                    root.updateWindowList();
-                    break;
-
-                case "activewindow":
-                case "activewindowv2":
-                    root.updateWindowList();
-                    root.updateWorkspaces();
-                    break;
-
-                case "openwindow":
-                case "closewindow":
-                case "movewindow":
-                case "movewindowv2":
-                    root.updateWindowList();
-                    root.updateWorkspaces();
-                    break;
-
-                case "changefloatingmode":
-                case "fullscreen":
-                case "urgent":
-                case "minimize":
-                    root.updateWindowList();
-                    break;
-
-                case "createworkspace":
-                case "destroyworkspace":
-                case "moveworkspace":
-                case "renameworkspace":
-                    root.updateWorkspaces();
-                    break;
-
-                case "monitoradded":
-                case "monitorremoved":
-                    root.updateMonitors();
-                    root.updateWorkspaces();
-                    break;
-            }
+    Timer {
+        id: refreshTimer
+        interval: 400
+        repeat: false
+        onTriggered: {
+            updateWorkspaces();
+            updateActiveWindow();
         }
     }
 
@@ -196,52 +217,48 @@ Singleton {
         stdout: StdioCollector {
             id: clientsCollector
             onStreamFinished: {
-                root.windowList = JSON.parse(clientsCollector.text)
-                root.windowListLoaded = true;
-                let tempWinByAddress = {};
-                for (var i = 0; i < root.windowList.length; ++i) {
-                    var win = root.windowList[i];
-                    tempWinByAddress[win.address] = win;
-                }
-                root.windowByAddress = tempWinByAddress;
-                root.addresses = root.windowList.map(win => win.address);
-
-                if (root._windowListNeedsUpdate) {
-                    root._windowListNeedsUpdate = false;
-                    getClients.running = true;
-                }
+                const results = clientsCollector.text.toString().trim();
+                Qt.callLater(() => {
+                    try {
+                        if (results && results !== "null") {
+                            root.windowList = JSON.parse(results);
+                            let temp = {};
+                            for (let i = 0; i < root.windowList.length; ++i) {
+                                let win = root.windowList[i];
+                                temp[win.address] = win;
+                            }
+                            root.windowByAddress = temp;
+                        }
+                    } catch (e) {
+                        console.error("HyprlandData: JSON Parse error for clients: " + e);
+                    }
+                });
+            }
+        }
+        stderr: StdioCollector {
+            id: clientsStderr
+            onStreamFinished: {
+                const err = clientsStderr.text.trim();
+                if (err) console.warn("HyprlandData Stderr: " + err);
             }
         }
     }
 
     Process {
         id: getMonitors
-        command: ["hyprctl", "monitors", "all", "-j"]
+        command: ["hyprctl", "monitors", "-j"]
         stdout: StdioCollector {
             id: monitorsCollector
             onStreamFinished: {
-                root.monitors = JSON.parse(monitorsCollector.text);
-
-                if (root._monitorsNeedsUpdate) {
-                    root._monitorsNeedsUpdate = false;
-                    getMonitors.running = true;
-                }
-            }
-        }
-    }
-
-    Process {
-        id: getLayers
-        command: ["hyprctl", "layers", "-j"]
-        stdout: StdioCollector {
-            id: layersCollector
-            onStreamFinished: {
-                root.layers = JSON.parse(layersCollector.text);
-
-                if (root._layersNeedsUpdate) {
-                    root._layersNeedsUpdate = false;
-                    getLayers.running = true;
-                }
+                const results = monitorsCollector.text.trim();
+                Qt.callLater(() => {
+                    try {
+                        if (results) {
+                            root.monitors = JSON.parse(results);
+                            root.reloadSpecialWorkspaceState();
+                        }
+                    } catch(e) { console.error("HyprlandData: JSON Parse error for monitors", e) }
+                });
             }
         }
     }
@@ -252,21 +269,21 @@ Singleton {
         stdout: StdioCollector {
             id: workspacesCollector
             onStreamFinished: {
-                var rawWorkspaces = JSON.parse(workspacesCollector.text);
-                // Filter out invalid workspace ids (e.g. lock-screen temp workspace 2147483647 - N)
-                root.workspaces = rawWorkspaces.filter(ws => ws.id >= 1 && ws.id <= 100);
-                let tempWorkspaceById = {};
-                for (var i = 0; i < root.workspaces.length; ++i) {
-                    var ws = root.workspaces[i];
-                    tempWorkspaceById[ws.id] = ws;
-                }
-                root.workspaceById = tempWorkspaceById;
-                root.workspaceIds = root.workspaces.map(ws => ws.id);
-
-                if (root._workspacesNeedsUpdate) {
-                    root._workspacesNeedsUpdate = false;
-                    getWorkspaces.running = true;
-                }
+                const results = workspacesCollector.text.trim();
+                Qt.callLater(() => {
+                    try {
+                        if (results) {
+                            var raw = JSON.parse(results);
+                            root.workspaces = raw.filter(ws => ws.id >= 1 && ws.id <= 100);
+                            let temp = {};
+                            for (var i = 0; i < root.workspaces.length; ++i) {
+                                var ws = root.workspaces[i];
+                                temp[ws.id] = ws;
+                            }
+                            root.workspaceById = temp;
+                        }
+                    } catch(e) { console.error("HyprlandData: JSON Parse error for workspaces", e) }
+                });
             }
         }
     }
@@ -277,80 +294,33 @@ Singleton {
         stdout: StdioCollector {
             id: activeWorkspaceCollector
             onStreamFinished: {
-                root.activeWorkspace = JSON.parse(activeWorkspaceCollector.text);
-
-                if (root._activeWorkspaceNeedsUpdate) {
-                    root._activeWorkspaceNeedsUpdate = false;
-                    getActiveWorkspace.running = true;
-                }
+                const results = activeWorkspaceCollector.text.trim();
+                Qt.callLater(() => {
+                    try {
+                        if (results) root.activeWorkspace = JSON.parse(results);
+                    } catch(e) { console.error("HyprlandData: JSON Parse error for active workspace", e) }
+                });
             }
         }
     }
 
     Process {
-        id: syncWorkspaceMapProcess
-    }
-
-    function syncWorkspaceMap() {
-        if (!Config.ready || !Config.options.bar.workspaces.useWorkspaceMap) return;
-        const map = Config.options.bar.workspaces.workspaceMap;
-        if (!map || map.length === 0) return;
-        const monitorNames = root.monitors.map(m => m.name);
-        if (monitorNames.length === 0) return;
-        const shown = Config.options.bar.workspaces.shown || 10;
-        
-        syncWorkspaceMapProcess.command = [
-            "python3",
-            `${Directories.scriptPath}/hyprland/sync_workspace_map.py`,
-            JSON.stringify(map),
-            JSON.stringify(monitorNames),
-            shown.toString()
-        ];
-        syncWorkspaceMapProcess.running = true;
-    }
-
-    function syncWorkspaceGroupSize(shown) {
-        let script = `touch "$HOME/.config/hypr/custom/variables.lua" && sed -i '/workspaceGroupSize =/d' "$HOME/.config/hypr/custom/variables.lua" && echo "workspaceGroupSize = ${shown}" >> "$HOME/.config/hypr/custom/variables.lua" && hyprctl reload`;
-        Quickshell.execDetached(["bash", "-c", script]);
-    }
-
-    // Trigger sync functions on changes
-    Connections {
-        target: Config
-        function onReadyChanged() {
-            if (Config.ready) {
-                root.syncWorkspaceMap();
-                const useMap = Config.options.bar.workspaces.useWorkspaceMap;
-                const shown = Config.options.bar.workspaces.shown || 10;
-                root.syncWorkspaceGroupSize(useMap ? shown : 10);
+        id: getActiveWindow
+        command: ["hyprctl", "activewindow", "-j"]
+        stdout: StdioCollector {
+            id: activeWindowCollector
+            onStreamFinished: {
+                var raw = activeWindowCollector.text.trim();
+                Qt.callLater(() => {
+                    try {
+                        if (raw === "{}" || raw === "" || raw === "null") {
+                            root.activeWindow = null;
+                        } else {
+                            root.activeWindow = JSON.parse(raw);
+                        }
+                    } catch(e) { console.error("HyprlandData: JSON Parse error for active window", e) }
+                });
             }
         }
-    }
-
-    Connections {
-        target: Config.ready ? Config.options.bar.workspaces : null
-        ignoreUnknownSignals: true
-
-        function onWorkspaceMapChanged() {
-            root.syncWorkspaceMap();
-        }
-
-        function onUseWorkspaceMapChanged() {
-            root.syncWorkspaceMap();
-            const useMap = Config.options.bar.workspaces.useWorkspaceMap;
-            const shown = Config.options.bar.workspaces.shown || 10;
-            root.syncWorkspaceGroupSize(useMap ? shown : 10);
-        }
-
-        function onShownChanged() {
-            root.syncWorkspaceMap();
-            const useMap = Config.options.bar.workspaces.useWorkspaceMap;
-            const shown = Config.options.bar.workspaces.shown || 10;
-            root.syncWorkspaceGroupSize(useMap ? shown : 10);
-        }
-    }
-
-    onMonitorsChanged: {
-        root.syncWorkspaceMap();
     }
 }

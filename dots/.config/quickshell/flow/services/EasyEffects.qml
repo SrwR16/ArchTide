@@ -1,11 +1,10 @@
-import qs.modules.common
-import ".."
+pragma Singleton
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Services.Pipewire
-pragma Singleton
-pragma ComponentBehavior: Bound
+import "../core"
 
 /**
  * Handles EasyEffects active state and presets.
@@ -16,9 +15,6 @@ Singleton {
     property bool available: false
     property bool active: false
 
-    // Detecção se é flatpak ou nativo
-    property bool isFlatpak: false
-
     function fetchAvailability() {
         fetchAvailabilityProc.running = true
     }
@@ -28,11 +24,19 @@ Singleton {
     }
 
     function disable() {
-        disableProc.running = true
+        root.active = false
+        if (Config.ready && Config.options.system) {
+            Config.options.system.easyeffectsEnabled = false;
+        }
+        Quickshell.execDetached(["bash", "-c", "pkill easyeffects || flatpak pkill com.github.wwmm.easyeffects"])
     }
 
     function enable() {
-        enableProc.running = true
+        root.active = true
+        if (Config.ready && Config.options.system) {
+            Config.options.system.easyeffectsEnabled = true;
+        }
+        Quickshell.execDetached(["bash", "-c", "easyeffects --hide-window --service-mode || flatpak run com.github.wwmm.easyeffects --hide-window --service-mode"])
     }
 
     function toggle() {
@@ -43,88 +47,63 @@ Singleton {
         }
     }
 
-    // Verifica se EasyEffects está disponível (e se é flatpak)
-    Process {
-        id: fetchAvailabilityProc
-        running: true
-        command: ["bash", "-c", "command -v easyeffects 2>/dev/null && echo 'native' || (flatpak info com.github.wwmm.easyeffects > /dev/null 2>&1 && echo 'flatpak') || echo 'none'"]
-        stdout: SplitParser {
-            onRead: data => {
-                const trimmed = data.trim()
-                if (trimmed === "flatpak") {
-                    root.available = true
-                    root.isFlatpak = true
-                } else if (trimmed !== "none" && trimmed !== "") {
-                    root.available = true
-                    root.isFlatpak = false
+    // ENFORCEMENT: On startup, make reality match the user's last preference
+    Connections {
+        target: Config
+        function onReadyChanged() {
+            if (Config.ready && Config.options.system) {
+                const shouldBeEnabled = Config.options.system.easyeffectsEnabled;
+                
+                // If user wants it OFF, but exec-once (or something else) started it, KILL IT.
+                if (!shouldBeEnabled) {
+                    // We run pkill regardless to be sure it follows the "OFF" preference
+                    Quickshell.execDetached(["bash", "-c", "pkill easyeffects || flatpak pkill com.github.wwmm.easyeffects"])
+                } 
+                // If user wants it ON, make sure it's running
+                else if (shouldBeEnabled) {
+                    root.enable();
                 }
-            }
-        }
-        onExited: (exitCode, exitStatus) => {
-            // Depois de detectar se está disponível, verifica se está ativo
-            if (root.available) {
-                root.fetchActiveState()
             }
         }
     }
 
-    // Verifica se o processo está rodando
+    Process {
+        id: fetchAvailabilityProc
+        running: true
+        command: ["bash", "-c", "command -v easyeffects || flatpak info com.github.wwmm.easyeffects > /dev/null 2>&1"]
+        onExited: (exitCode, exitStatus) => {
+            root.available = exitCode === 0
+        }
+    }
+
     Process {
         id: fetchActiveStateProc
-        running: false
-        command: ["bash", "-c", "pgrep -x easyeffects > /dev/null 2>&1"]
+        command: ["bash", "-c", "pidof easyeffects || flatpak ps | grep com.github.wwmm.easyeffects > /dev/null 2>&1"]
         onExited: (exitCode, exitStatus) => {
             root.active = exitCode === 0
         }
     }
 
-    // Processo para desabilitar
+    // Event-driven: watch D-Bus name owner changes, trigger fetch on any change
     Process {
-        id: disableProc
-        running: false
-        command: ["bash", "-c", root.isFlatpak
-            ? "flatpak kill com.github.wwmm.easyeffects 2>/dev/null; pkill -f easyeffects 2>/dev/null; true"
-            : "pkill easyeffects 2>/dev/null; true"
-        ]
-        onExited: (exitCode, exitStatus) => {
-            // Aguarda um instante e verifica o estado real
-            verifyAfterActionTimer.start()
+        id: dbusMonitor
+        running: root.available
+        command: ["dbus-monitor", "--session", "interface=org.freedesktop.DBus", "member=NameOwnerChanged", "arg0=com.github.wwmm.easyeffects"]
+        stdout: SplitParser {
+            onRead: fetchActiveStateProc.running = true
+        }
+        onExited: {
+            if (root.available) running = true
         }
     }
 
-    // Processo para habilitar
-    Process {
-        id: enableProc
-        running: false
-        command: ["bash", "-c", root.isFlatpak
-            ? "flatpak run com.github.wwmm.easyeffects --gapplication-service &"
-            : "easyeffects --gapplication-service &"
-        ]
-        onExited: (exitCode, exitStatus) => {
-            // Aguarda o processo iniciar e verifica o estado
-            verifyAfterActionTimer.start()
-        }
-    }
-
-    // Timer para verificar estado após ação (enable/disable)
-    // Dá tempo para o processo iniciar ou morrer
-    Timer {
-        id: verifyAfterActionTimer
-        interval: 1500
-        repeat: false
-        onTriggered: {
-            root.fetchActiveState()
-        }
-    }
-
-    // Polling periódico para manter o estado sincronizado com a realidade
-    Timer {
-        id: pollingTimer
-        interval: 15000
-        running: root.available && (GlobalStates.dashboardPanelOpen || root.active)
-        repeat: true
-        onTriggered: {
-            root.fetchActiveState()
+    onAvailableChanged: {
+        if (available) {
+            fetchActiveStateProc.running = true
+            dbusMonitor.running = true
+        } else {
+            dbusMonitor.running = false
+            root.active = false
         }
     }
 }

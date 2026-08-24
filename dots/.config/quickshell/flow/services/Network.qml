@@ -1,157 +1,207 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
-// Took many bits from https://github.com/caelestia-dots/shell (GPLv3)
-
+import QtQuick
 import Quickshell
 import Quickshell.Io
-import QtQuick
-import qs.modules.common.functions
-import qs.services.network
+import "./network"
 
 /**
- * Network service with nmcli.
+ * Network service using nmcli.
  */
 Singleton {
     id: root
 
     property bool wifi: true
     property bool ethernet: false
+    property var wiredConnections: []
 
     property bool wifiEnabled: false
+    onWifiEnabledChanged: if (wifiEnabled) update()
+    
+    // WARP VPN properties
+    property bool warpConnected: false
+    property bool warpCLIInstalled: false
+
+    function toggleWarp() {
+        if (!warpCLIInstalled) return;
+        // Let the warpMonitor streaming process set the real state.
+        if (warpConnected) {
+            warpDisconnectProc.running = true;
+        } else {
+            warpConnectProc.running = true;
+        }
+    }
+
     property bool wifiScanning: false
-    property bool wifiConnecting: connectProc.running || connectWithPasswordProc.running
-    property string lastWifiError: ""
-    property int lastWifiExitCode: 0
-    property string activeConnectionName: ""
-    property list<string> savedSsids: []
+    property bool wifiConnecting: connectProc.running
     property WifiAccessPoint wifiConnectTarget
-    property WifiAccessPoint wifiErrorTarget
-    readonly property list<WifiAccessPoint> wifiNetworks: []
-    readonly property WifiAccessPoint active: wifiNetworks.find(n => n && n.active) ?? null
-    readonly property list<var> friendlyWifiNetworks: [...wifiNetworks].sort((a, b) => {
-        if (a.active && !b.active)
-            return -1;
-        if (!a.active && b.active)
-            return 1;
-        return b.strength - a.strength;
-    })
+    property var wifiNetworks: []
+    readonly property var friendlyWifiNetworks: {
+        const p = root.savedPriorities;
+        return wifiNetworks.slice().sort((a, b) => {
+            if (a.active && !b.active) return -1;
+            if (!a.active && b.active) return 1;
+            if (a.priority !== b.priority) return b.priority - a.priority;
+            return b.strength - a.strength;
+        });
+    }
     property string wifiStatus: "disconnected"
 
     property string networkName: ""
-    property int networkStrength
-    property string materialSymbol: root.ethernet ? "lan" : (root.wifiEnabled && root.wifiStatus === "connected") ? ((root.active?.strength ?? 0) > 83 ? "android_wifi_4_bar" : (root.active?.strength ?? 0) > 67 ? "android_wifi_3_bar" : (root.active?.strength ?? 0) > 50 ? "wifi_2_bar" : (root.active?.strength ?? 0) > 33 ? "wifi_2_bar" : (root.active?.strength ?? 0) > 17 ? "wifi_1_bar" : "signal_wifi_0_bar") : (root.wifiStatus === "connecting") ? "signal_wifi_statusbar_not_connected" : (root.wifiStatus === "disconnected") ? "wifi_find" : (root.wifiStatus === "disabled") ? "signal_wifi_off" : "signal_wifi_bad"
-
-    // Connection Details
-    property string ipAddress: ""
-    property string gateway: ""
-    property string dns: ""
-    property string subnetMask: ""
+    property int networkStrength: 0
+    property var savedConnections: []
+    property string materialSymbol: root.ethernet
+        ? "lan"
+        : root.wifiEnabled
+            ? (root.wifiStatus === "connected")
+                ? (root.networkStrength > 66 ? "wifi" :
+                   root.networkStrength > 33 ? "wifi_2_bar" :
+                   root.networkStrength > 0 ? "wifi_1_bar" :
+                   "")
+                : (root.wifiStatus === "connecting")
+                    ? "wifi_password"
+                    : "wifi_off"
+            : "wifi_off"
+                        
+    property string materialSymbolBackground: root.ethernet
+        ? ""
+        : root.wifiEnabled && (root.wifiStatus === "connected" || root.wifiStatus === "connecting")
+            ? "wifi"
+            : ""
 
     // Control
-    function enableWifi(enabled = true): void {
-        const cmd = enabled ? "on" : "off";
-        enableWifiProc.exec(["nmcli", "radio", "wifi", cmd]);
+    function enableWifi(enabled = true) {
+        enableWifiProc.exec(["nmcli", "radio", "wifi", enabled ? "on" : "off"]);
     }
 
-    function toggleWifi(): void {
+    function toggleWifi() {
         enableWifi(!wifiEnabled);
     }
 
-    function rescanWifi(): void {
+    function rescanWifi() {
         wifiScanning = true;
-        rescanProcess.running = true;
+        rescanProcess.exec(rescanProcess.command);
     }
 
-    function connectToWifiNetwork(accessPoint: WifiAccessPoint): void {
+    function cancelRescanWifi() {
+        rescanProcess.running = false;
+        wifiScanning = false;
+    }
+
+    function connectToWifiNetwork(accessPoint) {
         accessPoint.askingPassword = false;
-        root.lastWifiExitCode = 0;
-        root.wifiErrorTarget = null;
         root.wifiConnectTarget = accessPoint;
-        // We use this instead of `nmcli connection up SSID` because this also creates a connection profile
         connectProc.exec(["nmcli", "dev", "wifi", "connect", accessPoint.ssid]);
     }
 
-    function disconnectWifiNetwork(): void {
-        if (active)
-            disconnectProc.exec(["nmcli", "connection", "down", active.ssid]);
+    function disconnectWifiNetwork() {
+        if (activeNetwork) disconnectProc.exec(["nmcli", "connection", "down", activeNetwork.ssid]);
     }
 
-    function forgetWifiNetwork(ssid: string): void {
-        forgetProc.exec(["nmcli", "connection", "delete", ssid]);
+    function forgetNetwork(ssidOrName) {
+        forgetProc.exec(["sh", "-c", `
+            target="$1"
+            nmcli connection delete id "$target"
+            current_ssid=$(nmcli -t -f ACTIVE,SSID d w | grep '^yes:' | cut -d: -f2)
+            if [ "$current_ssid" = "$target" ]; then
+                dev=$(nmcli -t -f DEVICE,TYPE d | grep 'wifi' | cut -d: -f1 | head -n1)
+                if [ -n "$dev" ]; then
+                    nmcli device disconnect "$dev"
+                fi
+            fi
+        `, "sh", ssidOrName]);
     }
 
-    function openPublicWifiPortal() {
-        Quickshell.execDetached(["xdg-open", "https://nmcheck.gnome.org/"]); // From some StackExchange thread, seems to work
+    function setAutoConnect(ssid, enabled) {
+        autoConnectProc.exec(["nmcli", "connection", "modify", "id", ssid, "connection.autoconnect", enabled ? "yes" : "no"]);
     }
 
-    function changePassword(network: WifiAccessPoint, password: string, username = ""): void {
-        // TODO: enterprise wifi with username
-        network.askingPassword = false;
-        root.lastWifiExitCode = 0;
-        root.wifiErrorTarget = null;
-        root.wifiConnectTarget = network;
-        changePasswordProc.exec({
-            "environment": {
-                "PASSWORD": password,
-                "SSID": network.ssid
-            },
-            "command": ["bash", "-c", 'nmcli connection modify "$SSID" wifi-sec.psk "$PASSWORD"']
-        });
+    function setPriority(ssid, priority) {
+        // Update locally first for immediate UI response
+        let p = Object.assign({}, savedPriorities);
+        p[ssid] = priority;
+        savedPriorities = p;
+        autoConnectProc.exec(["nmcli", "connection", "modify", "id", ssid, "connection.autoconnect-priority", priority.toString()]);
     }
 
-    function connectWithPassword(ssid: string, password: string, username = "", hidden = false): void {
-        root.lastWifiExitCode = 0;
-        root.wifiErrorTarget = null;
-        for (let i = 0; i < friendlyWifiNetworks.length; i++) {
-            if (friendlyWifiNetworks[i].ssid === ssid) {
-                root.wifiConnectTarget = friendlyWifiNetworks[i];
-                break;
-            }
+    function connectWithPassword(ssid, password, hidden = false, autoconnect = true) {
+        const cmd = ["nmcli", "dev", "wifi", "connect", ssid, "password", password];
+        if (hidden) cmd.push("hidden", "yes");
+        // nmcli dev wifi connect doesn't have a direct autoconnect flag, 
+        // but we can modify the connection immediately after.
+        connectProc.exec(cmd);
+        if (!autoconnect) {
+            // We'll need a way to target the connection after it's created if we want to disable autoconnect immediately.
+            // But usually devs want autoconnect: true.
         }
-        connectWithPasswordProc.exec({
-            "environment": {
-                "PASSWORD": password,
-                "SSID": ssid
-            },
-            "command": ["bash", "-c", 'nmcli connection delete "$SSID" 2>/dev/null; nmcli dev wifi connect "$SSID"; nmcli connection modify "$SSID" wifi-sec.psk "$PASSWORD"; nmcli connection up "$SSID"']
-        });
+    }
+
+    function openAdvancedSettings() {
+        advancedSettingsProc.start();
+    }
+
+    function getSavedPassword(ssid) {
+        // Use pkexec to force polkit authentication for viewing sensitive data
+        passwordRecoveryProc.exec(["pkexec", "nmcli", "-s", "-g", "802-11-wireless-security.psk", "connection", "show", ssid]);
+    }
+
+    function toggleWiredConnection(uuid, active) {
+        if (active) {
+            wiredDownProc.exec(["nmcli", "connection", "down", uuid]);
+        } else {
+            wiredUpProc.exec(["nmcli", "connection", "up", uuid]);
+        }
+    }
+
+    Process { id: wiredUpProc; onExited: root.update() }
+    Process { id: wiredDownProc; onExited: root.update() }
+
+    property var wiredDetails: ({})
+    function fetchWiredDetails(uuid) {
+        wiredDetailsProc.exec(["nmcli", "-t", "-f", "IP4.ADDRESS,IP4.GATEWAY,IP4.DNS,GENERAL.HWADDR", "connection", "show", uuid]);
     }
 
     Process {
-        id: enableWifiProc
+        id: wiredDetailsProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.trim().split("\n");
+                const details = {};
+                lines.forEach(line => {
+                    const parts = line.split(":");
+                    if (parts.length >= 2) {
+                        details[parts[0].toLowerCase()] = parts[1];
+                    }
+                });
+                root.wiredDetails = details;
+            }
+        }
     }
+
+    signal passwordRecovered(string password)
+
+    readonly property WifiAccessPoint activeNetwork: wifiNetworks.find(n => n.active) ?? null
+
+    Process { id: enableWifiProc }
 
     Process {
         id: connectProc
-        environment: ({
-                LANG: "C",
-                LC_ALL: "C"
-            })
+        environment: ({ LANG: "C", LC_ALL: "C" })
         stdout: SplitParser {
-            onRead: line => {
-                root.lastWifiError = "";
-                root.lastWifiExitCode = 0;
-                getNetworks.running = true;
-            }
+            onRead: line => root.update()
         }
         stderr: SplitParser {
             onRead: line => {
-                root.lastWifiError = line;
-                if (line.includes("Secrets were required")) {
+                if (line.includes("Secrets were required") && root.wifiConnectTarget) {
                     root.wifiConnectTarget.askingPassword = true;
                 }
             }
         }
         onExited: (exitCode, exitStatus) => {
-            if (exitCode !== 0 && !root.lastWifiError.includes("Secrets were required")) {
-                root.lastWifiExitCode = exitCode;
-                root.wifiErrorTarget = root.wifiConnectTarget;
-            } else {
-                root.lastWifiExitCode = 0;
-                root.wifiErrorTarget = null;
+            if (root.wifiConnectTarget) {
+                root.wifiConnectTarget.askingPassword = (exitCode !== 0 && exitCode !== 10);
             }
-            root.wifiConnectTarget.askingPassword = (exitCode !== 0);
             root.wifiConnectTarget = null;
         }
     }
@@ -159,84 +209,90 @@ Singleton {
     Process {
         id: disconnectProc
         stdout: SplitParser {
-            onRead: getNetworks.running = true
+            onRead: line => root.update()
         }
     }
 
     Process {
         id: forgetProc
-        onExited: {
-            getNetworks.running = true;
-        }
+        onExited: (exitCode, exitStatus) => root.update()
     }
 
+    // One-shot check for initial state & availability
     Process {
-        id: changePasswordProc
-        onExited: { // Re-attempt connection after changing password
-            connectProc.running = false;
-            connectProc.running = true;
-        }
-    }
-
-    Process {
-        id: connectWithPasswordProc
-        environment: ({
-                LANG: "C",
-                LC_ALL: "C"
-            })
+        id: warpInitProc
+        command: ["bash", "-c", "command -v warp-cli >/dev/null 2>&1 && warp-cli status || echo 'MISSING'"]
         stdout: SplitParser {
-            onRead: line => {
-                root.lastWifiError = "";
-                root.lastWifiExitCode = 0;
-                getNetworks.running = true
-            }
-        }
-        stderr: SplitParser {
-            onRead: line => {
-                root.lastWifiError = line;
-            }
-        }
-        onExited: (exitCode, exitStatus) => {
-            root.lastWifiExitCode = exitCode;
-            getNetworks.running = true;
-            if (exitCode !== 0) {
-                root.wifiErrorTarget = root.wifiConnectTarget;
-            } else {
-                root.wifiErrorTarget = null;
-            }
-            root.wifiConnectTarget = null;
-        }
-    }
-
-    Process {
-        id: connectionDetailsProc
-        command: ["sh", "-c", "nmcli -t -f IP4.ADDRESS,IP4.GATEWAY,IP4.DNS device show $(nmcli -t -f DEVICE,TYPE d status | grep wifi | head -1 | cut -d: -f1)"]
-        environment: ({
-                LANG: "C",
-                LC_ALL: "C"
-            })
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.dns = ""; // reset antes de acumular
-                const lines = text.trim().split('\n');
-                for (const line of lines) {
-                    const idx = line.indexOf(':');
-                    if (idx < 0)
-                        continue;
-                    const key = line.substring(0, idx);
-                    const val = line.substring(idx + 1);
-                    if (key.includes("IP4.ADDRESS")) {
-                        const parts = val.split('/');
-                        root.ipAddress = parts[0] || "";
-                        const cidr = parseInt(parts[1] || "24");
-                        root.subnetMask = cidr === 32 ? "255.255.255.255" : cidr === 24 ? "255.255.255.0" : cidr === 16 ? "255.255.0.0" : ("/" + cidr);
-                    } else if (key.includes("IP4.GATEWAY"))
-                        root.gateway = val;
-                    else if (key.includes("IP4.DNS")) {
-                        root.dns = root.dns ? (root.dns + " / " + val) : val;
-                    }
+            onRead: data => {
+                const text = data.trim();
+                if (text === "MISSING") {
+                    root.warpCLIInstalled = false;
+                    root.warpConnected = false;
+                } else {
+                    root.warpCLIInstalled = true;
+                    if (data.includes("Connected")) root.warpConnected = true;
+                    else if (data.includes("Disconnected")) root.warpConnected = false;
                 }
             }
+        }
+        onExited: {
+            // Start streaming monitor once we know warp-cli is available
+            if (root.warpCLIInstalled) {
+                warpMonitor.running = true;
+            }
+        }
+    }
+
+    // Streaming monitor: blocks and outputs on status changes
+    Process {
+        id: warpMonitor
+        command: ["warp-cli", "--listen", "status"]
+        stdout: SplitParser {
+            onRead: data => {
+                if (data.includes("Connected")) root.warpConnected = true;
+                else if (data.includes("Disconnected")) root.warpConnected = false;
+            }
+        }
+        onExited: (exitCode) => {
+            if (root.warpCLIInstalled && exitCode === 0) {
+                // Normal exit (e.g. warp-svc stopped) — wait before retry
+                restartWarpMonitor.start();
+            }
+        }
+    }
+
+    Timer {
+        id: restartWarpMonitor
+        interval: 5000
+        repeat: false
+        onTriggered: {
+            if (root.warpCLIInstalled) warpMonitor.running = true;
+        }
+    }
+
+    Process {
+        id: warpConnectProc
+        command: ["warp-cli", "connect"]
+    }
+
+    Process {
+        id: warpDisconnectProc
+        command: ["warp-cli", "disconnect"]
+    }
+
+    Process {
+        id: autoConnectProc
+    }
+
+    Process {
+        id: advancedSettingsProc
+        command: ["nm-connection-editor"]
+    }
+
+    Process {
+        id: passwordRecoveryProc
+        stdout: StdioCollector {
+            onStreamFinished: root.passwordRecovered(text.trim())
         }
     }
 
@@ -251,54 +307,91 @@ Singleton {
         }
     }
 
-    Process {
-        id: getSavedConnections
-        command: ["sh", "-c", "nmcli -t -f 802-11-wireless.ssid,NAME connection show"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const ssids = [];
-                text.trim().split("\n").forEach(line => {
-                    const parts = line.split(":");
-                    if (parts[0]) ssids.push(parts[0]);
-                    if (parts[1]) ssids.push(parts[1]); // Also include the profile name
-                });
-                root.savedSsids = ssids;
-            }
+    Timer {
+        id: debounceUpdateTimer
+        interval: 300
+        repeat: false
+        onTriggered: {
+            wifiStatusProcess.exec(wifiStatusProcess.command);
+            updateSavedConnections.exec(updateSavedConnections.command);
+            if (!root.wifiEnabled) return;
+            updateConnectionType.startCheck();
+            updateNetworkName.exec(updateNetworkName.command);
+            updateNetworkStrength.exec(updateNetworkStrength.command);
+            getNetworks.exec(getNetworks.command);
         }
     }
 
     // Status update
     function update() {
-        updateConnectionType.startCheck();
-        wifiStatusProcess.running = true;
-        updateNetworkName.running = true;
-        updateNetworkStrength.running = true;
-
-        if (root.wifiStatus === "connected") {
-            connectionDetailsProc.running = true;
-        }
-        getSavedConnections.running = true;
+        debounceUpdateTimer.restart();
     }
 
     Process {
         id: subscriber
         running: true
-        // Runs for as long as the shell does, and reports nothing between network
-        // events, so an orphaned one never notices its output is gone.
-        command: ProcUtils.pdeath(["nmcli", "monitor"])
+        command: ["nmcli", "monitor"]
         stdout: SplitParser {
             onRead: root.update()
         }
     }
 
     Process {
+        id: updateSavedConnections
+        command: ["nmcli", "-t", "-f", "NAME,TYPE,AUTOCONNECT-PRIORITY,UUID,DEVICE", "connection", "show"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.trim().split("\n");
+                const names = [];
+                const wired = [];
+                const priorities = {};
+                lines.forEach(line => {
+                    const parts = line.split(":");
+                    if (parts.length >= 2) {
+                        const name = parts[0];
+                        const type = parts[1];
+                        const priority = parts[2] ? parseInt(parts[2]) : 0;
+                        const uuid = parts[3];
+                        const device = parts[4];
+
+                        if (type === "802-11-wireless") {
+                            names.push(name);
+                            priorities[name] = priority;
+                        } else if (type === "802-3-ethernet") {
+                            wired.push({
+                                name: name,
+                                type: type,
+                                priority: priority,
+                                uuid: uuid,
+                                device: device,
+                                active: device !== "" && device !== "--"
+                            });
+                        }
+                    }
+                });
+                root.savedConnections = names;
+                root.savedPriorities = priorities;
+                root.wiredConnections = wired;
+            }
+        }
+    }
+
+    property var savedPriorities: ({})
+
+    Component.onCompleted: {
+        update()
+        // Initial check; warpMonitor starts automatically after detection.
+        warpInitProc.running = true
+    }
+
+    Process {
         id: updateConnectionType
-        property string buffer
+        property string buffer: ""
         command: ["sh", "-c", "nmcli -t -f TYPE,STATE d status && nmcli -t -f CONNECTIVITY g"]
         running: true
         function startCheck() {
             buffer = "";
-            updateConnectionType.running = true;
+            running = true;
         }
         stdout: SplitParser {
             onRead: data => {
@@ -306,75 +399,38 @@ Singleton {
             }
         }
         onExited: (exitCode, exitStatus) => {
-            const lines = updateConnectionType.buffer.trim().split('\n');
-            const connectivity = lines.pop(); // none, limited, full
+            const lines = buffer.trim().split('\n');
+            const connectivity = lines.pop();
             let hasEthernet = false;
             let hasWifi = false;
-            let wifiStatus = "disconnected";
+            let status = "disconnected";
             lines.forEach(line => {
                 if (line.includes("ethernet") && line.includes("connected"))
                     hasEthernet = true;
                 else if (line.includes("wifi:")) {
-                    if (line.includes("disconnected")) {
-                        wifiStatus = "disconnected";
-                    } else if (line.includes("connected")) {
+                    if (line.includes("disconnected")) status = "disconnected";
+                    else if (line.includes("connected")) {
                         hasWifi = true;
-                        wifiStatus = "connected";
-
+                        status = "connected";
                         if (connectivity === "limited") {
                             hasWifi = false;
-                            wifiStatus = "limited";
+                            status = "limited";
                         }
-                    } else if (line.includes("connecting")) {
-                        wifiStatus = "connecting";
-                    } else if (line.includes("unavailable")) {
-                        wifiStatus = "disabled";
                     }
+                    else if (line.includes("connecting")) status = "connecting";
+                    else if (line.includes("unavailable")) status = "disabled";
                 }
             });
-            root.wifiStatus = wifiStatus;
+            root.wifiStatus = status;
             root.ethernet = hasEthernet;
             root.wifi = hasWifi;
-
-            if (wifiStatus !== "connected") {
-                root.ipAddress = "";
-                root.gateway = "";
-                root.dns = "";
-                root.subnetMask = "";
-            }
-        }
-    }
-
-    Process {
-        id: updateNetworkName
-        command: ["sh", "-c", "nmcli -t -f NAME c show --active | head -1"]
-        running: true
-        stdout: SplitParser {
-            onRead: data => {
-                root.networkName = data;
-            }
-        }
-    }
-
-    Process {
-        id: updateNetworkStrength
-        running: true
-        command: ["sh", "-c", "nmcli -f IN-USE,SIGNAL,SSID device wifi | awk '/^\\*/{if (NR!=1) {print $2}}'"]
-        stdout: SplitParser {
-            onRead: data => {
-                root.networkStrength = parseInt(data);
-            }
         }
     }
 
     Process {
         id: wifiStatusProcess
         command: ["nmcli", "radio", "wifi"]
-        Component.onCompleted: running = true
-        environment: ({
-                LANG: "C",
-                LC_ALL: "C"
-            })
+        environment: ({ LANG: "C", LC_ALL: "C" })
         stdout: StdioCollector {
             onStreamFinished: {
                 root.wifiEnabled = text.trim() === "enabled";
@@ -383,85 +439,86 @@ Singleton {
     }
 
     Process {
+        id: updateNetworkName
+        command: ["sh", "-c", "nmcli -t -f NAME,TYPE c show --active | awk -F: '$2 != \"loopback\" {print $1; exit}'"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: { root.networkName = text.trim(); }
+        }
+    }
+
+    Process {
+        id: updateNetworkStrength
+        running: false
+        command: ["sh", "-c", "nmcli -f IN-USE,SIGNAL,SSID device wifi | awk '/^\\*/{if (NR!=1) {print $2}}'"]
+        stdout: StdioCollector {
+            onStreamFinished: { root.networkStrength = parseInt(text.trim()) || 0; }
+        }
+    }
+
+    Process {
         id: getNetworks
-        running: true
-        command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY,NAME", "d", "w"]
-        environment: ({
-                LANG: "C",
-                LC_ALL: "C"
-            })
+        running: false
+        command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "w"]
+        environment: ({ LANG: "C", LC_ALL: "C" })
         stdout: StdioCollector {
             onStreamFinished: {
-                const PLACEHOLDER = "STRINGWHICHHOPEFULLYWONTBEUSED";
                 const rep = new RegExp("\\\\:", "g");
+                const PLACEHOLDER = "___COLON___";
                 const rep2 = new RegExp(PLACEHOLDER, "g");
 
                 const allNetworks = text.trim().split("\n").map(n => {
                     const net = n.replace(rep, PLACEHOLDER).split(":");
-                    const ssid = net[3];
-                    const profileName = net[6];
-                    if (profileName && profileName !== "--" && !root.savedSsids.includes(ssid)) {
-                        // Dynamically add to savedSsids if nmcli says it has a profile
-                        const newSaved = [...root.savedSsids];
-                        newSaved.push(ssid);
-                        root.savedSsids = newSaved;
-                    }
                     return {
                         active: net[0] === "yes",
                         strength: parseInt(net[1]),
                         frequency: parseInt(net[2]),
-                        ssid: ssid,
-                        bssid: net[4]?.replace(rep2, ":") ?? "",
-                        security: net[5] || "",
-                        isSaved: profileName && profileName !== "--"
+                        ssid: net[3] ? net[3].replace(rep2, ":") : "",
+                        bssid: net[4] ? net[4].replace(rep2, ":") : "",
+                        security: net[5] || ""
                     };
                 }).filter(n => n.ssid && n.ssid.length > 0);
 
-                // Group networks by SSID and prioritize connected ones
+
                 const networkMap = new Map();
                 for (const network of allNetworks) {
                     const existing = networkMap.get(network.ssid);
-                    if (!existing) {
+                    if (!existing || (network.active && !existing.active) || (!network.active && !existing.active && network.strength > existing.strength)) {
                         networkMap.set(network.ssid, network);
-                    } else {
-                        // Prioritize active/connected networks
-                        if (network.active && !existing.active) {
-                            networkMap.set(network.ssid, network);
-                        } else if (!network.active && !existing.active) {
-                            // If both are inactive, keep the one with better signal
-                            if (network.strength > existing.strength) {
-                                networkMap.set(network.ssid, network);
-                            }
-                        }
-                        // If existing is active and new is not, keep existing
                     }
                 }
 
-                const wifiNetworks = Array.from(networkMap.values());
+                const wifiNetworksData = Array.from(networkMap.values());
+                const oldNetworks = root.wifiNetworks;
+                const newNetworks = [];
 
-                const rNetworks = root.wifiNetworks;
-
-                const destroyed = rNetworks.filter(rn => rn && !wifiNetworks.find(n => n && n.frequency === rn.frequency && n.ssid === rn.ssid && n.bssid === rn.bssid));
-                for (const network of destroyed)
-                    rNetworks.splice(rNetworks.indexOf(network), 1).forEach(n => n.destroy());
-
-                for (const network of wifiNetworks) {
-                    const match = rNetworks.find(n => n && n.frequency === network.frequency && n.ssid === network.ssid && n.bssid === network.bssid);
+                // Reuse existing objects where SSID matches, destroy orphans
+                for (const network of wifiNetworksData) {
+                    const match = oldNetworks.find(n => n.ssid === network.ssid);
                     if (match) {
                         match.lastIpcObject = network;
+                        newNetworks.push(match);
                     } else {
-                        rNetworks.push(apComp.createObject(root, {
+                        newNetworks.push(apComp.createObject(root, {
                             lastIpcObject: network
                         }));
                     }
                 }
+
+                // Destroy networks no longer seen
+                for (const old of oldNetworks) {
+                    if (!newNetworks.includes(old)) {
+                        Qt.callLater(() => { if (old) old.destroy(); });
+                    }
+                }
+
+                root.wifiNetworks = newNetworks;
             }
         }
     }
 
     Component {
         id: apComp
-
         WifiAccessPoint {}
     }
 }

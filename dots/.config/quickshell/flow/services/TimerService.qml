@@ -1,140 +1,109 @@
 pragma Singleton
-pragma ComponentBehavior: Bound
-
-import qs.services
-import qs.modules.common
-
+import QtQuick
 import Quickshell
 import Quickshell.Io
-import QtQuick
+import "../services"
 
-/**
- * Simple Pomodoro time manager.
- */
+
 Singleton {
     id: root
 
-    property int focusTime: Config.options.time.pomodoro.focus
-    property int breakTime: Config.options.time.pomodoro.breakTime
-    property int longBreakTime: Config.options.time.pomodoro.longBreak
-    property int cyclesBeforeLongBreak: Config.options.time.pomodoro.cyclesBeforeLongBreak
+    property bool active: false
+    property bool overflowing: false
+    
+    // Configurable, saved via settings
+    property int setSeconds: 0
 
-    property bool pomodoroRunning: Persistent.states.timer.pomodoro.running
-    property bool pomodoroBreak: Persistent.states.timer.pomodoro.isBreak
-    property bool pomodoroLongBreak: Persistent.states.timer.pomodoro.isBreak && (pomodoroCycle + 1 == cyclesBeforeLongBreak);
-    property int pomodoroLapDuration: pomodoroLongBreak ? longBreakTime : pomodoroBreak ? breakTime : focusTime // This is a binding that's to be kept
-    property int pomodoroSecondsLeft: pomodoroLapDuration // Reasonable init value, to be changed
-    property int pomodoroCycle: Persistent.states.timer.pomodoro.cycle
 
-    property bool stopwatchRunning: Persistent.states.timer.stopwatch.running
-    property int stopwatchTime: 0
-    property int stopwatchStart: Persistent.states.timer.stopwatch.start
-    property var stopwatchLaps: Persistent.states.timer.stopwatch.laps
+    property double targetTimestamp: 0
+    property double remainingMs: setSeconds * 1000
 
-    // General
-    Component.onCompleted: {
-        if (!stopwatchRunning)
-            stopwatchReset();
-    }
+    readonly property real progress: (setSeconds > 0 && !overflowing) ? Math.min(1.0, Math.max(0.0, Math.ceil(remainingMs / 1000) / setSeconds)) : 0
 
-    function getCurrentTimeInSeconds() {  // Pomodoro uses Seconds
-        return Math.floor(Date.now() / 1000);
-    }
+    readonly property bool isNegative: Math.ceil(remainingMs / 1000) < 0
 
-    function getCurrentTimeIn10ms() {  // Stopwatch uses 10ms
-        return Math.floor(Date.now() / 10);
-    }
+    readonly property string timeString: formatTime(remainingMs)
 
-    // Pomodoro
-    function refreshPomodoro() {
-        // Work <-> break ?
-        if (getCurrentTimeInSeconds() >= Persistent.states.timer.pomodoro.start + pomodoroLapDuration) {
-            // Reset counts
-            Persistent.states.timer.pomodoro.isBreak = !Persistent.states.timer.pomodoro.isBreak;
-            Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds();
-
-            // Send notification
-            let notificationMessage;
-            if (Persistent.states.timer.pomodoro.isBreak && (pomodoroCycle + 1 == cyclesBeforeLongBreak)) {
-                notificationMessage = Translation.tr(`🌿 Long break: %1 minutes`).arg(Math.floor(longBreakTime / 60));
-            } else if (Persistent.states.timer.pomodoro.isBreak) {
-                notificationMessage = Translation.tr(`☕ Break: %1 minutes`).arg(Math.floor(breakTime / 60));
-            } else {
-                notificationMessage = Translation.tr(`🔴 Focus: %1 minutes`).arg(Math.floor(focusTime / 60));
-            }
-
-            Quickshell.execDetached(["notify-send", "Pomodoro", notificationMessage, "-a", "Shell", "--hint=boolean:suppress-sound:true"]);
-            SoundService.playEvent("pomodoro", "alarm-clock-elapsed");
-
-            if (!pomodoroBreak) {
-                Persistent.states.timer.pomodoro.cycle = (Persistent.states.timer.pomodoro.cycle + 1) % root.cyclesBeforeLongBreak;
-            }
-        }
-
-        pomodoroSecondsLeft = pomodoroLapDuration - (getCurrentTimeInSeconds() - Persistent.states.timer.pomodoro.start);
-    }
-
-    Timer {
-        id: pomodoroTimer
-        interval: 200
-        running: root.pomodoroRunning
-        repeat: true
-        onTriggered: refreshPomodoro()
-    }
-
-    function togglePomodoro() {
-        Persistent.states.timer.pomodoro.running = !pomodoroRunning;
-        if (Persistent.states.timer.pomodoro.running) {
-            // Start/Resume
-            Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds() + pomodoroSecondsLeft - pomodoroLapDuration;
+    function formatTime(ms) {
+        let s = Math.ceil(ms / 1000);
+        let absS = Math.abs(s);
+        const h = Math.floor(absS / 3600);
+        const m = Math.floor((absS % 3600) / 60);
+        const secs = absS % 60;
+        
+        const sign = (s < 0) ? "-" : "";
+        if (h > 0) {
+            return `${sign}${h}:${m.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        } else if (m > 0) {
+            return `${sign}${m}:${secs.toString().padStart(2, '0')}`;
+        } else {
+            return `${sign}${secs}`;
         }
     }
 
-    function resetPomodoro() {
-        Persistent.states.timer.pomodoro.running = false;
-        Persistent.states.timer.pomodoro.isBreak = false;
-        Persistent.states.timer.pomodoro.start = getCurrentTimeInSeconds();
-        Persistent.states.timer.pomodoro.cycle = 0;
-        refreshPomodoro();
+    function start() {
+        if (setSeconds <= 0) return;
+        
+        if (remainingMs <= 0 && !overflowing) {
+            remainingMs = setSeconds * 1000;
+        }
+
+        const now = Date.now();
+        targetTimestamp = now + remainingMs;
+        active = true;
     }
 
-    // Stopwatch
-    function refreshStopwatch() {  // Stopwatch stores time in 10ms
-        stopwatchTime = getCurrentTimeIn10ms() - stopwatchStart;
+    function pause() {
+        if (!active) return;
+        active = false;
+        // remainingMs is updated by the timer up to the last tick
+    }
+
+    function stop() {
+        active = false;
+        reset();
+    }
+
+    function reset() {
+        active = false;
+        overflowing = false;
+        remainingMs = setSeconds * 1000;
+        alarmProcess.running = false;
+    }
+
+    function setDuration(seconds) {
+        setSeconds = seconds;
+        reset();
+    }
+
+    function addMinute() {
+        remainingMs += 60000;
+        if (active) {
+            targetTimestamp += 60000;
+        }
+        if (remainingMs > 0 && overflowing) {
+            overflowing = false;
+        }
     }
 
     Timer {
-        id: stopwatchTimer
-        interval: 10
-        running: root.stopwatchRunning
+        id: timer
+        interval: 100
         repeat: true
-        onTriggered: refreshStopwatch()
+        running: root.active
+        onTriggered: {
+            const now = Date.now();
+            root.remainingMs = root.targetTimestamp - now;
+            
+            if (root.remainingMs <= 0 && !root.overflowing) {
+                root.overflowing = true;
+                alarmProcess.running = true;
+            }
+        }
     }
 
-    function toggleStopwatch() {
-        if (root.stopwatchRunning)
-            stopwatchPause();
-        else
-            stopwatchResume();
-    }
-
-    function stopwatchPause() {
-        Persistent.states.timer.stopwatch.running = false;
-    }
-
-    function stopwatchResume() {
-        if (stopwatchTime === 0) Persistent.states.timer.stopwatch.laps = [];
-        Persistent.states.timer.stopwatch.running = true;
-        Persistent.states.timer.stopwatch.start = getCurrentTimeIn10ms() - stopwatchTime;
-    }
-
-    function stopwatchReset() {
-        stopwatchTime = 0;
-        Persistent.states.timer.stopwatch.laps = [];
-        Persistent.states.timer.stopwatch.running = false;
-    }
-
-    function stopwatchRecordLap() {
-        Persistent.states.timer.stopwatch.laps.push(stopwatchTime);
+    Process {
+        id: alarmProcess
+        command: ["ffplay", "-nodisp", "-autoexit", "-loop", "0", `/usr/share/sounds/${Audio.audioTheme}/stereo/alarm-clock-elapsed.oga`]
     }
 }

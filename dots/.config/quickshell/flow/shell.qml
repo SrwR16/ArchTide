@@ -3,245 +3,380 @@
 //@ pragma Env QT_QUICK_CONTROLS_STYLE=Basic
 //@ pragma Env QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
 
-// Remove two slashes below and adjust the value to change the UI scale
-////@ pragma Env QT_SCALE_FACTOR=1
-
-import "modules/common"
+import "core"
 import "services"
-import "panelFamilies"
+import "widgets"
+import "panels/StatusBar"
+import "panels/Dashboard"
+import "panels/NotificationCenter"
+import "panels/QuickSettings"
+import "panels/QuickActions"
+import "panels/WallpaperSelector"
+import "panels/Background"
+import "panels/NotificationPopup"
+import "panels/OSD"
+import "panels/Lock"
+import "panels/Session"
+import "panels/Launcher"
+import "panels/SystemMonitor"
+import "panels/Polkit"
+import "panels/Dialog"
+import "panels/RegionSelector"
+import "panels/ScreenCorners"
+import "panels/Overview"
+import "panels/Dock"
+import "panels/Onboarding"
+import "panels/FloatingLyrics"
+import "panels/DatePicker"
+import "panels/TimePicker"
+import "panels/Settings"
+import "panels/NetworkDialog"
 
 import QtQuick
-import QtQuick.Window
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 
 ShellRoot {
     id: root
-    property string openRgbApplyScript: Quickshell.shellPath("scripts/colors/openRGB/apply_openrgb.py")
-    property bool openRgbStartupApplied: false
 
-    // Stuff for every panel family
-    ReloadPopup {}
+    // Reference singletons to ensure they are instantiated at startup
+    readonly property var _caffeine: Caffeine
+    readonly property var _versionService: VersionService
 
-    // Only what must be in place before the first paint. Everything else is
-    // staged in startStagedServices(), which is anchored to Config.ready so the
-    // config-gated touches below read the user's real config.json rather than
-    // the JsonAdapter's QML defaults (which is what a plain Component.onCompleted
-    // would still be holding while the config file loads asynchronously).
     Component.onCompleted: {
-        if (Qt.application) {
-            Qt.application.applicationName = "quickshell";
-            Qt.application.organizationName = "Unknown Organization";
-            Qt.application.organizationDomain = "unknown.organization";
-        }
-        MaterialThemeLoader.reapplyTheme();
-    }
-
-    // ── Staged background service startup ───────────────────────────────────
-    // The desktop only appears once Config.ready (PanelFamilyLoader gates on
-    // it), so the stages are measured from config-readiness, not process start.
-    // Stages only instantiate the optional singletons their config flags ask
-    // for: a disabled service stays uninstantiated (zero timers, zero
-    // processes, zero memory) instead of merely idling internally.
-    property bool _stagesStarted: false
-
-    function startStagedServices() {
-        if (root._stagesStarted)
-            return;
-        root._stagesStarted = true;
-        stageTheme.start();
-        stageAudio.start();
-        stageMedia.start();
-        stageOptional.start();
-        stageAnalytics.start();
-    }
-
-    function loadThemeStage() {
-        Hyprsunset.load();
-        Wallpapers.load();
-        if (Config.options?.tiling?.enable)
-            TilingAssistant.enabled; // Watches for window drags; disabled stays dormant
-        if (Config.options?.light?.darkMode?.automatic)
-            DarkModeService.automatic; // Boot resets the automatic flag by design
-    }
-
-    function loadAudioStage() {
-        SoundService.indexReady; // Scans sound themes, plays login sound if enabled
-        Cliphist.refresh();
-        ConflictKiller.load();
-    }
-
-    function loadMediaStage() {
-        if (Config.options?.background?.mediaMode?.musicVideo?.enable)
-            VideoColorSampler.active; // Samples video frames for dynamic colors
-        FirstRunExperience.load();
-        root.applyOpenRgbIfEnabled();
-    }
-
-    function loadOptionalStage() {
-        Updates.load();
-        ChangelogService.load();
-    }
-
-    function loadAnalyticsStage() {
-        if (Config.options?.appStats?.enable)
-            AppStats.stateDir; // Starts the usage sampler; must collect whether or not the overlay is open
-        if (Config.options?.googleDrive?.enabled)
-            GoogleDriveService.configured; // Keeps scheduled backups independent of Settings
-        if (Config.options?.background?.widgets?.water_reminder?.enable)
-            WaterReminderService.enabled; // Drives water reminder notifications
-        if (Config.options?.policies?.phone !== 0) {
-            KdeConnectService.available;
-            PhoneContactsService.available;
-            PhoneScrcpyService.available;
-        }
-    }
-
-    Timer { id: stageTheme;     interval: 100;  onTriggered: root.loadThemeStage(); }
-    Timer { id: stageAudio;     interval: 300;  onTriggered: root.loadAudioStage(); }
-    Timer { id: stageMedia;     interval: 800;  onTriggered: root.loadMediaStage(); }
-    Timer { id: stageOptional;  interval: 1500; onTriggered: root.loadOptionalStage(); }
-    Timer { id: stageAnalytics; interval: 2500; onTriggered: root.loadAnalyticsStage(); }
-
-    // Panel families
-    property var families: ["flow", "waffle"]
-    function cyclePanelFamily() {
-        const currentIndex = families.indexOf(Config.options.panelFamily);
-        const nextIndex = (currentIndex + 1) % families.length;
-        Config.options.panelFamily = families[nextIndex];
-    }
-
-    function applyOpenRgbIfEnabled() {
-        if (openRgbStartupApplied)
-            return;
-        if (!Config.ready)
-            return;
-        if (!(Config.options && Config.options.appearance && Config.options.appearance.openrgb && Config.options.appearance.openrgb.enable))
-            return;
-        if (!(Config.options && Config.options.appearance && Config.options.appearance.openrgb && Config.options.appearance.openrgb.applyOnStartup))
-            return;
-        openRgbStartupApplied = true;
-        openRgbApplyProc.command = ["python", openRgbApplyScript];
-        openRgbApplyProc.running = false;
-        openRgbApplyProc.running = true;
+        MaterialThemeLoader.reapplyTheme()
+        Wallpapers.syncSettings() // Ensure Wallpapers service is active and synced
+        SmartAutomation.runAutomationCycle() // Kickstart smart automation
     }
 
     Connections {
         target: Config
         function onReadyChanged() {
-            if (Config.ready) {
-                root.startStagedServices();
-                root.applyOpenRgbIfEnabled();
+            if (Config.ready && !Config.options.system.onboardingCompleted) {
+                GlobalStates.onboardingOpen = true;
             }
+        }
+    }
+
+    // ── Phase 0: Lock Screen ──
+    Lock {}
+
+    // ── Phase 1: Background ──
+    Background {}
+    DesktopWidgets {}
+    FloatingLyrics {}
+
+    // ── Phase 2: Status Bar ──
+    StatusBar {}
+    StatusBarTrayOverflow { id: trayOverflow }
+    MediaNotchPopup {}
+
+    // ── Phase 3: Popups ──
+    NotificationPopup {}
+
+    // ── Phase 4: Floating Panels (Dashboard, NotificationCenter, QuickSettings, QuickActions) ──
+    NotificationCenterPanel {}
+    QuickSettingsPanel {}
+    DashboardPanel {}
+    QuickActionsPanel {}
+
+    // ── Phase 5: Popup closer (bridges closePopups signal to panel states) ──
+    Connections {
+        target: GlobalStates
+        function onClosePopups() {
+            GlobalStates.notificationCenterOpen = false;
+            GlobalStates.quickSettingsOpen = false;
+            GlobalStates.quickSettingsEditMode = false;
+            GlobalStates.dashboardOpen = false;
+            GlobalStates.quickActionsOpen = false;
+        }
+    }
+
+    // ── Phase 6: Wallpaper Selector & Screen Decor ──
+    WallpaperSelector {}
+    ScreenCorners {}
+
+    IpcHandler {
+        target: "wallpaper"
+        function openDesktop() {
+
+            GlobalStates.wallpaperSelectorTarget = "desktop";
+            GlobalStates.wallpaperSelectorOpen = true;
+        }
+
+        function openLock() {
+
+            GlobalStates.wallpaperSelectorTarget = "lock";
+            GlobalStates.wallpaperSelectorOpen = true;
+        }
+
+        function toggle() {
+            GlobalStates.wallpaperSelectorOpen = !GlobalStates.wallpaperSelectorOpen;
+        }
+    }
+
+    // ── Phase 7: OSD ──
+    OSD {}
+
+    // ── Phase 8: Session Menu ──
+    SessionPanel {}
+
+    // ── Phase 8.5: Dock ──
+    Dock {}
+
+    // ── Phase 9: Launcher & Overview ──
+    Launcher {}
+    OverviewPopup {}
+
+    SpotlightLauncher {}
+
+    // ── Phase 10: Settings ──
+    Settings {}
+
+
+    // ── Phase 12: System Monitor & Onboarding ──
+    Loader {
+        active: GlobalStates.systemMonitorOpen
+        sourceComponent: SystemMonitorPanel {}
+    }
+    Loader {
+        active: GlobalStates.onboardingOpen
+        sourceComponent: OnboardingPanel {}
+    }
+
+    // ── Phase 13: Polkit Agent & Date / Time Pickers ──
+    PolkitPanel {}
+    DatePickerPanel {}
+    TimePickerPanel {}
+    AddNetworkPanel {}
+    DialogPanel {}
+
+    IpcHandler {
+        target: "launcher"
+        function open() { GlobalStates.launcherOpen = true }
+        function close() { GlobalStates.launcherOpen = false }
+        function toggle() { GlobalStates.launcherOpen = !GlobalStates.launcherOpen }
+    }
+
+    IpcHandler {
+        target: "spotlight"
+        function open() { 
+            GlobalStates.initialSpotlightQuery = ""; 
+            GlobalStates.spotlightOpen = true 
+        }
+        function close() { GlobalStates.spotlightOpen = false }
+        function toggle() { 
+            GlobalStates.initialSpotlightQuery = ""; 
+            GlobalStates.spotlightOpen = !GlobalStates.spotlightOpen 
+        }
+
+        function browse_avatar() {
+            avatarPickerProc.running = true;
         }
     }
 
     Process {
-        id: openRgbApplyProc
-    }
-
-    component PanelFamilyLoader: LazyLoader {
-        required property string identifier
-        property bool extraCondition: true
-        active: Config.ready && Config.options.panelFamily === identifier && extraCondition
-    }
-
-    PanelFamilyLoader {
-        identifier: "flow"
-        component: FlowFamily {}
-    }
-
-    PanelFamilyLoader {
-        identifier: "waffle"
-        component: WaffleFamily {}
-    }
-
-    // Settings app loaded in-process once requested, then kept alive briefly
-    // for fast re-opens. After the delay we drop the component to recover
-    // its QML memory. Positive configured delays are capped at five seconds;
-    // 0 still means keep it warm explicitly.
-    readonly property int settingsUnloadCapSeconds: 5
-
-    function settingsUnloadDelaySeconds() {
-        const settingsApp = Config.options && Config.options.settingsApp;
-        let configured = settingsApp && settingsApp.unloadAfterSeconds !== undefined
-            ? settingsApp.unloadAfterSeconds
-            : settingsUnloadCapSeconds;
-
-        if (configured <= 0)
-            return 0;
-        return Math.min(configured, settingsUnloadCapSeconds);
-    }
-
-    Loader {
-        id: settingsLoader
-        property bool loadedOnce: false
-        active: loadedOnce || GlobalStates.settingsOpen
-        asynchronous: true
-        source: "SettingsWindow.qml"
-
-        // When settings closes, schedule an unload pass. If the user
-        // reopens before the timer fires, the timer is reset and we
-        // keep the warm component.
-        Timer {
-            id: settingsUnloadTimer
-            interval: root.settingsUnloadDelaySeconds() * 1000
-            repeat: false
-            onTriggered: {
-                if (GlobalStates.settingsOpen)
-                    return
-                // The visual Loader only owns the Settings object tree. These
-                // singletons outlive it, so release their page-specific data
-                // before dropping the component as well.
-                SearchRegistry.clearIndex()
-                ThemePreviewCache.release()
-                WallpaperPreviewCache.release()
-                settingsLoader.loadedOnce = false
-            }
-        }
-
-        Connections {
-            target: GlobalStates
-            function onSettingsOpenChanged() {
-                if (GlobalStates.settingsOpen) {
-                    settingsUnloadTimer.stop()
-                    if (!settingsLoader.loadedOnce)
-                        settingsLoader.loadedOnce = true
-                } else {
-                    const s = root.settingsUnloadDelaySeconds()
-                    if (s > 0) {
-                        settingsUnloadTimer.interval = s * 1000
-                        settingsUnloadTimer.restart()
-                    }
+        id: avatarPickerProc
+        command: ["zenity", "--file-selection", "--title=Select Avatar", "--file-filter=Images | *.png *.jpg *.jpeg *.webp *.svg", "--modal"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const path = this.text.trim();
+                if (path !== "") {
+                    Config.options.bar.avatar_path = path;
+                    Config.options.profile.avatarPicture = path;
                 }
             }
         }
     }
 
-    // Welcome runs in-process so it shares Config, GlobalStates and the same
-    // Quickshell lifecycle as Settings. Unlike Settings, the onboarding is
-    // destroyed as soon as it closes so costly page trees do not stay warm.
-    Loader {
-        id: welcomeLoader
-        active: Config.ready && GlobalStates.welcomeOpen
-        asynchronous: true
-        source: "modules/welcome/WelcomeWindow.qml"
+    Connections {
+        target: Wallpapers
+        function onPickerFinished() {
+            GlobalStates.wallpaperSelectorOpen = true;
+        }
     }
 
-    // Shortcuts
     IpcHandler {
-        target: "panelFamily"
+        target: "settings"
+        function open() { GlobalStates.activateSettings() }
+        function open_direct() { GlobalStates.settingsOpen = true }
+        function close() { GlobalStates.settingsOpen = false }
+        function toggle() { GlobalStates.activateSettings() }
+    }
 
-        function cycle() {
-            root.cyclePanelFamily();
+    IpcHandler {
+        target: "notifications"
+        function open() { GlobalStates.notificationCenterOpen = true }
+        function close() { GlobalStates.notificationCenterOpen = false }
+        function toggle() { GlobalStates.notificationCenterOpen = !GlobalStates.notificationCenterOpen }
+    }
+
+    IpcHandler {
+        target: "quicksettings"
+        function open() { GlobalStates.quickSettingsOpen = true }
+        function close() { GlobalStates.quickSettingsOpen = false }
+        function toggle() { GlobalStates.quickSettingsOpen = !GlobalStates.quickSettingsOpen }
+    }
+
+    IpcHandler {
+        target: "quickactions"
+        function open() { GlobalStates.quickActionsOpen = true }
+        function close() { GlobalStates.quickActionsOpen = false }
+        function toggle() { GlobalStates.quickActionsOpen = !GlobalStates.quickActionsOpen }
+    }
+
+    GlobalShortcut {
+        name: "quickActions"
+        description: "Toggles the quick actions panel"
+        onPressed: GlobalStates.quickActionsOpen = !GlobalStates.quickActionsOpen
+    }
+
+    IpcHandler {
+        target: "overview"
+        function open() { GlobalStates.overviewOpen = true }
+        function close() { GlobalStates.overviewOpen = false }
+        function toggle() { GlobalStates.overviewOpen = !GlobalStates.overviewOpen }
+    }
+
+    IpcHandler {
+        target: "dashboard"
+        function open() { GlobalStates.dashboardOpen = true }
+        function close() { GlobalStates.dashboardOpen = false }
+        function toggle() { GlobalStates.dashboardOpen = !GlobalStates.dashboardOpen }
+    }
+
+    // ==========================================
+    // Native Wayland Global Shortcuts
+    // ==========================================
+    GlobalShortcut {
+        name: "spotlightEmoji"
+        description: "Open Spotlight in Emoji mode"
+        onPressed: {
+            GlobalStates.initialSpotlightQuery = ":"
+            GlobalStates.spotlightOpen = true
         }
     }
 
     GlobalShortcut {
-        name: "panelFamilyCycle"
-        description: "Cycles panel family"
+        name: "spotlightFiles"
+        description: "Open Spotlight in File search mode"
+        onPressed: {
+            GlobalStates.initialSpotlightQuery = "/"
+            GlobalStates.spotlightOpen = true
+        }
+    }
 
-        onPressed: root.cyclePanelFamily()
+    GlobalShortcut {
+        name: "spotlightCommand"
+        description: "Open Spotlight in Command mode"
+        onPressed: {
+            GlobalStates.initialSpotlightQuery = ">"
+            GlobalStates.spotlightOpen = true
+        }
+    }
+
+    GlobalShortcut {
+        name: "spotlightTools"
+        description: "Open Spotlight in Tools mode"
+        onPressed: {
+            GlobalStates.initialSpotlightQuery = "."
+            GlobalStates.spotlightOpen = true
+        }
+    }
+
+    GlobalShortcut {
+        name: "spotlightClipboard"
+        description: "Open Spotlight in Clipboard mode"
+        onPressed: {
+            GlobalStates.initialSpotlightQuery = ";"
+            GlobalStates.spotlightOpen = true
+        }
+    }
+
+    IpcHandler {
+        target: "session"
+        function open() { GlobalStates.sessionOpen = true }
+        function close() { GlobalStates.sessionOpen = false }
+        function toggle() { GlobalStates.sessionOpen = !GlobalStates.sessionOpen }
+    }
+
+    IpcHandler {
+        target: "pomodoro"
+        function start() { PomodoroService.start() }
+        function pause() { PomodoroService.pause() }
+        function stop() { PomodoroService.stop() }
+        function reset() { 
+            PomodoroService.reset();
+            PomodoroService.rotations = 0;
+        }
+    }
+
+    IpcHandler {
+        target: "systemmonitor"
+        function open() { GlobalStates.activateSystemMonitor() }
+        function open_direct() { GlobalStates.systemMonitorOpen = true }
+        function close() { GlobalStates.systemMonitorOpen = false }
+        function toggle() { GlobalStates.activateSystemMonitor() }
+    }
+
+    // ── Phase 14: Region Selector ──
+    RegionSelector { id: regionSelector }
+    RecordingMarker {}
+
+    GlobalShortcut {
+        name: "regionScreenshot"
+        description: "Takes a screenshot of the selected region"
+        onPressed: regionSelector.screenshot()
+    }
+    GlobalShortcut {
+        name: "regionSearch"
+        description: "Searches the selected region"
+        onPressed: regionSelector.search()
+    }
+    GlobalShortcut {
+        name: "regionOcr"
+        description: "Recognizes text in the selected region"
+        onPressed: regionSelector.ocr()
+    }
+    GlobalShortcut {
+        name: "regionRecord"
+        description: "Records the selected region"
+        onPressed: regionSelector.record()
+    }
+    GlobalShortcut {
+        name: "regionRecordWithSound"
+        description: "Records the selected region with sound"
+        onPressed: regionSelector.recordWithSound()
+    }
+    GlobalShortcut {
+        name: "regionQRCode"
+        description: "Scans a QR code in the selected region"
+        onPressed: regionSelector.qrcode()
+    }
+
+    // ── Phase 15: Screenshot Overlay ──
+    AccentPicker {}
+
+    Variants {
+        model: Quickshell.screens
+        
+        Loader {
+            id: screenshotOverlayLoader
+            required property var modelData
+            active: true
+            sourceComponent: ScreenshotOverlay {
+                targetScreen: screenshotOverlayLoader.modelData
+            }
+
+            Connections {
+                target: GlobalStates
+                function onScreenshotTaken(path) {
+                    if (Config.options.screenshot.showPreview) {
+                        screenshotOverlayLoader.item.imagePath = path;
+                    }
+                }
+            }
+        }
     }
 }

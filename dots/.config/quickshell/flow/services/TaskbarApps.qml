@@ -1,299 +1,272 @@
 pragma Singleton
-import qs.modules.common
+
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Wayland
+import "../core"
+import "../services"
 
+/**
+ * TaskbarApps Service
+ * Fixed: Ensured new apps are immediately detected and added to the model.
+ */
 Singleton {
     id: root
 
-    // ── Desktop entry cache ───────────────────────────────────────────────
-    property var _desktopEntryCache: ({})
+    property var _entryCache: ({})
+    property list<string> unpinnedOrder: []
+    // Bumped on every pin change so UI bindings (e.g. launcher favorites) can re-evaluate.
+    property int pinVersion: 0
 
-    function getCachedDesktopEntry(appId) {
-        if (!appId) return null
-        if (_desktopEntryCache.hasOwnProperty(appId))
-            return _desktopEntryCache[appId]
-        const entry = DesktopEntries.heuristicLookup(appId)
-        _desktopEntryCache[appId] = entry ?? null
-        return _desktopEntryCache[appId]
+    // Resolve any app id (desktop entry id, window class/appId, or display name)
+    // into the matching DesktopEntry. Falls back to a robust multi-step lookup
+    // instead of the weak built-in heuristicLookup().
+    function resolveEntry(appId) {
+        if (!appId) return null;
+        if (_entryCache[appId]) return _entryCache[appId];
+        const entry = root.lookupEntry(appId);
+        if (entry) _entryCache[appId] = entry;
+        return entry;
     }
 
-    function getCachedIcon(appId) {
-        if (!appId) return ""
-        return AppSearch.guessIcon(appId)
+    function lookupEntry(appId) {
+        const lowId = appId.toLowerCase();
+
+        const exact = DesktopEntries.byId(appId);
+        if (exact && !exact.noDisplay) return exact;
+        // Remember a NoDisplay exact match as fallback (e.g. hidden spotify.desktop
+        // shadowing the visible spotify-adblock.desktop that shares StartupWMClass).
+
+        // Window classes that differ from desktop entry ids (e.g. brave-browser -> brave-desktop)
+        if (AppSearch.substitutions && AppSearch.substitutions[lowId]) {
+            const sub = DesktopEntries.byId(AppSearch.substitutions[lowId]);
+            if (sub && !sub.noDisplay) return sub;
+        }
+
+        // DesktopEntries.applications already excludes NoDisplay entries, so the
+        // scans below always prefer visible entries over hidden ones.
+        const apps = Array.from(DesktopEntries.applications.values);
+
+        // StartupWMClass / id match
+        for (const app of apps) {
+            if (app.startupClass && app.startupClass.toLowerCase() === lowId) return app;
+            if (app.id && app.id.toLowerCase() === lowId) return app;
+        }
+
+        // Exact display-name match (e.g. window class "Brave Browser" -> entry named "Brave Browser")
+        for (const app of apps) {
+            if (app.name && app.name.toLowerCase() === lowId) return app;
+            if (app.genericName && app.genericName.toLowerCase() === lowId) return app;
+        }
+
+        // Executable basename match (e.g. window class "code" -> entry executing "code")
+        for (const app of apps) {
+            if (app.command && app.command.length > 0) {
+                const execBase = String(app.command[0]).split("/").pop().toLowerCase();
+                if (execBase === lowId) return app;
+            }
+        }
+
+        return exact || null;
     }
 
-    function invalidateDesktopEntryCache() {
-        _desktopEntryCache = {}
+    function getDesktopEntry(appId) {
+        return root.resolveEntry(appId);
     }
 
-    Connections {
-        target: DesktopEntries
-        function onApplicationsChanged() { root.invalidateDesktopEntryCache() }
+    // Canonical identity used for matching pins and running apps.
+    function resolveId(appId) {
+        if (!appId) return appId;
+        const entry = root.resolveEntry(appId);
+        return entry ? entry.id.toLowerCase() : appId.toLowerCase();
     }
 
-    // ── App ID normalization ──────────────────────────────────────────────
-    // Strips the .desktop suffix and lowercases for consistent comparisons
+    // Normalize a running window's appId to its desktop entry id so pinned
+    // favorites and running windows of the same app always merge.
     function normalizeAppId(appId) {
-        if (!appId) return ""
-        let id = appId.toLowerCase().trim()
-        if (id.endsWith(".desktop"))
-            id = id.substring(0, id.length - 8)
-        return id
+        return root.resolveId(appId);
     }
 
-    // ── Pinned app helpers ────────────────────────────────────────────────
     function isPinned(appId) {
-        if (!appId) return false
-        const norm = normalizeAppId(appId)
-        return Config.options.dock.pinnedApps.some(id => normalizeAppId(id) === norm)
+        if (!Config.ready) return false;
+        const id = root.resolveId(appId);
+        // Resolve both sides so legacy pins (e.g. "spotify") match their canonical id (e.g. "spotify-adblock").
+        return Config.options.dock.pinnedApps.map(p => root.resolveId(p).toLowerCase()).indexOf(id) !== -1;
     }
 
     function togglePin(appId) {
-        if (!appId) return
-        const norm = normalizeAppId(appId)
-        const current = Config.options.dock.pinnedApps ?? []
-        Config.options.dock.pinnedApps = isPinned(appId)
-            ? current.filter(id => normalizeAppId(id) !== norm)
-            : current.concat([appId])
+        if (!Config.ready || !appId) return;
+        const entry = root.resolveEntry(appId);
+        const storeId = entry ? entry.id : appId;
+        const storeLow = storeId.toLowerCase();
+
+        // Normalize existing pins to their canonical ids first (migrates legacy entries).
+        let pinned = Array.from(Config.options.dock.pinnedApps).map(p => root.resolveId(p));
+
+        const idx = pinned.map(p => p.toLowerCase()).indexOf(storeLow);
+        if (idx !== -1) pinned.splice(idx, 1);
+        else pinned.push(storeId);
+        Config.options.dock.pinnedApps = pinned;
+        root.pinVersion++;
     }
 
-    function reorderPinnedApp(fromAppId, toAppId) {
-        if (fromAppId === toAppId) return
-        const pinned = Array.from(Config.options.dock.pinnedApps)
-        const fromIdx = pinned.indexOf(fromAppId)
-        const toIdx = pinned.indexOf(toAppId)
-        if (fromIdx === -1 || toIdx === -1) return
-        pinned.splice(toIdx, 0, pinned.splice(fromIdx, 1)[0])
-        Config.options.dock.pinnedApps = pinned
-    }
-
-    // ── Pinned file helpers ───────────────────────────────────────────────
-    function _cleanPinnedFilePath(path) {
-        let cleanPath = String(path ?? "").trim().replace(/^file:\/\//, "")
-        try {
-            cleanPath = decodeURIComponent(cleanPath)
-        } catch (error) {
-            // Keep the original value when an external drag supplies malformed URI data.
-        }
-        if (cleanPath.length > 1)
-            cleanPath = cleanPath.replace(/\/+$/, "")
-        return cleanPath
-    }
-
-    // Keep the visual file slots in dock.order while changing only which
-    // pinned path occupies each slot. This lets Settings reorder folders
-    // without disturbing the positions of apps, actions, or widgets.
-    function _rebuildPinnedFileSlots(files) {
-        const nextFiles = Array.from(files ?? [])
-        const order = Array.from(Config.options?.dock?.order ?? [])
-        const nextOrder = []
-        let fileIndex = 0
-
-        for (const entry of order) {
-            if (String(entry).startsWith("file:")) {
-                if (fileIndex < nextFiles.length)
-                    nextOrder.push("file:" + nextFiles[fileIndex++])
-                continue
+    function moveApp(appId, direction) {
+        if (!appId || !Config.ready) return;
+        const pinnedApps = Array.from(Config.options.dock.pinnedApps);
+        const lowId = appId.toLowerCase();
+        const resolvedPinned = pinnedApps.map(p => root.resolveId(p).toLowerCase());
+        const isPinned = resolvedPinned.includes(lowId);
+        
+        if (isPinned) {
+            const idx = resolvedPinned.indexOf(lowId);
+            const target = idx + direction;
+            if (target >= 0 && target < pinnedApps.length) {
+                pinnedApps.splice(idx, 1);
+                pinnedApps.splice(target, 0, appId);
+                Config.options.dock.pinnedApps = pinnedApps;
             }
-            nextOrder.push(entry)
-        }
-
-        while (fileIndex < nextFiles.length) {
-            const fileKey = "file:" + nextFiles[fileIndex++]
-            const trashIndex = nextOrder.indexOf("trash")
-            if (trashIndex >= 0)
-                nextOrder.splice(trashIndex, 0, fileKey)
-            else
-                nextOrder.push(fileKey)
-        }
-
-        Config.options.dock.order = nextOrder
-    }
-
-    function addPinnedFile(path) {
-        const cleanPath = root._cleanPinnedFilePath(path)
-        if (!cleanPath) return
-        const current = Config.options?.dock?.pinnedFiles ?? []
-        if (current.includes(cleanPath)) return
-        const nextFiles = current.concat([cleanPath])
-        Config.options.dock.pinnedFiles = nextFiles
-        root._rebuildPinnedFileSlots(nextFiles)
-    }
-
-    function removePinnedFile(path) {
-        const cleanPath = root._cleanPinnedFilePath(path)
-        const current = Config.options?.dock?.pinnedFiles ?? []
-        if (!current.includes(cleanPath)) return
-        const nextFiles = current.filter(p => p !== cleanPath)
-        Config.options.dock.pinnedFiles = nextFiles
-        root._rebuildPinnedFileSlots(nextFiles)
-    }
-
-    function reorderPinnedFile(fromPath, toPath) {
-        const cleanFromPath = root._cleanPinnedFilePath(fromPath)
-        const cleanToPath = root._cleanPinnedFilePath(toPath)
-        if (!cleanFromPath || !cleanToPath || cleanFromPath === cleanToPath) return
-        const files = Array.from(Config.options?.dock?.pinnedFiles ?? [])
-        const fromIdx = files.indexOf(cleanFromPath)
-        const toIdx = files.indexOf(cleanToPath)
-        if (fromIdx === -1 || toIdx === -1) return
-        files.splice(toIdx, 0, files.splice(fromIdx, 1)[0])
-        Config.options.dock.pinnedFiles = files
-        root._rebuildPinnedFileSlots(files)
-    }
-
-    function reorderPinnedFileByIndex(fromIndex, toIndex) {
-        if (fromIndex === toIndex) return
-        const files = Array.from(Config.options?.dock?.pinnedFiles ?? [])
-        if (fromIndex < 0 || fromIndex >= files.length || toIndex < 0 || toIndex >= files.length)
-            return
-        files.splice(toIndex, 0, files.splice(fromIndex, 1)[0])
-        Config.options.dock.pinnedFiles = files
-        root._rebuildPinnedFileSlots(files)
-    }
-
-    // The dock drag gesture edits dock.order directly. Reflect its file-slot
-    // order back into pinnedFiles so the Settings list stays truthful.
-    function syncPinnedFileOrder() {
-        const files = Array.from(Config.options?.dock?.pinnedFiles ?? [])
-        const orderedFiles = []
-        const order = Config.options?.dock?.order ?? []
-
-        for (const entry of order) {
-            if (!String(entry).startsWith("file:")) continue
-            const path = String(entry).substring(5)
-            if (files.includes(path) && !orderedFiles.includes(path))
-                orderedFiles.push(path)
-        }
-        for (const path of files) {
-            if (!orderedFiles.includes(path))
-                orderedFiles.push(path)
-        }
-
-        if (orderedFiles.length !== files.length || orderedFiles.some((path, index) => path !== files[index]))
-            Config.options.dock.pinnedFiles = orderedFiles
-    }
-
-    function reorderPinned(fromIndex, toIndex) {
-        if (fromIndex === toIndex) return
-        var pinned = Array.from(Config.options.dock.pinnedApps)
-        if (fromIndex < 0 || fromIndex >= pinned.length || toIndex < 0 || toIndex >= pinned.length) return
-        pinned.splice(toIndex, 0, pinned.splice(fromIndex, 1)[0])
-        Config.options.dock.pinnedApps = pinned
-    }
-
-    function reorderOrder(fromIndex, toIndex) {
-        if (fromIndex === toIndex) return
-        var order = Array.from(Config.options.dock.order)
-        if (fromIndex < 0 || fromIndex >= order.length || toIndex < 0 || toIndex >= order.length) return
-        order.splice(toIndex, 0, order.splice(fromIndex, 1)[0])
-        Config.options.dock.order = order
-        root.syncPinnedFileOrder()
-    }
-
-    // ── Icon theme refresh ────────────────────────────────────────────────
-    // Bumped several times after a theme change to force icon reload across the dock
-    // TODO if loading the wallpaper takes too much time, the icons fail to change, i didn't find a better way
-    property int iconThemeRevision: 0
-
-    Timer {
-        id: themeRefreshTimer
-        interval: 300
-        repeat: true
-        property int count: 0
-        onTriggered: {
-            root.iconThemeRevision += 1
-            if (++count >= 6) {
-                count = 0
-                stop()
+        } else {
+            const unpinned = Array.from(root.unpinnedOrder);
+            const idx = unpinned.indexOf(lowId);
+            if (idx === -1) return;
+            const target = idx + direction;
+            if (target >= 0 && target < unpinned.length) {
+                unpinned.splice(idx, 1);
+                unpinned.splice(target, 0, lowId);
+                root.unpinnedOrder = unpinned;
             }
         }
     }
+
+    // Main Model Binding
+    property list<var> apps: {
+        if (!Config.ready) return [];
+        
+        // FORCED TRIGGERS: Ensure any change in toplevels triggers a rebuild
+        const _count = ToplevelManager.toplevels.values.length; 
+        const _toplevels = ToplevelManager.toplevels.values;
+        const _entryCount = DesktopEntries.applications.values.length;
+        const pinnedApps = Config.options.dock.pinnedApps ?? [];
+        const ignoredRegexStrings = Config.options.dock.ignoredAppRegexes ?? [];
+        const ignoredRegexes = ignoredRegexStrings.map(pattern => new RegExp(pattern, "i"));
+
+        // Normalize pinned ids to their canonical desktop entry ids so they merge
+        // with running windows and launch the right (visible) entry.
+        // E.g. pinned "spotify" becomes "spotify-adblock" because spotify.desktop is NoDisplay.
+        const normalizedPinned = pinnedApps.map(p => root.resolveId(p));
+        const normalizedPinnedSet = normalizedPinned.map(p => p.toLowerCase());
+        if (pinnedApps.length !== normalizedPinned.length ||
+            pinnedApps.some((p, i) => p.toLowerCase() !== normalizedPinned[i])) {
+            Qt.callLater(() => { Config.options.dock.pinnedApps = normalizedPinned; });
+        }
+
+        const map = new Map();
+        let currentRunningIds = [];
+
+        // 1. Process Pinned Apps
+        for (const appId of normalizedPinned) {
+            const id = appId.toLowerCase();
+            if (!map.has(id)) {
+                map.set(id, { appId: id, pinned: true, toplevels: [] });
+            }
+        }
+
+        // 2. Process Running Windows (Wayland Toplevels)
+        for (const toplevel of _toplevels) {
+            if (!toplevel || !toplevel.appId) continue;
+            if (ignoredRegexes.some(re => re.test(toplevel.appId))) continue;
+            
+            const id = root.normalizeAppId(toplevel.appId);
+            if (!currentRunningIds.includes(id)) currentRunningIds.push(id);
+
+            if (!map.has(id)) {
+                map.set(id, { appId: id, pinned: false, toplevels: [] });
+            }
+            
+            // Add toplevel if not already present in the list for this appId
+            const existingToplevels = map.get(id).toplevels;
+            if (!existingToplevels.includes(toplevel)) {
+                existingToplevels.push(toplevel);
+            }
+        }
+
+        // 3. Sync unpinnedOrder
+        let updatedUnpinnedOrder = root.unpinnedOrder.filter(id => {
+            // Keep if still running and not pinned
+            return currentRunningIds.includes(id) && !normalizedPinnedSet.includes(id);
+        });
+
+        // Add any NEWLY opened apps to the end of the unpinned order
+        for (const id of currentRunningIds) {
+            if (!normalizedPinnedSet.includes(id) && !updatedUnpinnedOrder.includes(id)) {
+                updatedUnpinnedOrder.push(id);
+            }
+        }
+
+        // Apply unpinned order update if it changed
+        if (JSON.stringify(updatedUnpinnedOrder) !== JSON.stringify(root.unpinnedOrder)) {
+            Qt.callLater(() => { root.unpinnedOrder = updatedUnpinnedOrder; });
+        }
+
+        // 4. Final Ordered List of IDs
+        let orderedIds = [];
+        for (const id of normalizedPinned) orderedIds.push(id.toLowerCase());
+        for (const id of updatedUnpinnedOrder) {
+            if (!orderedIds.includes(id)) orderedIds.push(id);
+        }
+
+        // 5. Map to persistent Pool Objects
+        let finalResult = [];
+        for (const id of orderedIds) {
+            const data = map.get(id);
+            if (!data) continue;
+
+            let wrapper = null;
+            for (let i = 0; i < pool.length; i++) {
+                if (pool[i] && pool[i].appId === id) {
+                    wrapper = pool[i];
+                    break;
+                }
+            }
+
+            if (!wrapper) {
+                wrapper = appEntryComp.createObject(root, { appId: id });
+                pool.push(wrapper);
+            }
+
+            wrapper.toplevels = data.toplevels;
+            wrapper.pinned = data.pinned;
+            finalResult.push(wrapper);
+        }
+
+        // 6. Cleanup Pool (Deferred)
+        Qt.callLater(() => {
+            for (let i = pool.length - 1; i >= 0; i--) {
+                if (pool[i] && !finalResult.includes(pool[i])) {
+                    const old = pool.splice(i, 1)[0];
+                    if (old) old.destroy();
+                }
+            }
+        });
+
+        return finalResult;
+    }
+
+    property var pool: []
 
     Connections {
-        target: Appearance.m3colors
-        function onM3primaryChanged() {
-            themeRefreshTimer.count = 0
-            themeRefreshTimer.restart()
+        target: DesktopEntries.applications
+        function onValuesChanged() {
+            root._entryCache = {};
         }
     }
 
-    // ── XDG user directories ──────────────────────────────────────────────
-    property var xdgUserDirs: ({})
-
-    FileView {
-        id: xdgDirsFile
-        path: Quickshell.env("HOME") + "/.config/user-dirs.dirs"
-        blockLoading: true
-        onLoaded: {
-            const home = Quickshell.env("HOME")
-            const keyMap = {
-                "XDG_DOWNLOAD_DIR": "downloads",
-                "XDG_DOCUMENTS_DIR": "documents",
-                "XDG_PICTURES_DIR": "pictures",
-                "XDG_MUSIC_DIR": "music",
-                "XDG_VIDEOS_DIR": "videos",
-                "XDG_DESKTOP_DIR": "desktop",
-                "XDG_PUBLICSHARE_DIR": "publicshare",
-                "XDG_TEMPLATES_DIR": "templates",
-            }
-            const result = {}
-            for (const line of xdgDirsFile.text().split("\n")) {
-                const match = line.match(/^(\w+)="(.+)"$/)
-                if (!match) continue
-                const key = keyMap[match[1]]
-                if (key) result[key] = match[2].replace("$HOME", home)
-            }
-            root.xdgUserDirs = result
+    Component {
+        id: appEntryComp
+        QtObject {
+            property string appId: ""
+            property list<var> toplevels: []
+            property bool pinned: false
         }
-    }
-
-    // ── App model ─────────────────────────────────────────────────────────
-    // Merges pinned apps (from config) with running toplevels (from the compositor).
-    // Pinned apps without open windows are included; running apps not in the pinned
-    // list are appended at the end.
-    property var apps: {
-        const pinnedMap = new Map()
-        const unpinnedMap = new Map()
-        const pinnedApps = Config.options?.dock.pinnedApps ?? []
-
-        const ignoredRegexes = (Config.options?.dock.ignoredAppRegexes ?? []).map(pattern => {
-            try   { return new RegExp(pattern, "i") }
-            catch(e) { return new RegExp("^$") }
-        })
-
-        for (const appId of pinnedApps) {
-            if (appId) pinnedMap.set(appId, { pinned: true, toplevels: [] })
-        }
-
-        for (const toplevel of ToplevelManager.toplevels.values) {
-            if (!toplevel?.appId) continue
-            if (ignoredRegexes.some(re => re.test(toplevel.appId))) continue
-
-            const normToplevel = normalizeAppId(toplevel.appId)
-            let matchedKey = null
-            for (const key of pinnedMap.keys()) {
-                if (normalizeAppId(key) === normToplevel) { matchedKey = key; break }
-            }
-
-            if (matchedKey !== null) {
-                pinnedMap.get(matchedKey).toplevels.push(toplevel)
-            } else {
-                const id = toplevel.appId
-                if (!unpinnedMap.has(id))
-                    unpinnedMap.set(id, { pinned: false, toplevels: [] })
-                unpinnedMap.get(id).toplevels.push(toplevel)
-            }
-        }
-
-        const values = []
-        for (const [key, value] of pinnedMap)
-            values.push({ appId: key, toplevels: value.toplevels, pinned: true })
-        for (const [key, value] of unpinnedMap)
-            values.push({ appId: key, toplevels: value.toplevels, pinned: false })
-        return values
     }
 }

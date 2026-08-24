@@ -1,9 +1,11 @@
 #!/bin/bash
+# Ported from 'ii'
+# FLOW Music Recognition Script
+# Optimized to use native songrec recognition
 
-INTERVAL=2
+INTERVAL=5
 TOTAL_DURATION=30
 SOURCE_TYPE="monitor"  # monitor | input
-FIFO=$(mktemp -u /tmp/songrec_out_XXXXXX)
 
 while getopts "i:t:s:" opt; do
   case $opt in
@@ -14,49 +16,36 @@ while getopts "i:t:s:" opt; do
   esac
 done
 
+# Try to find the device string for songrec
+if [ "$SOURCE_TYPE" = "monitor" ]; then
+    # Look for the default sink's monitor
+    DEFAULT_SINK=$(pactl get-default-sink)
+    DEVICE_STRING=$(songrec recognize -l | grep "$DEFAULT_SINK.monitor" | head -n 1 | awk '{print $4}')
+    
+    # Fallback: just search for any monitor if specific one fails
+    if [ -z "$DEVICE_STRING" ]; then
+        DEVICE_STRING=$(songrec recognize -l | grep ".monitor" | head -n 1 | awk '{print $4}')
+    fi
+else
+    # Look for default input source
+    DEFAULT_SOURCE=$(pactl get-default-source)
+    DEVICE_STRING=$(songrec recognize -l | grep "$DEFAULT_SOURCE" | head -n 1 | awk '{print $4}')
+    
+    # Fallback: search for any analog-stereo input
+    if [ -z "$DEVICE_STRING" ]; then
+        DEVICE_STRING=$(songrec recognize -l | grep "input" | grep -v ".monitor" | head -n 1 | awk '{print $4}')
+    fi
+fi
+
 if ! command -v songrec >/dev/null 2>&1; then
     exit 1
 fi
 
-if [ "$SOURCE_TYPE" = "monitor" ]; then
-    AUDIO_DEVICE=$(pactl info | grep "Default Sink:" | awk '{print $3}').monitor
-elif [ "$SOURCE_TYPE" = "input" ]; then
-    AUDIO_DEVICE=$(pactl info | grep "Default Source:" | awk '{print $3}' || true)
+# Run songrec directly. -j for JSON, -i for interval.
+# We use timeout command to limit the duration.
+if [ -n "$DEVICE_STRING" ]; then
+    timeout "$TOTAL_DURATION" songrec recognize -j -d "$DEVICE_STRING" -i "$INTERVAL"
 else
-    echo "Invalid source type"
-    exit 1
+    # Last resort: just use default mic
+    timeout "$TOTAL_DURATION" songrec recognize -j -i "$INTERVAL"
 fi
-
-if [ -z "$AUDIO_DEVICE" ] || ! pactl list short sources | grep -Fq "$AUDIO_DEVICE"; then
-    # Fallback to the first available source if default monitor/source check fails
-    AUDIO_DEVICE=$(pactl list short sources | head -n 1 | awk '{print $2}')
-    if [ -z "$AUDIO_DEVICE" ]; then
-        exit 1
-    fi
-fi
-
-mkfifo "$FIFO"
-
-cleanup() {
-    kill "$SONGREC_PID" 2>/dev/null || true
-    wait "$SONGREC_PID" 2>/dev/null
-    rm -f "$FIFO"
-}
-trap cleanup EXIT
-
-songrec listen --audio-device "$AUDIO_DEVICE" --json --disable-mpris > "$FIFO" &
-SONGREC_PID=$!
-
-( sleep "$TOTAL_DURATION" && kill "$SONGREC_PID" 2>/dev/null ) &
-
-while IFS= read -r line; do
-    if echo "$line" | grep -q '"matches": \['; then
-        if echo "$line" | grep -q '"matches": \[\]'; then
-            continue
-        fi
-        echo "$line"
-        exit 0
-    fi
-done < "$FIFO"
-
-exit 0

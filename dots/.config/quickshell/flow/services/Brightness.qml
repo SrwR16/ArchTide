@@ -4,56 +4,54 @@ pragma ComponentBehavior: Bound
 // From https://github.com/caelestia-dots/shell with modifications.
 // License: GPLv3
 
-import qs.modules.common
-import qs.modules.common.functions
+import "../core"
+import "../core/functions"
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
+import "."
 
 /**
  * For managing brightness of monitors. Supports both brightnessctl and ddcutil.
  */
 Singleton {
     id: root
-    signal brightnessChanged
+    signal brightnessUpdated()
 
     property var ddcMonitors: []
     readonly property list<BrightnessMonitor> monitors: Quickshell.screens.map(screen => monitorComp.createObject(root, {
-            screen
-        }))
-    // Hyprland's follow_mouse=1 keeps focusedMonitor aligned with the output
-    // under the pointer, including when a global shortcut is used.
-    readonly property var targetScreen: Quickshell.screens.find(screen => screen.name === (Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : "")) || Quickshell.screens[0] || null
+        screen
+    }))
 
     function getMonitorForScreen(screen: ShellScreen): var {
         return monitors.find(m => m.screen === screen);
     }
 
-    function getTargetMonitor(): var {
-        return root.getMonitorForScreen(root.targetScreen);
+    function getMonitorByName(name: string): var {
+        return monitors.find(m => m.screen.name === name);
     }
 
     function increaseBrightness(): void {
-        // if gamma is not yet 100, first increase gamma
+        const focusedName = Hyprland.focusedMonitor.name;
+        const monitor = monitors.find(m => focusedName === m.screen.name);
+        // If gamma is not yet 100, first increase gamma
         if (Hyprsunset.gamma !== 100) {
-            Hyprsunset.setGamma(Hyprsunset.gamma + 5);
+            Hyprsunset.setGamma(Hyprsunset.gamma + 0.05 * (100 - Hyprsunset.gammaLowerLimit));
             return;
         }
-
-        const monitor = root.getTargetMonitor();
         if (monitor)
             monitor.setBrightness(monitor.brightness + 0.05);
     }
 
     function decreaseBrightness(): void {
-        const monitor = root.getTargetMonitor();
+        const focusedName = Hyprland.focusedMonitor.name;
+        const monitor = monitors.find(m => focusedName === m.screen.name);
         if (monitor && monitor.brightness > 0)
             monitor.setBrightness(monitor.brightness - 0.05);
-        else
-        // if brightness is 0, then decrease gamma
-        {
-            Hyprsunset.setGamma(Hyprsunset.gamma - 5);
+        // If brightness is 0, then decrease gamma (dims further)
+        else {
+            Hyprsunset.setGamma(Hyprsunset.gamma - 0.05 * (100 - Hyprsunset.gammaLowerLimit));
         }
     }
 
@@ -83,14 +81,21 @@ Singleton {
             onRead: data => {
                 if (data.startsWith("Display ")) {
                     const lines = data.split("\n").map(l => l.trim());
+                    const name = lines.find(l => l.startsWith("DRM connector:")).split("-").slice(1).join('-');
+                    const bus = lines.find(l => l.startsWith("I2C bus:")).split("/dev/i2c-")[1];
+                    // console.log("DEBUG: Found DDC monitor: " + name + " on bus " + bus);
                     root.ddcMonitors.push({
-                        name: lines.find(l => l.startsWith("DRM connector:")).split("-").slice(1).join('-'),
-                        busNum: lines.find(l => l.startsWith("I2C bus:")).split("/dev/i2c-")[1]
+                        name: name,
+                        busNum: bus
                     });
                 }
             }
         }
         onExited: root.ddcDetectFinished()
+    }
+
+    Process {
+        id: setProc
     }
 
     component BrightnessMonitor: QtObject {
@@ -101,15 +106,15 @@ Singleton {
         property string busNum
         property int rawMaxBrightness: 100
         property real brightness
-        property real brightnessMultiplier: 1.0
-        property real multipliedBrightness: Math.max(0, Math.min(1, brightness * (Config.options.light.antiFlashbang.enable ? brightnessMultiplier : 1)))
+
+        property real multipliedBrightness: Math.max(0, Math.min(1, brightness))
         property bool ready: false
-        property bool animateChanges: !monitor.isDdc
+        property bool animateChanges: false // set in initialize
+        property bool internalUpdate: false
 
         onBrightnessChanged: {
-            if (!monitor.ready)
-                return;
-            root.brightnessChanged();
+            if (!monitor.ready) return;
+            root.brightnessUpdated();
         }
 
         Behavior on multipliedBrightness {
@@ -121,10 +126,8 @@ Singleton {
             }
         }
         onMultipliedBrightnessChanged: {
-            if (monitor.animateChanges)
-                syncBrightness();
-            else
-                setTimer.restart();
+            if (monitor.animateChanges) syncBrightness();
+            else setTimer.restart();
         }
 
         function initialize() {
@@ -132,25 +135,78 @@ Singleton {
             const match = root.ddcMonitors.find(m => m.name === screen.name && !root.monitors.slice(0, root.monitors.indexOf(this)).some(mon => mon.busNum === m.busNum));
             isDdc = !!match;
             busNum = match?.busNum ?? "";
-            initProc.command = isDdc ? ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"] : ["sh", "-c", `echo "a b c $(brightnessctl g) $(brightnessctl m)"`];
+            animateChanges = !isDdc;
+            // Try to find backlight device name
+            // brightnessctl -l returns "Device 'name' ..."
+            // We can just trust `brightnessctl -m` which gives: name,class,current,max_percent,max_absolute
+            // e.g. amdgpu_bl1,backlight,38211,59%,64764
+            // Wait, output format of -m: `name,class,current,max,percent`
+            initProc.command = isDdc ? ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"] : ["sh", "-c", `brightnessctl -m | head -n 1`];
+            // initProc.command = isDdc ? ["ddcutil", "-b", busNum, "getvcp", "10", "--brief"] : ["sh", "-c", `echo "a b c $(brightnessctl g) $(brightnessctl m)"`];
             initProc.running = true;
         }
 
         readonly property Process initProc: Process {
             stdout: SplitParser {
                 onRead: data => {
-                    const [, , , current, max] = data.split(" ");
-                    monitor.rawMaxBrightness = parseInt(max);
-                    monitor.brightness = parseInt(current) / monitor.rawMaxBrightness;
+                    // DDC: VCP 10 C 50 100
+                    // Non-DDC (brightnessctl -m): name,class,current,max_percent,max_abs
+                    // e.g. amdgpu_bl1,backlight,38211,59%,64764
+                    
+                    if (monitor.isDdc) {
+                         const parts = data.split(" ");
+                         // VCP 10 C <current> <max>
+                         if (parts.length >= 5) {
+                             monitor.animateChanges = false; // Snap
+                             monitor.internalUpdate = true;
+                             monitor.rawMaxBrightness = parseInt(parts[4]);
+                             monitor.brightness = parseInt(parts[3]) / monitor.rawMaxBrightness;
+                             monitor.internalUpdate = false;
+                             monitor.animateChanges = !monitor.isDdc; // Restore
+                         }
+                    } else {
+                        // brightnessctl -m
+                        const parts = data.split(",");
+                        if (parts.length >= 5) {
+                            const name = parts[0];
+                            const current = parseInt(parts[2]);
+                            const max = parseInt(parts[4]);
+                            
+                            monitor.busNum = name; // misuse busNum to store device name for watcher
+                            monitor.animateChanges = false; // Snap
+                            monitor.internalUpdate = true;
+                            monitor.rawMaxBrightness = max;
+                            monitor.brightness = current / max;
+                            monitor.internalUpdate = false;
+                            monitor.animateChanges = !monitor.isDdc; // Restore
+                        } else {
+                            // Fallback for old parsing if needed, but we changed the command
+                        }
+                    }
+
+                    monitor.internalUpdate = true; // Set flag before updating brightness
                     monitor.ready = true;
+                    monitor.internalUpdate = false; // Reset flag
                 }
             }
             onExited: (exitCode, exitStatus) => {
                 initializeMonitor(root.monitors.indexOf(monitor) + 1);
             }
         }
+        
+        property var watcher: Timer {
+            id: brightnessTimer
+            interval: 100
+            repeat: true
+            running: false // DISABLING WATCHER: This causes jitter with UI animations
+            onTriggered: {
+                // Poll brightness
+                if (!monitor.initProc.running) {
+                     monitor.initProc.running = true
+                }
+            }
+        }
 
-        readonly property Process setProc: Process {}
 
         // We need a delay for DDC monitors because they can be quite slow and might act weird with rapid changes
         property var setTimer: Timer {
@@ -162,16 +218,17 @@ Singleton {
         }
 
         function syncBrightness() {
+            if (monitor.internalUpdate) return; // Don't write back if we just read from system
+            
             const brightnessValue = Math.max(monitor.multipliedBrightness, 0);
             if (isDdc) {
                 const rawValueRounded = Math.max(Math.floor(brightnessValue * monitor.rawMaxBrightness), 1);
-                monitor.setProc.exec(["ddcutil", "-b", busNum, "setvcp", "10", rawValueRounded]);
+                setProc.exec(["ddcutil", "-b", busNum, "setvcp", "10", rawValueRounded]);
             } else {
-                const valuePercentNumber = Math.floor(brightnessValue * 100);
+                const valuePercentNumber = Math.round(brightnessValue * 100); // Use round to avoid drift
                 let valuePercent = `${valuePercentNumber}%`;
-                if (valuePercentNumber == 0)
-                    valuePercent = "1"; // Prevent fully black
-                monitor.setProc.exec(["brightnessctl", "--class", "backlight", "s", valuePercent, "--quiet"]);
+                if (valuePercentNumber == 0) valuePercent = "1"; // Prevent fully black
+                setProc.exec(["brightnessctl", "--class", "backlight", "s", valuePercent, "--quiet"])
             }
         }
 
@@ -180,9 +237,7 @@ Singleton {
             monitor.brightness = value;
         }
 
-        function setBrightnessMultiplier(value: real): void {
-            monitor.brightnessMultiplier = value;
-        }
+
     }
 
     Component {
@@ -191,61 +246,7 @@ Singleton {
         BrightnessMonitor {}
     }
 
-    // Anti-flashbang
-    property int workspaceAnimationDelay: 500
-    property int contentSwitchDelay: 30
-    property string screenshotDir: `/tmp/quickshell-${SystemInfo.username}/brightness/antiflashbang`
-    function brightnessMultiplierForLightness(x: real): real {
-        // I hand picked some values and fitted an exponential curve for this
-        // 6.600135 + 216.360356 * e^(-0.0811129189x)
-        // Division by 100 is to normalize to [0, 1]
-        return (6.600135 + 216.360356 * Math.pow(Math.E, -0.0811129189 * x)) / 100.0;
-    }
-    Variants {
-        model: Quickshell.screens
-        Scope {
-            id: screenScope
-            required property var modelData
-            property string screenName: modelData.name
-            property string screenshotPath: `${root.screenshotDir}/screenshot-${screenName}.png`
-            Connections {
-                enabled: Config.options.light.antiFlashbang.enable && Appearance.m3colors.darkmode
-                target: Hyprland
-                function onRawEvent(event) {
-                    if (["activewindowv2", "windowtitlev2"].includes(event.name)) {
-                        screenshotTimer.interval = root.contentSwitchDelay;
-                        screenshotTimer.restart();
-                    } else if (["workspacev2"].includes(event.name)) {
-                        screenshotTimer.interval = root.workspaceAnimationDelay;
-                        screenshotTimer.restart();
-                    }
-                }
-            }
 
-            Timer {
-                id: screenshotTimer
-                interval: 700 // This is what I have for a Hyprland ws anim
-                onTriggered: {
-                    screenshotProc.running = false;
-                    screenshotProc.running = true;
-                }
-            }
-
-            Process {
-                id: screenshotProc
-                command: ["bash", "-c", `mkdir -p '${StringUtils.shellSingleQuoteEscape(root.screenshotDir)}'` + ` && grim -o '${StringUtils.shellSingleQuoteEscape(screenScope.screenName)}' -` + ` | magick png:- -colorspace Gray -format "%[fx:mean*100]" info:`]
-                stdout: StdioCollector {
-                    id: lightnessCollector
-                    onStreamFinished: {
-                        Quickshell.execDetached(["rm", screenScope.screenshotPath]); // Cleanup
-                        const lightness = lightnessCollector.text;
-                        const newMultiplier = root.brightnessMultiplierForLightness(parseFloat(lightness));
-                        Brightness.getMonitorForScreen(screenScope.modelData).setBrightnessMultiplier(newMultiplier);
-                    }
-                }
-            }
-        }
-    }
 
     // External trigger points
 
@@ -253,11 +254,15 @@ Singleton {
         target: "brightness"
 
         function increment() {
-            root.increaseBrightness();
+            root.increaseBrightness()
         }
 
         function decrement() {
-            root.decreaseBrightness();
+            root.decreaseBrightness()
+        }
+
+        function show() {
+            root.brightnessUpdated()
         }
     }
 

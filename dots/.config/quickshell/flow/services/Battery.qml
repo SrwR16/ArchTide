@@ -1,213 +1,107 @@
 pragma Singleton
 
-import qs.services
-import qs.modules.common
-import Quickshell
-import Quickshell.Services.UPower
+import "../core"
 import QtQuick
+import Quickshell
 import Quickshell.Io
+import Quickshell.Services.UPower
 
+/**
+ * Real battery service using UPower.
+ * Exposes: available, percentage, isCharging, isPluggedIn, chargeState.
+ * Low/critical thresholds driven by Config.
+ */
 Singleton {
     id: root
-    property bool available: UPower.displayDevice.isLaptopBattery
-    property var chargeState: UPower.displayDevice.state
+    
+    // Find the actual battery device (usually battery_BAT0) for detailed stats
+    readonly property var batteryDevice: {
+        const devices = UPower.devices.values;
+        for (let i = 0; i < devices.length; i++) {
+            if (devices[i].isLaptopBattery) return devices[i];
+        }
+        return UPower.displayDevice;
+    }
+
+    property bool available: batteryDevice?.isLaptopBattery ?? false
+    property var chargeState: batteryDevice?.state ?? UPowerDeviceState.Unknown
     property bool isCharging: chargeState == UPowerDeviceState.Charging
-    property bool isPluggedIn: isCharging || chargeState == UPowerDeviceState.PendingCharge || chargeState == UPowerDeviceState.Full
-    property real percentage: UPower.displayDevice?.percentage ?? 1
-    readonly property bool allowAutomaticSuspend: Config.options.battery.automaticSuspend
+    property bool isPluggedIn: isCharging || chargeState == UPowerDeviceState.PendingCharge || chargeState == UPowerDeviceState.FullyCharged
+    property real percentage: batteryDevice?.percentage ?? 1
+
+    // New Stats for v1.2
+    property real energyRate: batteryDevice?.changeRate ?? 0
+    property real timeToEmpty: batteryDevice?.timeToEmpty ?? 0
+    property real timeToFull: batteryDevice?.timeToFull ?? 0
+    
+    // Hardware Details — bind reactive UPower properties directly
+    property string model: batteryDevice?.model ?? "Generic Battery"
+    property real energy: batteryDevice?.energy ?? 0
+    property real energyFull: batteryDevice?.energyCapacity ?? 0
+
+    // Static details not exposed via UPowerDevice — one-shot fetch on startup
+    property string vendor: "Unknown"
+    property string technology: "Unknown"
+    property real voltage: 0
+    property real energyFullDesign: 0
+    property string serial: "Not Available"
+    property int cycles: 0
+
+    property real health: {
+        if (batteryDevice?.healthSupported) {
+            const h = batteryDevice.healthPercentage;
+            if (h === 0) return 0.01;
+            if (h < 1) return h * 100;
+            return h;
+        }
+        if (energyFullDesign > 0 && energyFull > 0) {
+            return Math.min(100, (energyFull / energyFullDesign) * 100);
+        }
+        return 0;
+    }
+
+    // One-shot fetch for static details not on UPowerDevice
+    Process {
+        id: detailProc
+        command: ["bash", "-c", "upower -i $(upower -e | grep 'battery' | head -n1)"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = this.text.split("\n");
+                lines.forEach(line => {
+                    const parts = line.split(":");
+                    if (parts.length < 2) return;
+                    const key = parts[0].trim();
+                    const val = parts[1].trim();
+                    if (key === "vendor") root.vendor = val;
+                    if (key === "technology") root.technology = val;
+                    if (key === "voltage") root.voltage = parseFloat(val);
+                    if (key === "energy-full-design") root.energyFullDesign = parseFloat(val);
+                    if (key === "serial") root.serial = val;
+                    if (key === "charge-cycles") root.cycles = parseInt(val);
+                });
+            }
+        }
+    }
+
+    onAvailableChanged: if (available) detailProc.running = true
 
     property bool isLow: available && (percentage <= Config.options.battery.low / 100)
     property bool isCritical: available && (percentage <= Config.options.battery.critical / 100)
-    property bool isSuspending: available && (percentage <= Config.options.battery.suspend / 100)
-    property bool isFull: available && (percentage >= Config.options.battery.full / 100)
 
-    property bool isLowAndNotCharging: isLow && !isCharging
-    property bool isCriticalAndNotCharging: isCritical && !isCharging
-    property bool isSuspendingAndNotCharging: allowAutomaticSuspend && isSuspending && !isCharging
-    property bool isFullAndCharging: isFull && isCharging
-
-    property real energyRate: UPower.displayDevice.changeRate
-    property real timeToEmpty: UPower.displayDevice.timeToEmpty
-    property real timeToFull: UPower.displayDevice.timeToFull
-
-    property real health: (function() {
-        const devList = UPower.devices.values;
-        for (let i = 0; i < devList.length; ++i) {
-            const dev = devList[i];
-            if (dev.isLaptopBattery && dev.healthSupported) {
-                const health = dev.healthPercentage;
-                if (health === 0) {
-                    return 0.01;
-                } else if (health < 1) {
-                    return health * 100;
-                } else {
-                    return health;
-                }
-            }
-        }
-        return 0;
-    })()
-
-    property string batteryNativePath: {
-        const devList = UPower.devices.values;
-        for (let i = 0; i < devList.length; ++i) {
-            const dev = devList[i];
-            if (dev.isLaptopBattery) {
-                return dev.nativePath;
-            }
-        }
-        return "";
+    // Material symbol for status bar
+    property string materialSymbol: {
+        if (!available) return "battery_unknown";
+        if (isCharging) return "battery_charging_full";
+        if (percentage > 0.95) return "battery_full";
+        if (percentage > 0.80) return "battery_6_bar";
+        if (percentage > 0.65) return "battery_5_bar";
+        if (percentage > 0.50) return "battery_4_bar";
+        if (percentage > 0.35) return "battery_3_bar";
+        if (percentage > 0.20) return "battery_2_bar";
+        if (percentage > 0.10) return "battery_1_bar";
+        return "battery_alert";
     }
 
-    property int cycles: -1
-
-    // Charge limit: standard kernel ABI first, then known vendor-specific locations (TLP-style)
-    readonly property var chargeLimitCandidates: {
-        const paths = [];
-        if (!available) return paths;
-        if (batteryNativePath) {
-            paths.push({ path: `/sys/class/power_supply/${batteryNativePath}/charge_control_end_threshold`, type: "plain" });
-            paths.push({ path: `/sys/devices/platform/smapi/${batteryNativePath}/stop_charge_thresh`, type: "plain" });
-        }
-        paths.push({ path: "/sys/devices/platform/huawei-wmi/charge_control_thresholds", type: "last" });
-        paths.push({ path: "/sys/devices/platform/lg-laptop/battery_care_limit", type: "plain" });
-        paths.push({ path: "/sys/devices/platform/sony-laptop/battery_care_limiter", type: "plain" });
-        paths.push({ path: "/sys/devices/platform/samsung/battery_life_extender", type: "bool80" });
-        return paths;
-    }
-    property int chargeLimitCandidateIndex: 0
-    property int chargeLimit: 100 // 0 or 100 = no limit
-    readonly property bool chargeLimitActive: available && chargeLimit > 0 && chargeLimit < 100
-
-    // At the limit the firmware reports Discharging/PendingCharge at ~0W even though AC is plugged in,
-    // so the AC line (UPower.onBattery) is the reliable signal, not the battery state
-    readonly property bool chargeLimitReached: chargeLimitActive && !UPower.onBattery
-        && !isCharging && (percentage * 100 >= chargeLimit - 1)
-
-    // Time until the effective full point (charge limit if active, otherwise UPower's estimate)
-    readonly property real timeToFullEffective: {
-        if (!chargeLimitActive) return timeToFull;
-        const dev = UPower.displayDevice;
-        const rate = Math.abs(dev.changeRate);
-        if (dev.energyCapacity > 0 && rate > 0.01) {
-            const remaining = dev.energyCapacity * (chargeLimit / 100) - dev.energy;
-            return Math.max(0, remaining / rate * 3600);
-        }
-        if (percentage < 1 && timeToFull > 0) {
-            return timeToFull * Math.max(0, chargeLimit / 100 - percentage) / (1 - percentage);
-        }
-        return 0;
-    }
-
-    function parseChargeLimit(content, type) {
-        if (type === "bool80") return content === "1" ? 80 : 100;
-        const parts = content.split(/\s+/);
-        const val = parseInt(type === "last" ? parts[parts.length - 1] : parts[0], 10);
-        if (isNaN(val) || val <= 0) return 100;
-        return Math.min(val, 100);
-    }
-
-    FileView {
-        id: chargeLimitFile
-        path: root.chargeLimitCandidates[root.chargeLimitCandidateIndex]?.path ?? ""
-        onLoaded: {
-            const candidate = root.chargeLimitCandidates[root.chargeLimitCandidateIndex];
-            root.chargeLimit = root.parseChargeLimit(text().trim(), candidate.type);
-        }
-        onLoadFailed: {
-            if (root.chargeLimitCandidateIndex < root.chargeLimitCandidates.length - 1) {
-                root.chargeLimitCandidateIndex++;
-            } else {
-                root.chargeLimit = 100;
-            }
-        }
-    }
-
-    FileView {
-        id: cycleCountFile
-        path: root.batteryNativePath ? `/sys/class/power_supply/${root.batteryNativePath}/cycle_count` : ""
-        onLoaded: {
-            const content = text().trim();
-            const val = parseInt(content, 10);
-            if (!isNaN(val)) {
-                root.cycles = val;
-            } else {
-                root.cycles = -1;
-            }
-        }
-        onLoadFailed: {
-            root.cycles = -1;
-        }
-    }
-
-    onBatteryNativePathChanged: {
-        cycleCountFile.reload();
-        root.chargeLimitCandidateIndex = 0;
-        chargeLimitFile.reload();
-    }
-
-    onChargeStateChanged: {
-        cycleCountFile.reload();
-        root.chargeLimitCandidateIndex = 0;
-        chargeLimitFile.reload();
-    }
-
-    onIsLowAndNotChargingChanged: {
-        if (!root.available || !isLowAndNotCharging) return;
-        Quickshell.execDetached([
-            "notify-send", 
-            Translation.tr("Low battery"), 
-            Translation.tr("Consider plugging in your device"), 
-            "-u", "critical",
-            "-a", "Shell",
-            "--hint=int:transient:1",
-            "--hint=boolean:suppress-sound:true",
-        ])
-
-        SoundService.playEvent("battery", ["battery-low", "dialog-warning"]);
-    }
-
-    onIsCriticalAndNotChargingChanged: {
-        if (!root.available || !isCriticalAndNotCharging) return;
-        Quickshell.execDetached([
-            "notify-send", 
-            Translation.tr("Critically low battery"), 
-            Translation.tr("Please charge!\nAutomatic suspend triggers at %1%").arg(Config.options.battery.suspend), 
-            "-u", "critical",
-            "-a", "Shell",
-            "--hint=int:transient:1",
-            "--hint=boolean:suppress-sound:true",
-        ]);
-
-        SoundService.playEvent("battery", ["battery-caution", "suspend-error", "dialog-error"]);
-    }
-
-    onIsSuspendingAndNotChargingChanged: {
-        if (root.available && isSuspendingAndNotCharging) {
-            Quickshell.execDetached(["bash", "-c", `systemctl suspend || loginctl suspend`]);
-        }
-    }
-
-    onIsFullAndChargingChanged: {
-        if (!root.available || !isFullAndCharging) return;
-        Quickshell.execDetached([
-            "notify-send",
-            Translation.tr("Battery full"),
-            Translation.tr("Please unplug the charger"),
-            "-a", "Shell",
-            "--hint=int:transient:1",
-            "--hint=boolean:suppress-sound:true",
-        ]);
-
-        SoundService.playEvent("battery", ["battery-full", "complete", "dialog-information"]);
-    }
-
-    onIsPluggedInChanged: {
-        if (!root.available) return;
-        if (isPluggedIn) {
-            SoundService.playEvent("battery", "power-plug");
-        } else {
-            SoundService.playEvent("battery", "power-unplug");
-        }
-    }
+    // Percentage text for display
+    property string percentageText: available ? `${Math.round(percentage * 100)}%` : ""
 }

@@ -1,555 +1,294 @@
 pragma Singleton
 
-import qs.modules.common
-import qs.modules.common.functions
+/**
+ * ╔════════════ SEARCH INDEX REGISTRY ════════════╗
+ * ║                                               ║
+ * ║ IMPORTANT: When adding new settings pages or  ║
+ * ║ sub-components, you MUST register the .qml    ║
+ * ║ file path in the startIndexing() function     ║
+ * ║ below to make it searchable.                  ║
+ * ║                                               ║
+ * ╚═══════════════════════════════════════════════╝
+ */
+
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../core"
+import "."
 
 Item {
     id: root
 
-    property list<var> sections: []
-    property var fileSources: ({})
-    property var fileImportsBySource: ({})
-    property bool settingsActive: false
-    property bool indexing: false
-    property bool indexed: false
-
-    signal indexReady
-
     property string currentSearch: ""
-    onCurrentSearchChanged: {
-        console.log("Current found search result string:", currentSearch);
-    }
+    property var sections: []
+    property bool isIndexing: pageFile.currentIndex < pageFile.files.length && pageFile.files.length > 0
+    // Requested jump from the launcher: { pageIndex, query }.
+    // Settings.qml consumes it to switch pages and trigger the SearchHandler highlight.
+    property var pendingJump: null
 
     function startIndexing() {
-        if (!root.settingsActive || root.indexing)
-            return;
-
-        sections = [];
-        fileSources = ({});
-        fileImportsBySource = ({});
-        root.indexed = false;
-        root.indexing = true;
-        let configRoot = FileUtils.trimFileProtocol(Directories.config) + "/quickshell/flow/";
-        let basePath = configRoot + "modules/settings/configs/";
-
-        let files = [];
-        let ids = [];
-        let subPages = [];
-        for (let p of SettingsPageRegistry.pages) {
-            if (p.searchable === false)
-                continue;
-            files.push(configRoot + p.component);
-            ids.push(p.id);
-            subPages.push("");
-            for (let sub of (p.subPages ?? [])) {
-                files.push(basePath + sub);
-                ids.push(p.id);
-                subPages.push(sub);
-            }
-            // Progressive settings sections live outside the page file, but
-            // are not sub-pages. Index them with an empty subPage so a search
-            // result navigates to the parent page and waits for the section's
-            // own lazy loader instead of trying to open the source as a page.
-            for (let source of (p.searchSources ?? [])) {
-                files.push(basePath + source);
-                ids.push(p.id);
-                subPages.push("");
-            }
-        }
-
-        pageFile.start(files, ids, subPages);
-        listPresetsSearchProc.running = false;
-        listPresetsSearchProc.running = true;
-
-        if (files.length === 0) {
-            root.indexing = false;
-            root.indexed = true;
-            root.indexReady();
-        }
+        sections = []
+        pageFile.startIndex([
+            { file: "panels/Settings/pages/Network/NetworkSettings.qml", pageIndex: 0 },
+            { file: "panels/Settings/pages/Network/NetworkMainView.qml", pageIndex: 0 },
+            { file: "panels/Settings/pages/Network/NetworkSavedView.qml", pageIndex: 0 },
+            { file: "panels/Settings/pages/Network/NetworkWiredView.qml", pageIndex: 0 },
+            { file: "panels/Settings/pages/Bluetooth/BluetoothSettings.qml", pageIndex: 1 },
+            { file: "panels/Settings/pages/Audio/AudioSettings.qml", pageIndex: 2 },
+            { file: "panels/Settings/pages/Display/DisplaySettings.qml", pageIndex: 3 },
+            { file: "panels/Settings/pages/Display/DisplayEyeCare.qml", pageIndex: 3 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsWallpaperCycle.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsWallpaperTransition.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WallpaperStyleSettings.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsThemeColor.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsLauncher.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsDock.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsOverview.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsCava.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsLockscreen.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsOverlay.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsStatusBar.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsScreenDecor.qml", pageIndex: 4 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsTypography.qml", pageIndex: 4 },
+            // Widgets Page components (pageIndex: 5)
+            { file: "panels/Settings/pages/Widgets/WidgetsSettings.qml", pageIndex: 5 },
+            { file: "panels/Settings/pages/WallpaperStyle/WsClock.qml", pageIndex: 5 },
+            { file: "panels/Settings/pages/Widgets/WsAtAGlance.qml", pageIndex: 5 },
+            { file: "panels/Settings/pages/Widgets/WsDesktopMedia.qml", pageIndex: 5 },
+            { file: "panels/Settings/pages/Widgets/WsSystemMonitor.qml", pageIndex: 5 },
+            { file: "panels/Settings/pages/Widgets/WsWeather.qml", pageIndex: 5 },
+            { file: "panels/Settings/pages/Widgets/WsCurrency.qml", pageIndex: 5 },
+            { file: "panels/Settings/pages/Widgets/WsGithub.qml", pageIndex: 5 },
+            // System Page components (pageIndex: 6)
+            { file: "panels/Settings/pages/System/SystemSettings.qml", pageIndex: 6 },
+            { file: "panels/Settings/pages/System/SysDateTime.qml", pageIndex: 6 },
+            { file: "panels/Settings/pages/System/SysLanguage.qml", pageIndex: 6 },
+            { file: "panels/Settings/pages/System/SysScreenshot.qml", pageIndex: 6 },
+            { file: "panels/Settings/pages/System/SysPerformance.qml", pageIndex: 6 },
+            { file: "panels/Settings/pages/System/SysPower.qml", pageIndex: 6 },
+            { file: "panels/Settings/pages/System/SysDisk.qml", pageIndex: 6 },
+            { file: "panels/Settings/pages/System/SysSystemInterface.qml", pageIndex: 6 },
+            // Services Page components (pageIndex: 7)
+            { file: "panels/Settings/pages/Services/ServicesSettings.qml", pageIndex: 7 },
+            { file: "panels/Settings/pages/Services/ServicesWeather.qml", pageIndex: 7 },
+            { file: "panels/Settings/pages/Services/ServicesSearch.qml", pageIndex: 7 },
+            { file: "panels/Settings/pages/Services/ServicesNetwork.qml", pageIndex: 7 },
+            { file: "panels/Settings/pages/Services/ServicesMedia.qml", pageIndex: 7 },
+            { file: "panels/Settings/pages/Services/ServicesLyrics.qml", pageIndex: 7 },
+            // { file: "panels/Settings/pages/Services/ServicesGitHub.qml", pageIndex: 7 },
+            // About Page components (pageIndex: 8)
+            { file: "panels/Settings/pages/About/AboutSettings.qml", pageIndex: 8 },
+            { file: "panels/Settings/pages/About/AboutMainView.qml", pageIndex: 8 },
+            { file: "panels/Settings/pages/About/AboutUpdate.qml", pageIndex: 8 },
+            { file: "panels/Settings/pages/About/AboutDependency.qml", pageIndex: 8 },
+            { file: "panels/Settings/pages/About/AboutCredits.qml", pageIndex: 8 },
+            // Profile Page components (pageIndex: 9)
+            { file: "panels/Settings/pages/Profile/ProfileSettings.qml", pageIndex: 9 },
+            { file: "panels/Settings/pages/Profile/PrAvatar.qml", pageIndex: 9 },
+            { file: "panels/Settings/pages/Profile/PrIdentity.qml", pageIndex: 9 },
+            { file: "panels/Settings/pages/Profile/PrPresets.qml", pageIndex: 9 }
+        ])
     }
 
-    function setSettingsActive(active) {
-        root.settingsActive = active;
-        if (!active) {
-            root.clearIndex();
-        }
-    }
-
-    function ensureIndexing() {
-        if (!root.settingsActive || root.indexing || root.indexed)
-            return;
-        root.startIndexing();
-    }
-
-    function clearIndex() {
-        root.indexing = false;
-        root.indexed = false;
-        root.sections = [];
-        root.fileSources = ({});
-        root.fileImportsBySource = ({});
-        root.currentSearch = "";
-        pageFile.cancel();
-        listPresetsSearchProc.running = false;
-    }
-
-    Connections {
-        target: Translation
-        function onLanguageCodeChanged() {
-            if (root.settingsActive && (root.indexed || root.indexing)) {
-                root.clearIndex();
-                root.startIndexing();
-            }
-        }
-    }
+    Component.onCompleted: startIndexing()
 
     FileView {
         id: pageFile
-        printErrors: false
-
         property var files: []
-        property var pageIds: []
-        property var subPages: []
         property int currentIndex: 0
 
-        function start(filesArray, idsArray, subPagesArray) {
-            pageFile.cancel();
-            files = filesArray;
-            pageIds = idsArray;
-            subPages = subPagesArray || [];
-            currentIndex = 0;
-            loadNext();
-        }
-
-        function cancel() {
-            files = [];
-            pageIds = [];
-            subPages = [];
-            currentIndex = 0;
-            path = "";
+        function startIndex(filesArray) {
+            files = filesArray
+            currentIndex = 0
+            loadNext()
         }
 
         function loadNext() {
-            if (currentIndex >= files.length)
-                return;
-            path = files[currentIndex];
-        }
-
-        function finishIndexing() {
-            root.indexing = false;
-            root.indexed = true;
-            path = "";
-            files = [];
-            pageIds = [];
-            subPages = [];
-            currentIndex = 0;
-            root.indexReady();
+            if (currentIndex >= files.length) return
+            path = Quickshell.shellPath(files[currentIndex].file)
+            reload()
         }
 
         onLoaded: {
-            if (currentIndex >= files.length || !root.indexing)
-                return;
-            root.indexQmlFile(text(), pageIds[currentIndex], subPages[currentIndex]);
+            const content = text();
+            if (content) {
+                root.indexQmlFile(content, files[currentIndex].pageIndex);
+            }
+            currentIndex++
+            if (currentIndex < files.length) {
+                Qt.callLater(() => loadNext())
+            }
+        }
+        
+        onLoadFailed: (error) => {
+            console.error("[SearchRegistry] Failed to load file:", path, "Error:", error);
             currentIndex++;
-            if (currentIndex >= files.length) {
-                finishIndexing();
-            } else {
-                Qt.callLater(() => loadNext());
-            }
-        }
-
-        onLoadFailed: {
-            if (currentIndex >= files.length || !root.indexing)
-                return;
-            currentIndex++;
-            if (currentIndex >= files.length) {
-                finishIndexing();
-            } else {
-                Qt.callLater(() => loadNext());
-            }
+            if (currentIndex < files.length) Qt.callLater(() => loadNext());
         }
     }
 
-    Process {
-        id: listPresetsSearchProc
-        command: ["bash", "-c", Directories.scriptPath + "/presets.sh list"]
-        stdout: SplitParser {
-            onRead: data => {
-                let str = data.trim();
-                if (!str)
-                    return;
-                try {
-                    let obj = JSON.parse(str);
-                    if (obj && obj.name) {
-                        root.addDynamicPresetName(obj.name);
-                    }
-                } catch (e) {
-                    // Ignore parse errors
-                }
-            }
+    function indexQmlFile(qmlText, pageIndex) {
+        if (!qmlText) return
+
+        // 1. First, find all SearchHandlers to identify "Portals"
+        let handlerRegex = /SearchHandler\s*\{[\s\S]*?searchString\s*:\s*["']([^"']+)["'](?:[\s\S]*?aliases\s*:\s*\[([\s\S]*?)\])?/g
+        let handlerMatch
+        let portals = []
+        while ((handlerMatch = handlerRegex.exec(qmlText)) !== null) {
+            let canonical = handlerMatch[1]
+            let aliasStr = handlerMatch[2] || ""
+            let aliases = aliasStr.split(",").map(s => s.replace(/["']/g, "").trim()).filter(s => s !== "")
+            portals.push({ canonical: canonical, aliases: aliases })
         }
-    }
 
-    function addDynamicPresetName(name) {
-        for (let i = 0; i < sections.length; i++) {
-            let section = sections[i];
-            if (section.pageId === "presets") {
-                if (section.searchStrings.indexOf(name) === -1) {
-                    section.searchStrings.push(name);
-                }
-            }
+        // 2. If no portals found, use page title as fallback
+        if (portals.length === 0) {
+            portals.push({ canonical: getPageName(pageIndex), aliases: [] })
         }
-    }
 
-    function extractImports(text) {
-        let imports = "";
-        let lines = text.split("\n");
-        for (let line of lines) {
-            line = line.trim();
-            if (line.startsWith("import ")) {
-                imports += line + "\n";
-            }
+        // 3. Find all searchable strings
+        let propRegex = /(?:title|text|buttonText|placeholderText|mainText|label|name|description|hint|headerText)\s*:\s*(?:(?:qsTr|qsTranslate)\s*\(\s*)?["']([^"']+)["']/g
+        let propMatch
+        let allStrings = []
+        while ((propMatch = propRegex.exec(qmlText)) !== null) {
+            let str = propMatch[1]
+            if (str.length >= 2 && !allStrings.includes(str)) allStrings.push(str)
         }
-        return imports;
-    }
 
-    function extractWidgets(text) {
-        return extractWidgetsWithOffset(text, 0);
-    }
-
-    function extractWidgetsWithOffset(text, baseOffset, sourceKey) {
-        let items = [];
-        let types = [
-            "ConfigSwitch", "ConfigSpinBox", "ConfigSelectionArray", "ConfigTextField",
-            "ConfigSlider", "ConfigComboBox", "ConfigWallpaperSelector", "ConfigLightDarkToggle",
-            "ConfigPresetsView", "HelperLinkBox", "NoticeBox", "ShortcutBox",
-            "MaterialTextField", "Flow", "RowLayout", "ColumnLayout", "ServiceCard",
-            "RippleButtonWithIcon", "ConfigListView", "ColorPreviewButton", "StyledComboBox",
-            "MonitorPicker"
-        ];
-        for (let t of types) {
-            let blocks = extractBlocks(text, t);
-            for (let b of blocks) {
-                let textProp = extractProperty(b.inner, "text")
-                            || extractProperty(b.inner, "title")
-                            || extractProperty(b.inner, "tooltip")
-                            || extractProperty(b.inner, "value")
-                            || extractProperty(b.inner, "placeholderText")
-                            || extractProperty(b.inner, "description");
-                items.push({
-                    type: t,
-                    text: textProp,
-                    sourceKey: sourceKey,
-                    sourceStart: b.start + baseOffset,
-                    sourceEnd: b.end + baseOffset
-                });
-            }
-        }
-        return items;
-    }
-
-    function indexQmlFile(qmlText, pageId, subPage) {
-        if (!qmlText) return;
-
-        const sourceKey = pageFile.files[pageFile.currentIndex];
-        let fileImports = extractImports(qmlText);
-        let sectionsExtracted = extractBlocks(qmlText, "ContentSection");
-
-        if (sectionsExtracted.length === 0)
-            return;
-
-        root.fileSources[sourceKey] = qmlText;
-        root.fileImportsBySource[sourceKey] = fileImports;
-
-        for (let sectionBlock of sectionsExtracted) {
-            let sectionText = sectionBlock.inner;
-            let title = extractProperty(sectionText, "title");
-            let icon = extractProperty(sectionText, "icon");
-
-            let searchStrings = [];
-            let sectionItems = [];
-            let sectionSubsections = [];
-
-            // 1. extract subsections
-            let subsections = extractBlocks(sectionText, "ContentSubsection", sectionBlock.innerStart);
-            for (let subBlock of subsections) {
-                let subTitle = extractProperty(subBlock.inner, "title");
-                let subIcon = extractProperty(subBlock.inner, "icon");
-                
-                let subItems = extractWidgetsWithOffset(subBlock.inner, subBlock.innerStart, sourceKey);
-
-                sectionSubsections.push({
-                    title: subTitle,
-                    icon: subIcon,
-                    items: subItems,
-                    sourceStart: subBlock.start,
-                    sourceEnd: subBlock.end
-                });
-            }
-
-            // 2. extract remaining widgets from sectionText
-            const allSectionItems = extractWidgetsWithOffset(sectionText, sectionBlock.innerStart, sourceKey);
-            for (let item of allSectionItems) {
-                let belongsToSubsection = false;
-                for (let sub of subsections) {
-                    if (item.sourceStart >= sub.start && item.sourceEnd <= sub.end) {
-                        belongsToSubsection = true;
-                        break;
-                    }
-                }
-                if (!belongsToSubsection)
-                    sectionItems.push(item);
-            }
-
-            // collect all search strings for scoring
-            if (title) searchStrings.push(title);
-            for (let sub of sectionSubsections) {
-                if (sub.title) searchStrings.push(sub.title);
-            }
-
+        // Register each portal as a searchable section
+        portals.forEach(portal => {
             registerSection({
-                pageId: pageId,
-                subPage: subPage || "",
-                title: title || "Unknown",
-                icon: icon || "",
-                searchStrings: searchStrings,
-                items: sectionItems,
-                subsections: sectionSubsections,
-                sourceKey: sourceKey
-            });
-        }
+                pageIndex: pageIndex,
+                title: getPageName(pageIndex),
+                canonical: portal.canonical,
+                aliases: portal.aliases,
+                contentStrings: allStrings // Map all strings in file to these portals for now
+            })
+        })
     }
 
-    function extractBlocks(text, type, baseOffset) {
-        baseOffset = baseOffset || 0;
-        let results = [];
-        let i = 0;
-
-        while (i < text.length) {
-            let index = text.indexOf(type, i);
-            if (index === -1) break;
-            
-            let prevChar = index > 0 ? text[index - 1] : ' ';
-            if (/[a-zA-Z0-9_]/.test(prevChar)) {
-                i = index + type.length;
-                continue;
-            }
-
-            let braceStart = text.indexOf("{", index);
-            if (braceStart === -1) break;
-            
-            let between = text.substring(index + type.length, braceStart).trim();
-            if (between !== "") {
-                i = index + type.length;
-                continue;
-            }
-
-            let depth = 1;
-            let j = braceStart + 1;
-            let inString = false;
-            let stringChar = "";
-
-            while (j < text.length && depth > 0) {
-                let ch = text[j];
-
-                if (!inString && (ch === '"' || ch === "'")) {
-                    inString = true;
-                    stringChar = ch;
-                } else if (inString && ch === stringChar) {
-                    if (text[j-1] !== '\\') {
-                        inString = false;
-                    }
-                } else if (!inString) {
-                    if (ch === "{") depth++;
-                    else if (ch === "}") depth--;
-                }
-
-                j++;
-            }
-
-            let block = text.substring(braceStart + 1, j - 1);
-            results.push({
-                inner: block,
-                innerStart: baseOffset + braceStart + 1,
-                start: baseOffset + index,
-                end: baseOffset + j
-            });
-
-            i = j;
-        }
-
-        return results;
-    }
-
-    function getBlockSource(item) {
-        if (!item || !item.sourceKey)
-            return "";
-        const source = root.fileSources[item.sourceKey];
-        if (!source || item.sourceStart === undefined || item.sourceEnd === undefined)
-            return "";
-        return source.substring(item.sourceStart, item.sourceEnd);
-    }
-
-    function extractProperty(block, prop) {
-        let m;
-        m = block.match(new RegExp(prop + "\\s*:\\s*Translation\\.tr\\(\\s*[\"']([^\"']+)[\"']\\s*\\)"));
-        if (m) return m[1];
-        m = block.match(new RegExp(prop + "\\s*:\\s*\"([^\"]+)\""));
-        if (m) return m[1];
-        m = block.match(new RegExp(prop + "\\s*:\\s*'([^']+)'"));
-        if (m) return m[1];
-        return "";
-    }
-
-    function tokenize(text) {
-        if (!text || typeof text !== "string") return [];
-        return text.toLowerCase().replace(/[^a-z0-9\sğüşöçıİ_\-\.]/g, " ").split(/[\s_\-\.]+/).filter(function (t) {
-            return t.length > 1;
-        });
-    }
-
-    function fuzzyMatch(word, query) {
-        let wi = 0; let qi = 0; let score = 0;
-        word = word.toLowerCase(); query = query.toLowerCase();
-        while (wi < word.length && qi < query.length) {
-            if (word[wi] === query[qi]) { score += 10; qi++; }
-            wi++;
-        }
-        if (qi === query.length) return score;
-        return 0;
+    function getPageName(index) {
+        const names = ["Network", "Bluetooth", "Audio", "Display", "Customize", "Widgets", "System", "Services", "About", "Profile"]
+        return names[index] || "Unknown"
     }
 
     function registerSection(data) {
-        const titleKey = data.title;
-        const searchStringsKeys = [...data.searchStrings];
-
-        data.title = Translation.tr(titleKey);
-        data.searchStrings = searchStringsKeys.map(s => Translation.tr(s));
-
-        let combined = (titleKey + " " + searchStringsKeys.join(" ") + " " + data.title + " " + data.searchStrings.join(" ")).toLowerCase();
-        sections.push(data);
+        let tokens = new Set()
+        
+        // Add canonical, aliases, and content to tokens
+        tokenize(data.canonical).forEach(t => tokens.add(t))
+        data.aliases.forEach(a => tokenize(a).forEach(t => tokens.add(t)))
+        
+        // contentStrings help finding the portal even if user doesn't type canonical name
+        data.contentStrings.forEach(s => tokenize(s).forEach(t => tokens.add(t)))
+        
+        data.tokens = Array.from(tokens)
+        data.translatedTitle = qsTr(data.title)
+        
+        let newSections = sections.slice()
+        newSections.push(data)
+        sections = newSections
     }
 
-    function getMatchScore(text, query, queryTokens) {
-        if (!text) return 0;
-        let score = 0;
-        let lower = text.toLowerCase();
-        
-        let tokens = tokenize(lower);
-        
-        for (let qToken of queryTokens) {
-            for (let sToken of tokens) {
-                if (sToken === qToken) {
-                    score += 500;
-                } else if (sToken.startsWith(qToken)) {
-                    score += 200;
-                }
+    function tokenize(text) {
+        if (!text) return []
+        return text.toLowerCase().split(/[^a-z0-9_]+/).filter(t => t.length >= 2)
+    }
+
+    function levenshtein(a, b) {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+        let matrix = [];
+        for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+        for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
+                else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
             }
         }
-        return score;
+        return matrix[b.length][a.length];
     }
 
-    function getDynamicSearchResults(query) {
-        if (!query || query.trim() === "") return [];
-        query = query.toLowerCase().trim();
-        let queryTokens = tokenize(query);
-        let results = [];
-
+    function getResultsRanked(query) {
+        if (!query || query.trim() === "") return []
+        query = query.toLowerCase().trim()
+        let queryTokens = tokenize(query)
+        
+        let results = []
         for (let section of sections) {
-            let sectionMatches = false;
-            let sectionScore = 0;
-
-            let matchedItems = [];
-            let matchedSubsections = [];
-
-            let sectionTitleScore = getMatchScore(section.title, query, queryTokens);
-            let searchStringScore = 0;
-            for (let sStr of section.searchStrings) {
-                let sScore = getMatchScore(sStr, query, queryTokens);
-                if (sScore > 0) {
-                    searchStringScore = Math.max(searchStringScore, sScore);
+            let score = 0
+            
+            // Priority 1: Canonical match
+            if (section.canonical.toLowerCase() === query) score += 10000
+            else if (section.canonical.toLowerCase().includes(query)) score += 5000
+            
+            // Priority 2: Alias match
+            section.aliases.forEach(a => {
+                if (a.toLowerCase() === query) score += 8000
+                else if (a.toLowerCase().includes(query)) score += 4000
+            })
+            
+            // Priority 3: Token match
+            for (let qToken of queryTokens) {
+                for (let sToken of section.tokens) {
+                    if (sToken === qToken) score += 1000
+                    else if (sToken.includes(qToken)) score += 200
                 }
             }
-
-            let sectionTitleMatched = (sectionTitleScore > 0 || searchStringScore > 0);
-            if (sectionTitleMatched) {
-                sectionMatches = true;
-                sectionScore += Math.max(sectionTitleScore, searchStringScore);
-            }
-
-            for (let item of section.items) {
-                let itemScore = getMatchScore(item.text, query, queryTokens);
-                if (itemScore > 0 || sectionTitleMatched) {
-                    matchedItems.push(item);
-                    if (itemScore > 0) {
-                        sectionScore += itemScore;
-                    }
-                    sectionMatches = true;
-                }
-            }
-
-            for (let sub of section.subsections) {
-                let subTitleScore = getMatchScore(sub.title, query, queryTokens);
-                let subMatchedItems = [];
-                let subMatches = false;
-
-                if (subTitleScore > 0) {
-                    sectionScore += subTitleScore;
-                }
-
-                for (let item of sub.items) {
-                    let itemScore = getMatchScore(item.text, query, queryTokens);
-                    if (itemScore > 0 || subTitleScore > 0 || sectionTitleMatched) {
-                        subMatchedItems.push(item);
-                        if (itemScore > 0) {
-                            sectionScore += itemScore;
-                        }
-                        subMatches = true;
-                        sectionMatches = true;
-                    }
-                }
-
-                if (subMatches) {
-                    matchedSubsections.push({
-                        title: sub.title,
-                        icon: sub.icon,
-                        items: subMatchedItems
-                    });
-                }
-            }
-
-            if (sectionMatches) {
+            
+            if (score > 0) {
                 results.push({
-                    pageId: section.pageId,
-                    subPage: section.subPage || "",
-                    title: section.title,
-                    icon: section.icon,
-                    fileImports: root.fileImportsBySource[section.sourceKey] || "",
-                    sourceKey: section.sourceKey,
-                    items: matchedItems,
-                    subsections: matchedSubsections,
-                    score: sectionScore
-                });
+                    pageIndex: section.pageIndex,
+                    title: section.translatedTitle,
+                    matchedString: section.canonical, // Always return the canonical portal name
+                    score: score
+                })
             }
         }
         
-        results.sort((a, b) => b.score - a.score);
-        return results;
-    }
-    
-    function getResultsRanked(text) {
-        return getSearchResult(text);
-    }
-    
-    function getSearchResult(query) {
-        if (!query || query.trim() === "") return [];
-        let dyn = getDynamicSearchResults(query);
-        let flat = [];
-        for (let r of dyn) {
-            flat.push({ pageIndex: 0, matchedString: r.title, score: r.score });
+        results.sort((a, b) => b.score - a.score)
+        
+        // --- STRICT DEDUPLICATION ---
+        let uniqueResults = []
+        let seenTargets = new Set()
+        
+        for (let res of results) {
+            // deduplicate by page + canonical target
+            let key = res.pageIndex + "|" + res.matchedString.toLowerCase()
+            if (!seenTargets.has(key)) {
+                uniqueResults.push(res)
+                seenTargets.add(key)
+            }
         }
-        return flat;
+        
+        return uniqueResults
+    }
+
+    function getBestResult(query) {
+        let results = getResultsRanked(query)
+        return results.length > 0 ? results[0] : null
+    }
+
+    function getAllResults() {
+        let uniqueResults = []
+        let seenTargets = new Set()
+        for (let section of sections) {
+            let key = section.pageIndex + "|" + section.canonical.toLowerCase()
+            if (!seenTargets.has(key)) {
+                uniqueResults.push({
+                    pageIndex: section.pageIndex,
+                    title: section.translatedTitle,
+                    matchedString: section.canonical
+                })
+                seenTargets.add(key)
+            }
+        }
+        uniqueResults.sort((a, b) => {
+            if (a.pageIndex !== b.pageIndex) return a.pageIndex - b.pageIndex
+            return a.title.localeCompare(b.title)
+        })
+        return uniqueResults
     }
 }

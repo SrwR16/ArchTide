@@ -1,7 +1,6 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
-import qs.modules.common
-import qs.services
+import "../core"
 import QtQuick
 import Quickshell
 import Quickshell.Services.Pipewire
@@ -16,140 +15,113 @@ Singleton {
     property bool ready: Pipewire.defaultAudioSink?.ready ?? false
     property PwNode sink: Pipewire.defaultAudioSink
     property PwNode source: Pipewire.defaultAudioSource
-    readonly property real hardMaxValue: 2.00 // People keep joking about setting volume to 5172% so...
-    property real value: 0
-    property bool muted: false
     
+    // Convenience properties for UI
+    property real volume: sink?.audio.volume ?? 0
+    property real microphoneVolume: source?.audio.volume ?? 0
+    property bool muted: sink?.audio.muted ?? false
+    property bool microphoneMuted: source?.audio.muted ?? false
+
+    // Setters that update hardware (safely)
+    function setVolume(v) { if (sink && sink.audio) sink.audio.volume = v }
+    function setMicrophoneVolume(v) { if (source && source.audio) source.audio.volume = v }
+    function setMuted(m) { if (sink && sink.audio) sink.audio.muted = m }
+    function setMicrophoneMuted(m) { if (source && source.audio) source.audio.muted = m }
+    function setNodeVolume(node, v) { if (node && node.audio) node.audio.volume = v }
+
+    readonly property real hardMaxValue: 2.00 
+    property string audioTheme: (Config.options.sounds && Config.options.sounds.theme) ? Config.options.sounds.theme : "freedesktop"
+    
+    // For backward compatibility or internal use
+    property real value: volume
+
     function friendlyDeviceName(node) {
-        if (!node) return Translation.tr("Unknown");
-        return (node.nickname || node.description || Translation.tr("Unknown"));
-     }
+        return (node.nickname || node.description || qsTr("Unknown"));
+    }
     function appNodeDisplayName(node) {
-        return (node.properties["application.name"] || node.description || node.name)
+        const name = (node.properties["application.name"] || node.description || node.name);
+        if (name && name.length > 0) {
+            return name.charAt(0).toUpperCase() + name.slice(1);
+        }
+        return name;
     }
 
-    // Lists
-    function correctType(node, isSink) {
-        return (node.isSink === isSink) && node.audio
+    function appNodeIconName(node) {
+        if (!node) return "settings_input_component";
+
+        // Get all possible identifiers
+        const iconMetadata = node.properties["application.icon-name"] 
+                          || node.properties["app.icon"] 
+                          || node.properties["window.icon"]
+                          || node.properties["icon-name"];
+        const appName = node.properties["application.name"];
+        const nodeName = node.name;
+        const appProcessName = node.properties["application.process.binary"];
+
+        // Always pass through AppSearch.guessIcon to apply substitutions (like brave-browser -> brave-desktop)
+        // We pass the metadata icon as the primary search key
+        return AppSearch.guessIcon(iconMetadata || appName || nodeName || appProcessName, appProcessName, appName);
     }
-    function appNodes(isSink) {
-        return Pipewire.nodes.values.filter((node) => { // Should be list<PwNode> but it breaks ScriptModel
-            return root.correctType(node, isSink) && node.isStream
-        })
-    }
-    function devices(isSink) {
+
+    // Lists for UI
+    function getNodesByType(isSink) {
         return Pipewire.nodes.values.filter(node => {
-            return root.correctType(node, isSink) && !node.isStream
+            const isDummy = (node.name || "").toLowerCase().includes("dummy") 
+                         || (node.description || "").toLowerCase().includes("dummy")
+                         || (node.nickname || "").toLowerCase().includes("dummy");
+            return (node.isSink === isSink) && node.audio && !node.isStream && !isDummy
         })
     }
-    readonly property list<var> outputAppNodes: root.appNodes(true)
-    readonly property list<var> inputAppNodes: root.appNodes(false)
-    readonly property list<var> outputDevices: root.devices(true)
-    readonly property list<var> inputDevices: root.devices(false)
+
+    function getStreamNodesByType(isSink) {
+        return Pipewire.nodes.values.filter(node => {
+            const isDummy = (node.name || "").toLowerCase().includes("dummy") 
+                         || (node.description || "").toLowerCase().includes("dummy")
+                         || (node.nickname || "").toLowerCase().includes("dummy");
+            return (node.isSink === isSink) && node.audio && node.isStream && !isDummy
+        })
+    }
+
+    readonly property list<var> outputDevices: getNodesByType(true)
+    readonly property list<var> inputDevices: getNodesByType(false)
+    readonly property list<var> streamNodes: getStreamNodesByType(true)
+    readonly property list<var> micStreamNodes: getStreamNodesByType(false)
+    readonly property list<var> sinks: outputDevices // alias
+    readonly property list<var> sources: inputDevices // alias
+
+    // Selection
+    function setDefaultSink(node) {
+        Pipewire.preferredDefaultAudioSink = node;
+    }
+    function setDefaultSource(node) {
+        Pipewire.preferredDefaultAudioSource = node;
+    }
 
     // Signals
     signal sinkProtectionTriggered(string reason);
 
     // Controls
-    function toggleMute() {
-        Audio.sink.audio.muted = !Audio.sink.audio.muted
-    }
-
-    // Mic mute
-    function toggleMicMute() {
-        Audio.source.audio.muted = !Audio.source.audio.muted
-    }
+    function toggleMute() { setMuted(!muted) }
+    function toggleMicMute() { setMicrophoneMuted(!microphoneMuted) }
 
     function incrementVolume() {
-        const currentVolume = Audio.value;
-        const step = currentVolume < 0.1 ? 0.01 : 0.02 || 0.2;
-        Audio.sink.audio.volume = Math.min(1, Audio.sink.audio.volume + step);
+        setVolume(Math.min(1.0, volume + (volume < 0.1 ? 0.01 : 0.02)));
     }
     
     function decrementVolume() {
-        const currentVolume = Audio.value;
-        const step = currentVolume < 0.1 ? 0.01 : 0.02 || 0.2;
-        Audio.sink.audio.volume -= step;
+        setVolume(Math.max(0, volume - (volume < 0.1 ? 0.01 : 0.02)));
     }
-
-    function setDefaultSink(node) {
-        Pipewire.preferredDefaultAudioSink = node;
-    }
-
-    function setDefaultSource(node) {
-        Pipewire.preferredDefaultAudioSource = node;
-    }
-
-    onSinkChanged: {
-        if (sink && sink.audio) {
-            root.value = sink.audio.volume;
-            root.muted = sink.audio.muted;
-        }
-    }
-
-    Component.onCompleted: {
-        if (sink && sink.audio) {
-            root.value = sink.audio.volume;
-            root.muted = sink.audio.muted;
-        }
-    }
-
-
 
     // Internals
     PwObjectTracker {
         objects: [sink, source]
     }
 
-    Connections { // Protection against sudden volume changes
-        target: sink?.audio ?? null
-        property bool lastReady: false
-        property real lastVolume: 0
-        function onVolumeChanged() {
-            if (sink && sink.audio) {
-                const oldValue = root.value;
-                root.value = sink.audio.volume;
-                // oldValue > 0 skips the initial readout on startup/reload
-                if (!isNaN(root.value) && oldValue > 0 && Math.abs(root.value - oldValue) > 0.0001) {
-                    SoundService.playEvent("volumeChange", "audio-volume-change");
-                }
-            }
-            if (!Config.options.audio.protection.enable) return;
-            const newVolume = sink.audio.volume;
-            // when resuming from suspend, we should not write volume to avoid pipewire volume reset issues
-            if (isNaN(newVolume) || newVolume === undefined || newVolume === null) {
-                lastReady = false;
-                lastVolume = 0;
-                return;
-            }
-            if (!lastReady) {
-                lastVolume = newVolume;
-                lastReady = true;
-                return;
-            }
-            const maxAllowedIncrease = Config.options.audio.protection.maxAllowedIncrease / 100; 
-            const maxAllowed = Config.options.audio.protection.maxAllowed / 100;
+    function playSystemSound(soundName) {
+        const ogaPath = `/usr/share/sounds/${root.audioTheme}/stereo/${soundName}.oga`;
+        const oggPath = `/usr/share/sounds/${root.audioTheme}/stereo/${soundName}.ogg`;
 
-            if (newVolume - lastVolume > maxAllowedIncrease) {
-                sink.audio.volume = lastVolume;
-                root.sinkProtectionTriggered(Translation.tr("Illegal increment"));
-            } else if (newVolume > maxAllowed || newVolume > root.hardMaxValue) {
-                root.sinkProtectionTriggered(Translation.tr("Exceeded max allowed"));
-                sink.audio.volume = Math.min(lastVolume, maxAllowed);
-            }
-            lastVolume = sink.audio.volume;
-        }
-        function onMutedChanged() {
-            if (sink && sink.audio) {
-                const wasMuted = root.muted;
-                root.muted = sink.audio.muted;
-                // Blip on unmute as confirmation; a blip on mute would be
-                // inaudible through the now-muted sink anyway.
-                if (wasMuted && !root.muted) {
-                    SoundService.playEvent("volumeChange", "audio-volume-change");
-                }
-            }
-        }
+        Quickshell.execDetached(["ffplay", "-nodisp", "-autoexit", ogaPath]);
+        Quickshell.execDetached(["ffplay", "-nodisp", "-autoexit", oggPath]);
     }
-
 }

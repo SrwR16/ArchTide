@@ -1,259 +1,322 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
-// From https://git.outfoxxed.me/outfoxxed/nixnew
-// It does not have a license, but the author is okay with redistribution.
-
-import QtQml.Models
 import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
-import qs.modules.common
+import "../core"
+import "../core/functions" as Functions
+import "../widgets"
 
 /**
- * A service that provides easy access to the active Mpris player.
+ * Simplified MPRIS controller — wraps Quickshell's Mpris service
+ * for easy access to the active media player.
  */
 Singleton {
-	id: root;
-	property list<MprisPlayer> allPlayers;
-	property list<MprisPlayer> players;
+    id: root
+    property MprisPlayer activePlayer: trackedPlayer ?? Mpris.players.values[0] ?? null
+    property MprisPlayer trackedPlayer: null
+    property bool isPlaying: activePlayer && activePlayer.isPlaying
+    property bool canTogglePlaying: activePlayer?.canTogglePlaying ?? false
+    property bool canGoPrevious: activePlayer?.canGoPrevious ?? false
+    property bool canGoNext: activePlayer?.canGoNext ?? false
 
-	function updatePlayersList() {
-		allPlayers = Mpris.players.values;
-		players = Mpris.players.values.filter(player => isRealPlayer(player));
-	}
+    property string trackTitle: activePlayer?.trackTitle || "No media"
+    property string trackArtist: activePlayer?.trackArtist || ""
+    property string trackArtUrl: activePlayer?.trackArtUrl ?? ""
+    property string desktopEntry: activePlayer?.desktopEntry ?? ""
 
-	Component.onCompleted: {
-		updatePlayersList();
-	}
+    property real position: activePlayer?.position ?? 0
+    property real length: activePlayer?.length ?? 0
 
-	Timer {
-		id: playersRefreshTimer
-		interval: 10000
-		running: true
-		repeat: true
-		onTriggered: root.updatePlayersList()
-	}
+    // --- Persistent Art & Color Logic ---
+    property string _artDownloadLocation: Functions.FileUtils.trimFileProtocol(Directories.cache) + "/flow/coverArt"
+    property string _activeArtPath: ""
+    property bool _artDownloaded: false
+    property double _cacheBuster: 0
+    property string displayedArtFilePath: _artDownloaded ? ((_activeArtPath.startsWith("/") ? `file://${_activeArtPath}` : _activeArtPath) + "?t=" + _cacheBuster) : ""
+    property string artPathForQuantizer: _artDownloaded ? (_activeArtPath.startsWith("/") ? `file://${_activeArtPath}` : _activeArtPath) : ""
 
-	property MprisPlayer trackedPlayer: null;
-	property MprisPlayer activePlayer: trackedPlayer ?? Mpris.players.values[0] ?? null;
-	signal trackChanged(reverse: bool);
+    property string _pendingUrl: ""
+    property string _pendingDest: ""
 
-	property string priorityPlayer: Config.options.media.priorityPlayer;
+    property color artDominantColor: {
+        // Initial fallback
+        if (!_artDownloaded || _activeArtPath === "") return Appearance.colors.colPrimaryContainer
 
-	property bool __reverse: false;
+        let raw = (colorQuantizer.colors && colorQuantizer.colors.length > 0) ? colorQuantizer.colors[0] : Appearance.colors.colPrimary
+        return (raw !== undefined) ? Functions.ColorUtils.mix(raw, Appearance.colors.colPrimaryContainer, 0.8) : Appearance.m3colors.m3secondaryContainer
+    }
 
-	property var activeTrack;
-	property string _artUrlFallback: "";
-	readonly property string artUrl: {
-		const url = activePlayer?.trackArtUrl;
-		return (url && url !== "") ? url : _artUrlFallback;
-	}
+    // --- Dynamic Color Tokens (Persistent) ---
+    property bool _colorIsDark: artDominantColor.hslLightness < 0.5
+    
+    property color dynLayer0: Functions.ColorUtils.mix(Appearance.colors.colLayer0, artDominantColor, (_colorIsDark && Appearance.m3colors.darkmode) ? 0.6 : 0.5)
+    property color dynOnLayer0: Functions.ColorUtils.mix(Appearance.colors.colOnLayer0, artDominantColor, 0.5)
+    property color dynSubtext: Functions.ColorUtils.mix(Appearance.colors.colOnLayer1, artDominantColor, 0.5)
 
-	onAllPlayersChanged: {
-		if (root.trackedPlayer) {
-			const stillExists = Mpris.players.values.indexOf(root.trackedPlayer) !== -1;
-			if (!stillExists) {
-				root.trackedPlayer = null;
-			}
-		}
-		if (root.trackedPlayer == null) {
-			const priority = allPlayers.find(p => p.desktopEntry === root.priorityPlayer);
-			if (priority) {
-				root.trackedPlayer = priority;
-			} else {
-				const playing = players.find(p => p.isPlaying);
-				if (playing) {
-					root.trackedPlayer = playing;
-				} else if (players.length > 0) {
-					root.trackedPlayer = players[0];
-				}
-			}
-		}
-	}
+    property color dynPrimary: Functions.ColorUtils.mix(Functions.ColorUtils.adaptToAccent(Appearance.colors.colPrimary, artDominantColor), artDominantColor, 0.5)
+    property color dynSecondaryContainer: Functions.ColorUtils.mix(Appearance.m3colors.m3secondaryContainer, artDominantColor, 0.15)
+    property color dynOnSecondaryContainer: Functions.ColorUtils.mix(Appearance.m3colors.m3onSecondaryContainer, artDominantColor, 0.5)
+    property color dynPrimaryActive: Functions.ColorUtils.mix(Functions.ColorUtils.adaptToAccent(Appearance.colors.colPrimaryActive, artDominantColor), artDominantColor, 0.3)
+    property color dynSecondaryContainerActive: Functions.ColorUtils.mix(Appearance.colors.colSecondaryContainerActive, artDominantColor, 0.5)
+    property color dynOnPrimary: Functions.ColorUtils.mix(Functions.ColorUtils.adaptToAccent(Appearance.m3colors.m3onPrimary, artDominantColor), artDominantColor, 0.5)
 
-	property bool hasActivePlasmaIntegration: false
+    property color dynPrimaryHover: Functions.ColorUtils.mix(dynPrimary, Appearance.colors.colOnLayer0, 0.9)
+    property color dynSecondaryContainerHover: Functions.ColorUtils.mix(dynSecondaryContainer, Appearance.colors.colOnLayer0, 0.9)
+
+    onActivePlayerChanged: {
+        updateArtFile();
+        _artTarget = activePlayer;
+    }
+
+    // Track activePlayer changes via indirection to avoid stale Connections
+    property var _artTarget: activePlayer
+    on_ArtTargetChanged: {
+        artConn.target = _artTarget;
+    }
+    Connections {
+        id: artConn
+        function onTrackArtUrlChanged() { root.updateArtFile() }
+        function onPostTrackChanged() { root.updateArtFile() }
+    }
+
+    function updateArtFile() {
+        if (!activePlayer || !activePlayer.trackArtUrl || activePlayer.trackArtUrl === "") {
+            _artDownloaded = false
+            _activeArtPath = ""
+            // Clear pending downloads too
+            _pendingUrl = ""
+            _pendingDest = ""
+            return;
+        }
+
+        const url = activePlayer.trackArtUrl
+        if (url.startsWith("file://")) {
+            _activeArtPath = Functions.FileUtils.trimFileProtocol(url)
+            _cacheBuster = Date.now()
+            _artDownloaded = true
+        } else {
+            let dest = `${_artDownloadLocation}/${Qt.md5(url)}`
+            if (_activeArtPath === dest && _artDownloaded) return;
+
+            _artDownloaded = false
+            _activeArtPath = dest
+            
+            _pendingUrl = url
+            _pendingDest = dest
+
+            if (!coverArtDownloader.running) {
+                startNextDownload()
+            }
+        }
+    }
+
+    function startNextDownload() {
+        if (_pendingUrl === "") return;
+        
+        // Safety check: Don't pass massive Base64 strings or non-URLs to curl
+        if (_pendingUrl.startsWith("data:") || _pendingUrl.length > 1024) {
+            _pendingUrl = "";
+            return;
+        }
+
+        coverArtDownloader.exec(["sh", "-c", '[ -f "$2" ] || curl -sSL "$1" -o "$2" > /dev/null 2>&1', "sh", _pendingUrl, _pendingDest]);
+        _pendingUrl = "" 
+    }
+
+    Process {
+        id: coverArtDownloader
+        onExited: (exitCode, exitStatus) => {
+            if (root._activeArtPath !== "") {
+                root._cacheBuster = Date.now();
+                root._artDownloaded = true;
+            }
+            if (root._pendingUrl !== "") {
+                root.startNextDownload();
+            }
+        }
+    }
+
+    ColorQuantizer {
+        id: colorQuantizer
+        source: root.artPathForQuantizer
+        depth: 0
+        rescaleSize: 1
+    }
+
+    Component.onCompleted: {
+        Quickshell.execDetached(["mkdir", "-p", _artDownloadLocation])
+        updateArtFile()
+    }
+    // ------------------------------------
+
+    Timer {
+        id: positionTimer
+        interval: 3000
+        running: root.isPlaying
+        repeat: true
+        onTriggered: {
+            if (root.activePlayer) root.activePlayer.positionChanged();
+        }
+    }
+
+    function togglePlaying() {
+        if (canTogglePlaying) activePlayer.togglePlaying();
+    }
+    function previous() {
+        if (canGoPrevious) activePlayer.previous();
+    }
+    function next() {
+        if (canGoNext) activePlayer.next();
+    }
+
+    property bool _manualOverride: false
+    Timer { id: manualOverrideTimer; interval: 10000; onTriggered: root._manualOverride = false }
+    onTrackedPlayerChanged: { if (root._manualOverride) manualOverrideTimer.restart(); }
+
+    property bool hasPlasmaIntegration: false
     Process {
         id: plasmaIntegrationAvailabilityCheckProc
         running: true
         command: ["bash", "-c", "command -v plasma-browser-integration-host"]
         onExited: (exitCode, exitStatus) => {
-            root.hasActivePlasmaIntegration = (exitCode === 0);
+            root.hasPlasmaIntegration = (exitCode === 0);
         }
     }
-	function isRealPlayer(player) {
-        if (!Config.options.media.filterDuplicatePlayers) {
+
+    function getValidPlayers() {
+        if (!Mpris.players || !Mpris.players.values) return [];
+        let valid = Mpris.players.values.filter(p => {
+            if (p.dbusName && p.dbusName.startsWith('org.mpris.MediaPlayer2.playerctld')) return false;
+            // Native browsers without integration or duplicates
+            if (root.hasPlasmaIntegration && p.dbusName && (p.dbusName.startsWith('org.mpris.MediaPlayer2.firefox') || p.dbusName.startsWith('org.mpris.MediaPlayer2.chromium') || p.dbusName.startsWith('org.mpris.MediaPlayer2.brave'))) return false;
+            // Ghost buses from chromium/brave usually have entirely blank metadata
+            if ((p.trackTitle || "") === "" && (p.trackArtist || "") === "" && (p.trackArtUrl || "") === "") return false;
             return true;
+        });
+
+        // Deduplicate browser proxy buses (e.g. native brave vs plasma-browser-integration)
+        let unique = [];
+        for (let i = 0; i < valid.length; i++) {
+            let p = valid[i];
+            let title = p.trackTitle || "";
+            if (title === "") {
+                unique.push(p);
+                continue;
+            }
+
+            let existingIdx = unique.findIndex(up => (up.trackTitle || "") === title);
+            
+            if (existingIdx !== -1) {
+                // Duplicate track title found. Keep the bus with better metadata.
+                let existing = unique[existingIdx];
+                let existingScore = (existing.trackArtUrl && existing.trackArtUrl !== "" ? 2 : 0) + (existing.trackArtist && existing.trackArtist !== "" ? 1 : 0);
+                let newScore = (p.trackArtUrl && p.trackArtUrl !== "" ? 2 : 0) + (p.trackArtist && p.trackArtist !== "" ? 1 : 0);
+                
+                if (newScore > existingScore) {
+                    unique[existingIdx] = p; // Replace with the richer metadata bus
+                }
+            } else {
+                unique.push(p);
+            }
         }
-        return (
-            // Remove native browser buses only if plasma-browser-integration is actually active on D-Bus
-            !(root.hasActivePlasmaIntegration && player.dbusName.startsWith('org.mpris.MediaPlayer2.firefox')) && !(root.hasActivePlasmaIntegration && player.dbusName.startsWith('org.mpris.MediaPlayer2.chromium')) &&
-            // playerctld just copies other buses and we don't need duplicates
-            !player.dbusName?.startsWith('org.mpris.MediaPlayer2.playerctld') &&
-            // Non-instance mpd bus
-            !(player.dbusName?.endsWith('.mpd') && !player.dbusName.endsWith('MediaPlayer2.mpd')));
+        return unique;
     }
 
-	// Original stuff from fox below
-	Instantiator {
-		model: Mpris.players;
+    function cyclePlayer() {
+        let players = getValidPlayers();
+        if (players.length === 0) return;
+        let currentIndex = root.trackedPlayer ? players.indexOf(root.trackedPlayer) : -1;
+        let nextIndex = (currentIndex + 1) % players.length;
+        root._manualOverride = true;
+        root.trackedPlayer = players[nextIndex];
+    }
 
-		Connections {
-			required property MprisPlayer modelData;
-			target: modelData;
+    function autoReevaluatePlayer() {
+        if (root._manualOverride) return;
+        
+        let players = getValidPlayers();
+        if (players.length === 0) {
+            root.trackedPlayer = null;
+            return;
+        }
+        
+        let rawPriority = (Config.ready && Config.options.media && Config.options.media.priority) ? Config.options.media.priority : "";
+        let priorities = rawPriority.split(',').map(s => s.trim().toLowerCase()).filter(s => s.length > 0);
+        
+        let bestScore = -1;
+        let bestPlayer = null;
+        
+        for (let i = 0; i < players.length; i++) {
+            let player = players[i];
+            let identity = (player.identity || "").toLowerCase();
+            let entry = (player.desktopEntry || "").toLowerCase();
+            
+            let priorityIndex = -1;
+            for (let j = 0; j < priorities.length; j++) {
+                if (identity.includes(priorities[j]) || entry.includes(priorities[j])) {
+                    priorityIndex = priorities.length - j; 
+                    break;
+                }
+            }
+            
+            let score = 0;
+            if (player.isPlaying) score += 1000;
+            if (priorityIndex > -1) score += (priorityIndex + 1) * 10000;
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestPlayer = player;
+            }
+        }
+        
+        if (bestPlayer && bestPlayer !== root.trackedPlayer) {
+            root.trackedPlayer = bestPlayer;
+        }
+    }
 
-			Component.onCompleted: {
-				if (root.trackedPlayer == null || modelData.isPlaying) {
-					root.trackedPlayer = modelData;
-				}
-				root.updatePlayersList();
-			}
+    function raisePlayer() {
+        if (!activePlayer) return;
+        
+        let entry = (activePlayer.desktopEntry || "").toLowerCase();
+        let identity = (activePlayer.identity || "").toLowerCase();
+        
+        if (entry !== "" || identity !== "") {
+            let target = entry.replace(".desktop", "") || identity;
+            
+            // Use case-insensitive regex to find the window
+            // class:^(?i)(target)$ matches the class exactly but ignores case
+            Quickshell.execDetached(["hyprctl", "dispatch", HyprlandCompat.dspFocusWindow(`class:^(?i)(${target})$`)]);
+            
+            // Fallback to substring match if exact match fails
+            Quickshell.execDetached(["hyprctl", "dispatch", HyprlandCompat.dspFocusWindow(`title:(?i)${target}`)]);
+            
+            GlobalStates.notificationCenterOpen = false;
+            GlobalStates.dashboardOpen = false;
+        }
+    }
 
-			Component.onDestruction: {
-				if (root.trackedPlayer === modelData) {
-					root.trackedPlayer = null;
-				}
-				if (root.trackedPlayer == null || !root.trackedPlayer.isPlaying) {
-					for (const player of Mpris.players.values) {
-						if (player.playbackState.isPlaying) {
-							root.trackedPlayer = player;
-							break;
-						}
-					}
+    Instantiator {
+        model: Mpris.players
+        Connections {
+            required property MprisPlayer modelData
+            target: modelData
 
-					if (root.trackedPlayer == null && Mpris.players.values.length != 0) {
-						root.trackedPlayer = Mpris.players.values[0];
-					}
-				}
-				Qt.callLater(() => root.updatePlayersList());
-			}
+            Component.onCompleted: {
+                Qt.callLater(() => { root.autoReevaluatePlayer(); });
+                // Aggressive discovery: ensure we check for art as soon as a player exists
+                root.updateArtFile();
+            }
 
-			function onPlaybackStateChanged() {
-				if (root.trackedPlayer !== modelData) root.trackedPlayer = modelData;
-			}
-		}
-	}
+            Component.onDestruction: {
+                Qt.callLater(() => { root.autoReevaluatePlayer(); });
+            }
 
-	Connections {
-		target: activePlayer
-
-		function onPostTrackChanged() {
-			if (root.activePlayer?.trackArtUrl) {
-				root._artUrlFallback = root.activePlayer.trackArtUrl;
-				root.updateTrack();
-			}
-		}
-
-		function onTrackArtUrlChanged() {
-			const url = root.activePlayer?.trackArtUrl;
-			if (url && url !== "") {
-				root._artUrlFallback = url;
-			}
-			if (root.activeTrack && root.activeTrack.artUrl === url) return;
-			const r = root.__reverse;
-			root.updateTrack();
-			root.__reverse = r;
-		}
-	}
-
-	onActivePlayerChanged: {
-		if (root.activePlayer?.trackArtUrl) {
-			root._artUrlFallback = root.activePlayer.trackArtUrl;
-			root.updateTrack();
-		}
-	}
-
-	function updateTrack() {
-		//console.log(`update: ${this.activePlayer?.trackTitle ?? ""} : ${this.activePlayer?.trackArtists}`)
-		this.activeTrack = {
-			uniqueId: this.activePlayer?.uniqueId ?? 0,
-			artUrl: this.artUrl,
-			title: this.activePlayer?.trackTitle || Translation.tr("Unknown Title"),
-			artist: this.activePlayer?.trackArtist || Translation.tr("Unknown Artist"),
-			album: this.activePlayer?.trackAlbum || Translation.tr("Unknown Album"),
-		};
-
-		this.trackChanged(__reverse);
-		this.__reverse = false;
-	}
-
-	property bool isPlaying: this.activePlayer && this.activePlayer.isPlaying;
-	property bool canTogglePlaying: this.activePlayer?.canTogglePlaying ?? false;
-	function togglePlaying() {
-		if (this.canTogglePlaying) this.activePlayer.togglePlaying();
-	}
-
-	property bool canGoPrevious: this.activePlayer?.canGoPrevious ?? false;
-	function previous() {
-		if (this.canGoPrevious) {
-			this.__reverse = true;
-			this.activePlayer.previous();
-		}
-	}
-
-	property bool canGoNext: this.activePlayer?.canGoNext ?? false;
-	function next() {
-		if (this.canGoNext) {
-			this.__reverse = false;
-			this.activePlayer.next();
-		}
-	}
-
-    property bool canChangeVolume: this.activePlayer && this.activePlayer.volumeSupported && this.activePlayer.canControl;
-    readonly property real volumeStep: this.activePlayer ? (this.activePlayer.volume < 0.10 ? 0.01 : 0.02) : 0.02
-	function incrementVolume() {
-		if (!this.canChangeVolume)
-			return;
-		this.activePlayer.volume = Math.min(1, (this.activePlayer.volume ?? 1) + this.volumeStep);
-	}
-	function decrementVolume() {
-		if (!this.canChangeVolume)
-			return;
-		this.activePlayer.volume = Math.max(0, (this.activePlayer.volume ?? 1) - this.volumeStep);
-	}
-
-	property bool loopSupported: this.activePlayer && this.activePlayer.loopSupported && this.activePlayer.canControl;
-	property var loopState: this.activePlayer?.loopState ?? MprisLoopState.None;
-	function setLoopState(loopState: var) {
-		if (this.loopSupported) {
-			this.activePlayer.loopState = loopState;
-		}
-	}
-
-	property bool shuffleSupported: this.activePlayer && this.activePlayer.shuffleSupported && this.activePlayer.canControl;
-	property bool hasShuffle: this.activePlayer?.shuffle ?? false;
-	function setShuffle(shuffle: bool) {
-		if (this.shuffleSupported) {
-			this.activePlayer.shuffle = shuffle;
-		}
-	}
-
-	function setActivePlayer(player: MprisPlayer) {
-		const targetPlayer = player ?? Mpris.players[0];
-		console.log(`[Mpris] Active player ${targetPlayer} << ${activePlayer}`)
-
-		if (targetPlayer && this.activePlayer) {
-			this.__reverse = Mpris.players.indexOf(targetPlayer) < Mpris.players.indexOf(this.activePlayer);
-		} else {
-			// always animate forward if going to null
-			this.__reverse = false;
-		}
-
-		this.trackedPlayer = targetPlayer;
-	}
-
-	IpcHandler {
-		target: "mpris"
-
-		function pauseAll(): void {
-			for (const player of Mpris.players.values) {
-				if (player.canPause) player.pause();
-			}
-		}
-
-		function playPause(): void { root.togglePlaying(); }
-		function previous(): void { root.previous(); }
-		function next(): void { root.next(); }
-	}
+            function onPlaybackStateChanged() {
+                root.autoReevaluatePlayer();
+            }
+        }
+    }
 }
