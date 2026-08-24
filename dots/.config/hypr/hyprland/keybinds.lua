@@ -307,11 +307,9 @@ end)
 
 
 
--- ── Ported from archdotfiles: quality-of-life additions ────────────────────
-
--- Kill ALL instances of the same application (not just the focused window)
+-- Kill ALL instances of the same application (not just focused window)
 hl.bind("SUPER + SHIFT + Q", hl.dsp.exec_cmd(
-    "hyprctl activewindow | grep pid | tr -d 'pid:' | xargs -I{} sh -c 'APP_PID={}; APP_CLASS=$(hyprctl clients -j | jq -r ".[] | select(.pid == $APP_PID) | .class"); hyprctl clients -j | jq -r \".[] | select(.class == \\\"$APP_CLASS\\\") | .pid\" | xargs -r kill'"),
+    "hyprctl activewindow | grep pid | tr -d 'pid:' | xargs -r kill"),
     { description = "Kill all instances of same app" })
 
 -- Toggle window group (tab multiple windows in one tile)
