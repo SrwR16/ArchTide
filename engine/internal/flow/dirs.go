@@ -51,6 +51,13 @@ func (dc *DirChain) Record(from, to string) {
 	dc.trans[from][to].Count++
 	dc.trans[from][to].LastTs = time.Now().Unix()
 	dc.totalObs++
+
+	// append to disk immediately — no separate Save step needed
+	os.MkdirAll(filepath.Dir(dc.path), 0700)
+	if f, err := os.OpenFile(dc.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600); err == nil {
+		fmt.Fprintf(f, "D\t%s\t%s\t%d\n", from, to, dc.trans[from][to].LastTs)
+		f.Close()
+	}
 }
 
 // Load reads persisted transitions from disk.
@@ -78,26 +85,11 @@ func (dc *DirChain) Load() {
 			dc.trans[from] = make(map[string]*dirEdge)
 		}
 		if dc.trans[from][to] == nil {
-			dc.trans[from][to] = &dirEdge{}
+			dc.trans[from][to] = &dirEdge{Count: 0, LastTs: ts}
 		}
-		dc.trans[from][to].Count++
-		dc.trans[from][to].LastTs = ts
-	}
-}
-
-// Save persists all transitions to disk (append-only TSV).
-func (dc *DirChain) Save() {
-	dc.mu.Lock()
-	defer dc.mu.Unlock()
-	os.MkdirAll(filepath.Dir(dc.path), 0700)
-	f, err := os.OpenFile(dc.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	for from, targets := range dc.trans {
-		for to, edge := range targets {
-			fmt.Fprintf(f, "D\t%s\t%s\t%d\t%d\n", from, to, edge.Count, edge.LastTs)
+		dc.trans[from][to].Count++ // aggregate across duplicate lines
+		if ts > dc.trans[from][to].LastTs {
+			dc.trans[from][to].LastTs = ts
 		}
 	}
 }

@@ -53,7 +53,6 @@ func TestDirChainSaveAndLoad(t *testing.T) {
 
 	dc1 := NewDirChain(path)
 	dc1.Record("/a", "/b")
-	dc1.Save()
 
 	dc2 := NewDirChain(path)
 	dc2.Load()
