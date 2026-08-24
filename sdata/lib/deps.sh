@@ -134,6 +134,8 @@ deps_tier_label() {
         core) printf 'Core' ;;
         ux) printf 'UX' ;;
         devops) printf 'DevOps' ;;
+        shell) printf 'Shell Runtime' ;;
+        fonts) printf 'Fonts' ;;
         devops-gui) printf 'DevOps GUI' ;;
         terminal) printf 'Terminal' ;;
         *) printf '%s' "$1" ;;
@@ -203,4 +205,41 @@ flow_dep freelens devops-gui freelens-bin "Kubernetes desktop IDE (Lens fork)" f
 
 # Fonts are verified, never force-installed: the terminal font preference is the
 # user's own. `package` is the pacman extra package that satisfies it.
+
+# ── Shell runtime (nandoroid → Flow desktop shell) ──────────────────────────
+# Required for QuickShell panels to render and function.
+flow_dep hyprland         shell hyprland          "Wayland compositor"              hyprctl
+flow_dep quickshell-git   shell quickshell-git   "Desktop shell framework"         quickshell
+flow_dep qt6-declarative  shell qt6-declarative   "Qt6 QML library"                 qml6
+flow_dep qt6-svg          shell qt6-svg           "Qt6 SVG support"
+flow_dep qt6-wayland      shell qt6-wayland       "Qt6 Wayland support"
+flow_dep python3          shell python3           "Theme generation backend"        python3
+flow_dep matugin-bin      shell matugen-bin       "Material theme generator"        matugen
+flow_dep jq               shell jq                "JSON processing engine"          jq
+flow_dep pipewire         shell pipewire          "Audio & video server"            pipewire
+flow_dep networkmanager   shell networkmanager    "Network connectivity"            nmcli
+flow_dep bluez            shell bluez             "Bluetooth service"               bluetoothctl
+flow_dep libnotify        shell libnotify         "Desktop notifications"           notify-send
+flow_dep polkit-gnome     shell polkit-gnome      "Authentication agent"            /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+flow_dep brightnessctl    shell brightnessctl     "Backlight control"               brightnessctl
+flow_dep playerctl        shell playerctl         "Media controller"                playerctl
+flow_dep grim             shell grim              "Screenshot tool"                 grim
+flow_dep slurp            shell slurp             "Region selector"                 slurp
+flow_dep wf-recorder      shell wf-recorder       "Screen recording"                wf-recorder
+flow_dep imagemagick      shell imagemagick       "Image processing"                magick
+flow_dep ffmpeg           shell ffmpeg            "Multimedia framework"            ffmpeg
+flow_dep hyprpicker       shell hyprpicker        "Color picker"                    hyprpicker
+flow_dep hyprlock         shell hyprlock          "Screen lock"                     hyprlock
+flow_dep hyprsunset       shell hyprsunset        "Night light"                     hyprsunset
+flow_dep wl-clipboard     shell wl-clipboard      "Wayland clipboard"               wl-copy
+flow_dep cliphist         shell cliphist          "Clipboard history"               cliphist
+flow_dep zenity           shell zenity            "Dialog boxes"                    zenity
+flow_dep translate-shell  shell translate-shell   "Terminal translation"            trans
+
+# ── Fonts ─────────────────────────────────────────────────────────────────────
+flow_dep nerd-fonts       fonts ttf-jetbrains-mono-nerd "Nerd Font glyphs"          "fc-list"
+flow_dep material-symbols fonts ttf-material-symbols-variable-git "Material Symbols icons" "fc-list"
+flow_dep noto-emoji       fonts noto-fonts-emoji  "Emoji font"                      "fc-list"
+flow_dep noto-cjk         fonts noto-fonts-cjk    "CJK font support"                "fc-list"
+
 flow_dep jetbrains-mono-nerd terminal ttf-jetbrains-mono-nerd "Nerd Font glyphs (Starship/terminal)" "fc-list"
