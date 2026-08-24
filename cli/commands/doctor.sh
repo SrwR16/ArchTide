@@ -7,7 +7,7 @@ cmd_doctor() {
     echo
 
     # Shell
-    echo "Shell: ${SHELL:-unknown} (zsh: $([ -n "$ZSH_VERSION" ] && echo "yes" || echo "no"))"
+    echo "Shell: ${SHELL:-unknown}"
 
     # Core deps
     echo; echo "Core dependencies:"
