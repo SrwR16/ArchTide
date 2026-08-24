@@ -208,6 +208,39 @@ func MergeResults(query string, mode string) []spec.Suggestion {
 		}
 	}
 
+	// ── Brain: destination-depth ranking ────────────────────────────────
+	// When multiple candidates share a path prefix (e.g. "cd Programming"
+	// vs "cd Programming/ArchTide"), prefer the DEEPER destination if it
+	// has strong usage evidence. This prevents shallow waypoint dirs from
+	// outranking actual project roots.
+	sort.SliceStable(finalResults, func(i, j int) bool {
+		a, b := finalResults[i], finalResults[j]
+		// If one is a prefix of the other (path-wise), deeper wins
+		if strings.HasPrefix(b.Cmd, a.Cmd) && len(b.Cmd) > len(a.Cmd) {
+			return false // shallower stays first only if deeper has no evidence
+		}
+		if strings.HasPrefix(a.Cmd, b.Cmd) && len(a.Cmd) > len(b.Cmd) {
+			return true // deeper before shallower
+		}
+		return a.Confidence > b.Confidence
+	})
+
+	// Boost high-frequency deep destinations above everything else,
+	// EXCEPT when an AI suggestion is pending (AI takes absolute priority).
+	hasAIPending := GetCurrentAISuggestion() != nil
+	if !hasAIPending {
+		for i := range finalResults {
+			cand := flow.GlobalStore().Lookup(finalResults[i].Cmd)
+			if cand != nil && cand.Count >= 20 && cand.SuccessRate() > 0.5 {
+				finalResults[i].Confidence = 95
+			}
+		}
+	}
+
+	sort.SliceStable(finalResults, func(i, j int) bool {
+		return finalResults[i].Confidence > finalResults[j].Confidence
+	})
+
 	if len(finalResults) > maxSugg {
 		return finalResults[:maxSugg]
 	}
