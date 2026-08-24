@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Nandoroid CLI - The main control script for the Nandoroid Shell environment.
-# Part of the Nandoroid Ecosystem.
+# Flow CLI - The main control script for the Flow Shell environment.
+# Part of the Flow Ecosystem.
 
 # Configuration
 VERSION="1.0.0"
@@ -38,29 +38,29 @@ source_lib() {
     fi
 }
 
-# Protection: Check if nandoroid-shell is installed
-SHELL_CONFIG_DIR="$HOME/.config/quickshell/nandoroid"
+# Protection: Check if flow-shell is installed
+SHELL_CONFIG_DIR="$HOME/.config/quickshell/flow"
 is_shell_installed() {
     [[ -d "$SHELL_CONFIG_DIR" ]]
 }
 
 # Show help
 show_help() {
-    echo -e "${C_MAIN}${C_BOLD}NAnDoroid CLI v$VERSION${C_RST}"
-    echo "Usage: nandoroid <command> [args]"
+    echo -e "${C_MAIN}${C_BOLD}FLOW CLI v$VERSION${C_RST}"
+    echo "Usage: flow <command> [args]"
     echo ""
     echo -e "${C_ACCENT}${C_BOLD}Lifecycle:${C_RST}"
-    echo "  run           Start the Nandoroid Shell"
+    echo "  run           Start the Flow Shell"
     echo "  reload        Reload the currently running shell"
     echo "  debug         Run the shell in debug mode"
-    echo "  exit          Stop the Nandoroid Shell"
+    echo "  exit          Stop the Flow Shell"
     echo "  logs          Show Quickshell logs"
     echo ""
     echo -e "${C_ACCENT}${C_BOLD}Panel Control:${C_RST}"
     echo "  spotlight     Toggle the Spotlight search panel"
     echo "  spotlight {files|apps|commands|clipboard|emoji} Open specific mode"
     echo "  dashboard     Toggle the Dashboard"
-    echo "  settings      Open the Nandoroid Settings panel"
+    echo "  settings      Open the Flow Settings panel"
     echo "  launcher      Toggle the App Launcher"
     echo "  notifications Toggle the Notification Center"
     echo "  quicksettings Toggle the Quick Settings"
@@ -74,7 +74,7 @@ show_help() {
     echo ""
     echo -e "${C_ACCENT}${C_BOLD}System Actions:${C_RST}"
     echo "  reboot        Reboot the system"
-    echo "  lock          Lock the screen using Nandoroid Shell"
+    echo "  lock          Lock the screen using Flow Shell"
     echo "  poweroff      Shut down the system"
     echo "  pomodoro {start|pause|stop|reset} Control the Pomodoro timer"
     echo "  brightness    Adjust screen brightness (brightness {up|down})"
@@ -89,12 +89,12 @@ show_help() {
     echo "  status        Show current shell status"
     echo "  config edit   Open configuration in \$EDITOR"
     echo "  doctor        Check system health and dependencies"
-    echo "  install       Set up/Install Nandoroid Shell"
+    echo "  install       Set up/Install Flow Shell"
     echo "  install deps  Install shell dependencies only"
     echo "  update {shell|cli} [stable|canary]"
     echo ""
     echo -e "${C_ACCENT}${C_BOLD}General:${C_RST}"
-    echo "  version       Show the version of nandoroid-cli"
+    echo "  version       Show the version of flow-cli"
     echo "  help          Show this help message"
 }
 
@@ -115,14 +115,14 @@ if ! is_shell_installed; then
                 cmd_update "$@"
                 exit 0
             fi
-            error "Nandoroid Shell not found. Run 'nandoroid install' first."
+            error "Flow Shell not found. Run 'flow install' first."
             ;;
         "")
             show_help
             exit 0
             ;;
         *)
-            error "Nandoroid Shell not found. Run 'nandoroid install' first."
+            error "Flow Shell not found. Run 'flow install' first."
             ;;
     esac
 fi
@@ -206,9 +206,13 @@ case "$COMMAND" in
     doctor)
         source_lib "doctor"
         cmd_doctor "$@"
-        ;;
+        ;;        engine)
+            source_lib ../lib/engine.sh 2>/dev/null || true
+            ENGINE_BUILD
+            ;;
+
     version)
-        echo "nandoroid-cli version $VERSION"
+        echo "flow-cli version $VERSION"
         ;;
     help|*)
         show_help
