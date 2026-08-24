@@ -176,8 +176,21 @@ func runWrapper() {
 	var naiveBuffer string
 	var lastSubmittedCommand string
 
+	// multi-line buffers: ZLE renders them natively and correctly; drawing
+	// engine overlays over them erases trailing rows. Fail-silent suppression.
+
 	cursorOffset := 0
 	var bufferMu sync.Mutex
+
+	// multi-line buffers: ZLE renders them natively; engine overlays drawn
+	// over them erase trailing rows. Fail-silent suppression flag.
+	var multilineBuf atomic.Bool
+	refreshMultiline := func() {
+		bufferMu.Lock()
+		ml := strings.Contains(naiveBuffer, "\n")
+		bufferMu.Unlock()
+		multilineBuf.Store(ml)
+	}
 	var userNavigated atomic.Bool
 	var renderMenuNow func()
 	var intercepted bool
@@ -444,10 +457,12 @@ func runWrapper() {
 			}
 
 			var b strings.Builder
-			if !disableGhostText.Load() {
+			if !disableGhostText.Load() && !multilineBuf.Load() {
 				b.WriteString(overlay.RenderGhostText(bufCopy, true, offsetCopy == 0))
 			}
-			b.WriteString(overlay.Render())
+			if !multilineBuf.Load() {
+				b.WriteString(overlay.Render())
+			}
 			writeStdout([]byte(b.String()))
 		} else if suggestionsEnabled {
 			// hidden-overlay history navigation only when suggestions are enabled;
@@ -788,7 +803,7 @@ func runWrapper() {
 		}
 
 		overlay.SetUserNavigated(navCopy)
-		if !disableGhostText.Load() {
+		if !disableGhostText.Load() && !multilineBuf.Load() {
 			b.WriteString(overlay.RenderGhostText(bufCopy, navCopy, offsetCopy == 0))
 		}
 		currentCmd := overlay.GetCurrentCmd()
@@ -801,7 +816,7 @@ func runWrapper() {
 		renderMu.Lock()
 		defer renderMu.Unlock()
 
-		if !suggestionsEnabled || isExecuting() {
+		if !suggestionsEnabled || isExecuting() || multilineBuf.Load() {
 			if renderTimer != nil {
 				renderTimer.Stop()
 				renderTimer = nil
@@ -848,6 +863,7 @@ func runWrapper() {
 			}
 
 			shouldOverlayDraw := false
+			refreshMultiline()
 			for i := 0; i < n; i++ {
 				b := inputSlice[i]
 				intercepted = false
