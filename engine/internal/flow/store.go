@@ -17,6 +17,7 @@ package flow
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -497,4 +498,28 @@ func (t *TEntry) NextOf(pair string) string {
 		return pair[i+1:]
 	}
 	return ""
+}
+
+// DirFrecency returns how many distinct commands have been executed in the
+// given directory (derived from C-record Dirs evidence).
+func (s *Store) DirFrecency(dir string) int {
+	count := 0
+	for _, e := range s.SnapshotEntries() {
+		if e.HasDir(dir) {
+			count++
+		}
+	}
+	return count
+}
+
+// DirFrecencyBoost returns a score multiplier for candidates whose
+// destination directory is a high-traffic project root. Used to rank
+// "cd ArchTide" above "cd Programming" when both match a query prefix.
+func (s *Store) DirFrecencyBoost(dir string) float64 {
+	count := s.DirFrecency(dir)
+	if count == 0 {
+		return 0
+	}
+	// log scale: 10 visits = +2.4, 100 = +4.6, 500 = +6.2
+	return math.Log1p(float64(count)) * 3.0
 }

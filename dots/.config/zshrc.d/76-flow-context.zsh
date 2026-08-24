@@ -64,4 +64,14 @@ _flow_context_compute() {
 # register: runs on every prompt (this was accidentally dropped during a
 # cleanup edit — the function existed but never executed)
 autoload -Uz add-zsh-hook
+
+# Record directory visits on every cd/z/pushd — captures zoxide destinations
+# that bypass regular command recording.
+_flow_record_dir_visit() {
+  if (( $+commands[iris] )); then
+    iris record-dir --dir "$PWD" >/dev/null 2>&1 &!
+  fi
+}
+add-zsh-hook chpwd _flow_record_dir_visit
+
 add-zsh-hook precmd _flow_context_compute

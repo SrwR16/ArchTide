@@ -204,3 +204,19 @@ func appendTRecord(path string, e *TEntry) error {
 		e.Pair, e.Count, e.Success, e.Last)
 	return err
 }
+
+// RecordDirVisit increments the visit counter for a directory using a
+// lightweight side-file (~/.local/state/flow/predictor/dirs.tsv).
+func RecordDirVisit(dir string) {
+	if dir == "" {
+		return
+	}
+	store := GlobalStore()
+	dirFile := strings.TrimSuffix(store.Path(), ".tsv") + "_dirs.tsv"
+	f, err := os.OpenFile(dirFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "D\t%s\t%d\n", dir, time.Now().Unix())
+}

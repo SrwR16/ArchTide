@@ -22,7 +22,7 @@ palette = "flow"
 # ─── Prompt Character ──────────────────────────────────────────
 
 # Large repos can exceed starship's default 500ms git scan.
-command_timeout = 2000
+command_timeout = 5000
 [character]
 success_symbol = "[╰─❯](bold fg:flow_success)"
 error_symbol = "[╰─⚠❯](bold fg:flow_error)"
