@@ -136,8 +136,8 @@ hl.config({
     },
     general = {
         -- Gaps and border
-        gaps_in = 10,
-        gaps_out = 11,
+        gaps_in = 5,
+        gaps_out = 10,
         gaps_workspaces = 50,
 
         border_size = 3,
@@ -152,7 +152,7 @@ hl.config({
         allow_tearing = true, -- This just allows the `immediate` window rule to work
         snap = {
             enabled = true,
-            window_gap = 4,
+            window_gap = 5,
             monitor_gap = 5,
             respect_gaps = true
         }
