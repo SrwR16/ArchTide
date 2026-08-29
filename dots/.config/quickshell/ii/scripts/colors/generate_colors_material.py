@@ -2,6 +2,7 @@
 import argparse
 import math
 import json
+import sys
 from PIL import Image
 from materialyoucolor.quantize import QuantizeCelebi
 from materialyoucolor.score.score import Score
@@ -63,7 +64,14 @@ darkmode = (args.mode == 'dark')
 transparent = (args.transparency == 'transparent')
 
 if args.path is not None:
-    image = Image.open(args.path)
+    if str(args.path).startswith(('http://', 'https://')):
+        sys.stderr.write("ERROR: --path is a URL, which PIL cannot open. Resolve it to a local file first: {}\n".format(args.path))
+        exit(1)
+    try:
+        image = Image.open(args.path)
+    except FileNotFoundError:
+        sys.stderr.write("ERROR: image not found: {}\n".format(args.path))
+        exit(1)
 
     if image.format == "GIF":
         image.seek(1)

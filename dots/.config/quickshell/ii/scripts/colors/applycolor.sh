@@ -27,6 +27,11 @@ IFS=$'\n'
 colorlist=($colornames)     # Array of color names
 colorvalues=($colorstrings) # Array of color values
 
+if [ ${#colorlist[@]} -eq 0 ] || [ ${#colorvalues[@]} -eq 0 ]; then
+  echo "[applycolor.sh] ERROR: material_colors.scss is empty or unreadable. Skipping terminal color application to avoid writing broken templates." >&2
+  exit 1
+fi
+
 apply_kitty() {  
   # Check if terminal escape sequence template exists
   if [ ! -f "$SCRIPT_DIR/terminal/kitty-theme.conf" ]; then

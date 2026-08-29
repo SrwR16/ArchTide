@@ -26,8 +26,12 @@ RippleButton {
 
     readonly property string wallpaperPath: Config.options.background.wallpaperPath
     readonly property string scriptPath: FileUtils.trimFileProtocol(`${Directories.scriptPath}/colors/generate_colors_material.py`)
+    readonly property string wallPathTxt: FileUtils.trimFileProtocol(`${Directories.state}/user/generated/wallpaper/path.txt`)
 
-    property string fullCommand: `python3 ${root.scriptPath} --path ${root.wallpaperPath} --scheme ${root.colorScheme} --preview`
+    // Resolve a possibly-remote wallpaper path to a local file before running the color script,
+    // since PIL cannot open URLs (path.txt tracks the local path of the currently applied wallpaper).
+    property string fullCommand: `bash -c 'wp="${root.wallpaperPath}"; if [[ "$wp" =~ ^https?:// && -f "${root.wallPathTxt}" ]]; then wp="$(cat "${root.wallPathTxt}")"; fi; python3 ${root.scriptPath} --path "$wp" --scheme ${root.colorScheme} --preview'`
+
 
     // these are not actually primary, secondary and tertiary, they are just the three colors we get from the script
     property color primaryColor: "transparent"

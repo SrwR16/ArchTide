@@ -6,8 +6,8 @@ input_path = '~/.config/matugen/templates/colors.json'
 output_path = '~/.local/state/quickshell/user/generated/colors.json'
 
 [templates.hyprland]
-input_path = '~/.config/matugen/templates/hyprland/colors.conf'
-output_path = '~/.config/hypr/hyprland/colors.conf'
+input_path = '~/.config/matugen/templates/hyprland/colors.lua'
+output_path = '~/.config/hypr/hyprland/colors.lua'
 
 [templates.hyprlock]
 input_path = '~/.config/matugen/templates/hyprland/hyprlock-colors.conf'
@@ -46,60 +46,42 @@ input_path = "~/.config/matugen/templates/hyprlunavsc.json"
 output_path = "~/.antigravity/extensions/hyprluna.hyprluna-theme-1.0.2/themes/hyprluna.json"
 
 [templates.zeditor]
+input_path = "~/.config/matugen/templates/zed_theme.json"
+output_path = "~/.local/share/zed/extensions/installed/material-dark/themes/zed_material_theme.json"
 
 [templates.btop]
 input_path = '~/.config/matugen/templates/btop.theme'
 output_path = '~/.config/btop/themes/matugen.theme'
 
 [templates.obsidian]
+input_path = '~/.config/matugen/templates/obsidian_matugen.css'
+# output_path = '~/Documents/Obsidian-Vault/.obsidian/snippets/matugen.css' # Example: path to your obsidian vault snippet
 
 [templates.cava]
 input_path = '~/.config/matugen/templates/cava_color.ini'
 output_path = '~/.config/cava/config'
 post_hook = "pkill -USR1 cava"
 
-[templates.btop]
-
 [templates.discord]
 input_path = "~/.config/matugen/templates/midnight.theme.css"
 output_path = "~/.config/vesktop/themes/midnight.theme.css"
 
 [templates.vscode]
+input_path = "~/.config/matugen/templates/hyprlunavsc.json"
+output_path = "~/.vscode/extensions/hyprluna.hyprluna-theme-1.0.2/themes/hyprluna.json"
 
 [templates.kitty]
 input_path = '~/.config/matugen/templates/kitty_theme.conf'
 output_path = '~/.config/kitty/current-theme.conf'
 
-[templates.gtk3]
-
-[templates.obsidian]
-input_path = '~/.config/matugen/templates/obsidian_matugen.css'
-# output_path = '~/Documents/Obsidian-Vault/.obsidian/snippets/matugen.css' # Example: path to your obsidian vault snippet
-
-[templates.terminal]
-
-[templates.spicetify]
-#input_path = "~/.config/matugen/templates/spicetify-color.ini"
-#output_path = "~/.config/spicetify/Themes/caelestia/color.ini"
-
-[templates.cava]
-
 [templates.terminal]
 input_path = '~/.config/matugen/templates/terminal/sequences.txt'
 output_path = '~/.local/state/quickshell/user/generated/terminal/sequences.txt'
-post_hook = "~/.config/quickshell/flow/scripts/colors/apply_terminal_colors.sh"
-
-[templates.vscode]
-input_path = "~/.config/matugen/templates/hyprlunavsc.json"
-output_path = "~/.vscode/extensions/hyprluna.hyprluna-theme-1.0.2/themes/hyprluna.json"
-
-[templates.antigravity]
-
-[templates.zeditor]
-input_path = "~/.config/matugen/templates/zed_theme.json"
-output_path = "~/.local/share/zed/extensions/installed/material-dark/themes/zed_material_theme.json"
+post_hook = "~/.config/quickshell/ii/scripts/colors/applycolor.sh"
 
 #[templates.spicetify]
+#input_path = "~/.config/matugen/templates/spicetify-color.ini"
+#output_path = "~/.config/spicetify/Themes/caelestia/color.ini"
 
 [templates.starship]
 input_path = '~/.config/matugen/templates/starship/starship.toml'

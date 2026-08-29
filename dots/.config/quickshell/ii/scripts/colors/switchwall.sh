@@ -12,6 +12,33 @@ SHELL_CONFIG_FILE="$XDG_CONFIG_HOME/illogical-impulse/config.json"
 MATUGEN_DIR="$XDG_CONFIG_HOME/matugen"
 terminalscheme="$SCRIPT_DIR/terminal/scheme-base.json"
 
+# Resolve a wallpaper path that may be a remote URL into a usable local image file.
+# Either returns an existing local file (stored wallpaper path) or downloads the
+# URL into the state dir. Echoes the resolved path.
+resolve_wallpaper_path() {
+    local input="$1"
+    if [[ "$input" =~ ^https?:// ]]; then
+        local stored=""
+        [[ -f "$STATE_DIR/user/generated/wallpaper/path.txt" ]] && stored="$(cat "$STATE_DIR/user/generated/wallpaper/path.txt")"
+        if [[ -n "$stored" && -f "$stored" ]]; then
+            echo "$stored"
+            return 0
+        fi
+        # Fall back to downloading the URL into a stable location
+        local filename="$(basename "${input%%\?*}")"
+        [[ -z "$filename" || "$filename" == "." || "$filename" == "/" ]] && filename="wallpaper.jpg"
+        local dest="$STATE_DIR/user/generated/wallpaper/$filename"
+        mkdir -p "$(dirname "$dest")"
+        if curl -fsSL "$input" -o "$dest" 2>/dev/null; then
+            echo "$dest"
+            return 0
+        fi
+        echo "ERROR: Unable to resolve wallpaper URL to a local file: $input" >&2
+        return 1
+    fi
+    echo "$input"
+}
+
 handle_kde_material_you_colors() {
     # Check if Qt app theming is enabled in config
     if [ -f "$SHELL_CONFIG_FILE" ]; then
@@ -208,6 +235,9 @@ categorize_wallpaper() {
 
 switch() {
     imgpath="$1"
+    if [[ -n "$imgpath" && "$imgpath" != "null" ]]; then
+        imgpath="$(resolve_wallpaper_path "$imgpath")" || exit 1
+    fi
     mode_flag="$2"
     type_flag="$3"
     color_flag="$4"
