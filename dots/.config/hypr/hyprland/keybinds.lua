@@ -143,19 +143,18 @@ hl.bind("SUPER + ALT + F", hl.dsp.window.fullscreen_state({ internal = 0, client
     { description = "Window: Fullscreen spoof" })
 hl.bind("SUPER + P", hl.dsp.window.pin(), { description = "Window: Pin" })
 
---#/# bind = SUPER+ALT, Hash,, -- Send to workspace -- (1, 2, 3,...)
---# We use raw keycodes because some keyboard layouts register number keys as different chars. The codes can be verified with `wev`
+--# SUPER + SHIFT + number: Move window to workspace AND follow
 for i = 1, 10 do
     local numberkey = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }
-    hl.bind("SUPER + ALT + code:" .. numberkey[i], function()
-        hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i), follow = false }))
+    hl.bind("SUPER + SHIFT + code:" .. numberkey[i], function()
+        hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i), follow = true }))
     end)
 end
 --# keypad numbers
 for i = 1, 10 do
     local numpadkey = { 87, 88, 89, 83, 84, 85, 79, 80, 81, 90 }
-    hl.bind("SUPER + ALT + code:" .. numpadkey[i], function()
-        hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i), follow = false }))
+    hl.bind("SUPER + SHIFT + code:" .. numpadkey[i], function()
+        hl.dispatch(hl.dsp.window.move({ workspace = workspace_in_group(i), follow = true }))
     end)
 end
 
