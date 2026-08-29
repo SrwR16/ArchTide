@@ -1,13 +1,16 @@
 # Flow Zsh Completion
-# Native Zsh completion with caching
+# Native Zsh completion with caching + zsh-completions + fzf-tab
 
 # Completion directory
 local zcompdir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
 [[ -d "$zcompdir" ]] || mkdir -p "$zcompdir"
 local zcompdump="$zcompdir/zcompdump-${ZSH_VERSION}"
 
+# ── zsh-completions: additional completion definitions (load BEFORE compinit) ──
+# https://github.com/zsh-users/zsh-completions
+fpath=("${ZPLUGINDIR:-${ZDOTDIR:-$HOME/.config/zsh}/plugins}/zsh-completions/src" $fpath)
+
 # Load completion system — ONE call below (daily-rebuild block).
-# A second compinit here doubled startup cost (~15ms) for nothing.
 autoload -Uz compinit
 
 # Completion styles
@@ -72,50 +75,15 @@ else
   compinit -C -d "$zcompdump"
 fi
 
-# ── fzf-tab: fuzzy completion picker (load AFTER compinit) ──────────────────
+# ── fzf-tab: fuzzy completion picker (load AFTER compinit via plugin-load) ────
 # https://github.com/Aloxaf/fzf-tab
-
-# Idempotency guard
-(( $+functions[-ftb-complete] )) && return 0
-
-# Preferred install location
-_ft_install_dir="${XDG_DATA_HOME:-$HOME/.local/share}/fzf-tab"
-
-# 1. Try loading from known paths
-local -a _ft_dirs=(
-  "$_ft_install_dir"
-  "$HOME/.zsh-plugins/fzf-tab"
-  "/usr/share/zsh/plugins/fzf-tab"
-  "/usr/share/zsh/plugins/fzf-tab-git"
-)
-
-local _ft_dir=""
-for _ft_dir in "${_ft_dirs[@]}"; do
-  if [[ -f "$_ft_dir/fzf-tab.plugin.zsh" ]]; then
-    source "$_ft_dir/fzf-tab.plugin.zsh"
-    zstyle ':completion:*' menu no
-    zstyle ':fzf-tab:*' fzf-flags --color=fg:1,fg+:2 --bind=tab:accept
-    zstyle ':fzf-tab:*' switch-group '<' '>'
-    zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always $realpath'
-    zstyle ':fzf-tab:complete:ssh:*' fzf-preview 'echo {}'
-    zstyle ':fzf-tab:complete:git-checkout:*' sort false
-    return 0
-  fi
-done
-
-# 2. Not found — auto-install
-if command -v git >/dev/null 2>&1 && command -v fzf >/dev/null 2>&1; then
-  print -P "%F{yellow}fzf-tab: not found, cloning...%f" 2>/dev/null
-  if git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$_ft_install_dir" 2>/dev/null; then
-    source "$_ft_install_dir/fzf-tab.plugin.zsh"
-    zstyle ':completion:*' menu no
-    zstyle ':fzf-tab:*' fzf-flags --color=fg:1,fg+:2 --bind=tab:accept
-    zstyle ':fzf-tab:*' switch-group '<' '>'
-    zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always $realpath'
-    zstyle ':fzf-tab:complete:ssh:*' fzf-preview 'echo {}'
-    zstyle ':fzf-tab:complete:git-checkout:*' sort false
-    print -P "%F{green}fzf-tab: installed to $_ft_install_dir%f" 2>/dev/null
-    return 0
-  fi
-  print -P "%F{red}fzf-tab: clone failed%f" 2>/dev/null
+# Configured via plugin-load in 05-plugin-manager.zsh
+# Styles applied here after plugin loads
+if (( $+functions[-ftb-complete] )); then
+  zstyle ':completion:*' menu no
+  zstyle ':fzf-tab:*' fzf-flags --color=fg:1,fg+:2 --bind=tab:accept
+  zstyle ':fzf-tab:*' switch-group '<' '>'
+  zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always $realpath'
+  zstyle ':fzf-tab:complete:ssh:*' fzf-preview 'echo {}'
+  zstyle ':fzf-tab:complete:git-checkout:*' sort false
 fi

@@ -29,6 +29,9 @@ setopt HIST_IGNORE_SPACE
 # Atuin integration (if installed)
 if command -v atuin >/dev/null 2>&1; then
   # Initialize Atuin for Zsh
+  # --disable-up-arrow: we bind atuin to Down arrow instead of Ctrl+R
   _flow_cached_eval atuin atuin init zsh --disable-up-arrow
-  bindkey '^R' atuin-search
+  # Bind atuin search to Down arrow (replaces Ctrl+R)
+  # Note: This overrides history-substring-search-down on Down arrow
+  bindkey "$terminfo[kcud1]" atuin-search
 fi
