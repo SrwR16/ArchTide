@@ -58,8 +58,8 @@ Scope {
     PanelLoader { component: ScreenCorners {} }
     PanelLoader { component: ScreenTranslator {} }
     PanelLoader { component: SessionScreen {} }
-    PanelLoader { component: SidebarPolicies {} }
-    PanelLoader { component: SidebarDashboard {} }
+    PanelLoader { extraCondition: Config.options.sidebar.enableLeft; component: SidebarPolicies {} }
+    PanelLoader { extraCondition: Config.options.sidebar.enableRight; component: SidebarDashboard {} }
     PanelLoader { extraCondition: Config.options.bar.vertical && barExtraCondition; component: VerticalBar {} }
     PanelLoader { component: WallpaperSelector {} }
     PanelLoader { component: WrappedFrame {} }

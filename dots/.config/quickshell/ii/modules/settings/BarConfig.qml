@@ -65,6 +65,25 @@ ContentPage {
                 }
             }
         }
+        ContentSubsection {
+            title: Translation.tr("Scroll actions")
+            ConfigSwitch {
+                buttonIcon: "brightness_high"
+                text: Translation.tr("Scroll left side to change brightness")
+                checked: Config.options.bar.brightnessScroll
+                onCheckedChanged: {
+                    Config.options.bar.brightnessScroll = checked;
+                }
+            }
+            ConfigSwitch {
+                buttonIcon: "volume_up"
+                text: Translation.tr("Scroll right side to change volume")
+                checked: Config.options.bar.volumeScroll
+                onCheckedChanged: {
+                    Config.options.bar.volumeScroll = checked;
+                }
+            }
+        }
     }
 
     ContentSection {

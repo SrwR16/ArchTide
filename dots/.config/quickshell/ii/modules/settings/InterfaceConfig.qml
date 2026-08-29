@@ -634,6 +634,30 @@ ContentPage {
         title: Translation.tr("Sidebars")
 
         ConfigSwitch {
+            buttonIcon: "left_panel_open"
+            text: Translation.tr('Enable left sidebar')
+            checked: Config.options.sidebar.enableLeft
+            onCheckedChanged: {
+                Config.options.sidebar.enableLeft = checked;
+            }
+            StyledToolTip {
+                text: Translation.tr("When disabled the left sidebar is not loaded and cannot be opened.")
+            }
+        }
+
+        ConfigSwitch {
+            buttonIcon: "right_panel_open"
+            text: Translation.tr('Enable right sidebar')
+            checked: Config.options.sidebar.enableRight
+            onCheckedChanged: {
+                Config.options.sidebar.enableRight = checked;
+            }
+            StyledToolTip {
+                text: Translation.tr("When disabled the right sidebar is not loaded and cannot be opened.")
+            }
+        }
+
+        ConfigSwitch {
             buttonIcon: "memory"
             text: Translation.tr('Keep right sidebar loaded')
             checked: Config.options.sidebar.keepRightSidebarLoaded

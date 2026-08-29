@@ -301,6 +301,9 @@ Singleton {
             }
 
             property JsonObject bar: JsonObject {
+                property bool brightnessScroll: true // Scroll on the bar's left side to change brightness
+                property bool volumeScroll: true // Scroll on the bar's right side to change volume
+
                 property JsonObject activeWindow: JsonObject {
                     property bool fixedSize: false
                 }
@@ -716,6 +719,8 @@ Singleton {
             }
 
             property JsonObject sidebar: JsonObject {
+                property bool enableLeft: true
+                property bool enableRight: true
                 property string position: "default"
                 property bool keepRightSidebarLoaded: true
                 property JsonObject translator: JsonObject {
