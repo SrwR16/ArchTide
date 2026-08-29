@@ -6,16 +6,14 @@
 # 2. fzf-tab — loaded in 20-completion.zsh AFTER compinit (checks for function)
 # 3. zsh-autosuggestions
 # 4. zsh-history-substring-search
-# 5. zsh-abbr
-# 6. zsh-autopair
-# 7. zsh-you-should-use
-# 8. fast-syntax-highlighting (MUST BE LAST)
+# 5. zsh-autopair
+# 6. zsh-you-should-use
+# 7. fast-syntax-highlighting (MUST BE LAST)
 
 # Load all plugins
 plugin-load \
   zsh-users/zsh-autosuggestions \
   zsh-users/zsh-history-substring-search \
-  olets/zsh-abbr \
   hlissner/zsh-autopair \
   MichaelAquilina/zsh-you-should-use \
   zdharma-continuum/fast-syntax-highlighting

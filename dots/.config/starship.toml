@@ -94,7 +94,7 @@ commit_hash_length = 8
 format = "[ 󰜯 $hash]($style)"
 
 [git_state]
-format = "[\\($state( $progress_current of $progress_total)\\)]($style)"
+format = '[\\($state( $progress_current of $progress_total)\\)]($style)'
 cherry_pick = "[ PICKING](bold red)"
 
 # ─── Layer 3: Flow State Modules ───────────────────────────────
