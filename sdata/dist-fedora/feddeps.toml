@@ -15,7 +15,6 @@ repos = [
 [groups.audio]
 packages = [
   "cava",
-  "easyeffects",
   "pavucontrol",
   "wireplumber",
   "libdbusmenu-gtk3-devel",
@@ -43,14 +42,8 @@ packages = [
   "ripgrep",
   "jq",
   "xdg-utils",
-  "zenity",
-  "libnotify",
   "rsync",
-  "yq",
-  # Media Downloader (yt-dlp, ffmpeg, aria2)
-  "yt-dlp",
-  "ffmpeg",
-  "aria2"
+  "yq"
 ]
 
 # Cursor themes
@@ -75,7 +68,6 @@ packages = [
   "fish",
   "fontconfig",
   "kitty",
-  "matugen",
   "florian-karsten-space-grotesk-fonts",
   "starship",
   "jetbrains-mono-nerd-fonts",
@@ -92,8 +84,8 @@ packages = [
 packages = [
   "hyprland",
   "hyprland-guiutils",
+  "hyprland-qt-support",
   "hyprsunset",
-  "golang",
   "wl-clipboard"
 ]
 install_opts = ["--setopt=install_weak_deps=False"]
@@ -138,46 +130,20 @@ packages = [
   "python3",
   "python3.12",
   "python3-devel",
-  "python3.12-devel",
-  "python-openrgb",
-  "python-scipy"
+  "python3.12-devel"
 ]
 install_opts = ["--setopt=install_weak_deps=False"]
 
-# Quickshell-git
-[groups.quickshell]
+[groups.illogical-impulse]
 packages = [
-  "qt6-qtdeclarative",
-  "qt6-qtbase",
-  "jemalloc",
-  "qt6-qtsvg",
-  "pipewire-libs",
-  "libxcb",
-  "wayland-devel",
-  "qt6-qtwayland",
-  "qt5-qtwayland",
-  "libdrm",
-  "breakpad",
-  "kf6-kirigami",
-  "libunwind-devel",
-  # NOTE: Below are custom dependencies of flow
-  "qt6-qt5compat",
-  "qt6-qtimageformats",
-  "qt6-qtpositioning",
-  "qt6-qtquicktimeline",
-  "qt6-qtsensors",
-  "qt6-qttools",
-  "qt6-qttranslations",
-  "qt6-qtvirtualkeyboard",
-  "kdialog",
-  "kf6-syntax-highlighting"
+    "quickshell-git",
+    "matugen"
 ]
 
 # Screencapture
 [groups.screencapture]
 packages = [
   "hyprshot",
-  "grim",
   "slurp",
   "swappy",
   "tesseract",
@@ -198,7 +164,6 @@ packages = [
 [groups.widgets]
 packages = [
   "fuzzel",
-  "gjs",
   "glib2",
   "ImageMagick",
   "hypridle",
@@ -218,22 +183,3 @@ packages = [
   "unzip"
 ]
 install_opts = ["--setopt=install_weak_deps=False"]
-
-# Theming — GTK/Qt theme engines and icon sets the shell names or applies.
-# nwg-look / qt5ct / qt6ct are not carried: nothing in the config executes them.
-[groups.theming]
-packages = [
-  "adw-gtk3-theme",
-  "breeze-icon-theme"
-]
-
-# Fonts — UI font, icon font, and emoji/CJK fallbacks.
-# Material Symbols has no Fedora package; install ttf-material-symbols-variable
-# manually (see deps-info.md) until one exists.
-[groups.fonts]
-packages = [
-  "jetbrains-mono-fonts",
-  "google-noto-emoji-fonts",
-  "google-noto-sans-cjk-ttc-fonts"
-]
-

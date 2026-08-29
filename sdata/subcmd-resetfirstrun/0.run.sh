@@ -4,4 +4,3 @@
 # shellcheck shell=bash
 
 try rm "${FIRSTRUN_FILE}"
-try rm "${XDG_STATE_HOME:-$HOME/.local/state}/flow/user/first_run.txt"

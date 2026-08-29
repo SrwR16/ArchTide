@@ -1,28 +1,19 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
-import "../core"
-import "../core/functions" as Functions
+import qs.modules.common
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 
 /**
- * Watches Matugen-generated colors.json and applies M3 color tokens to Appearance.m3colors.
- * Call reapplyTheme() on startup since Singletons are lazily loaded.
+ * Automatically reloads generated material colors.
+ * It is necessary to run reapplyTheme() on startup because Singletons are lazily loaded.
  */
 Singleton {
     id: root
-    
-    readonly property string generatedPath: Directories.generatedMaterialThemePath
-    readonly property string themesDir: "file://" + Directories.assetsPath + "/themes/"
-    
-    property string filePath: {
-        if (!Config.ready) return generatedPath;
-        const bg = Config.options.appearance.background;
-        if (bg.matugen || bg.matugenThemeFile === "") return generatedPath;
-        return themesDir + bg.matugenThemeFile;
-    }
+    property string filePath: Directories.generatedMaterialThemePath
 
     function reapplyTheme() {
         themeFileView.reload()
@@ -32,38 +23,34 @@ Singleton {
         const json = JSON.parse(fileContent)
         for (const key in json) {
             if (json.hasOwnProperty(key)) {
+                // Convert snake_case to CamelCase
                 const camelCaseKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase())
                 const m3Key = `m3${camelCaseKey}`
-                if (Appearance.m3colors.hasOwnProperty(m3Key)) {
-                    Appearance.m3colors[m3Key] = json[key]
-                }
+                Appearance.m3colors[m3Key] = json[key]
             }
         }
-        Appearance.m3colors.darkmode = Functions.ColorUtils.isDark(Appearance.m3colors.m3background)
-
-        // Mirror to lockscreen palette when not using a separate lockscreen wallpaper
-        if (Config.ready && !Config.options.lock.useSeparateWallpaper) {
-            applyLockColors(fileContent)
-        }
+        
+        Appearance.m3colors.darkmode = (Appearance.m3colors.m3background.hslLightness < 0.5)
     }
 
-    function applyLockColors(fileContent) {
-        const json = JSON.parse(fileContent)
-        for (const key in json) {
-            if (json.hasOwnProperty(key)) {
-                const camelCaseKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase())
-                const m3Key = `m3${camelCaseKey}`
-                if (Appearance.lockM3colors.hasOwnProperty(m3Key)) {
-                    Appearance.lockM3colors[m3Key] = json[key]
-                }
-            }
+    function resetFilePathNextTime() {
+        resetFilePathNextWallpaperChange.enabled = true
+    }
+
+    Connections {
+        id: resetFilePathNextWallpaperChange
+        enabled: false
+        target: Config.options.background
+        function onWallpaperPathChanged() {
+            root.filePath = ""
+            root.filePath = Directories.generatedMaterialThemePath
+            resetFilePathNextWallpaperChange.enabled = false
         }
-        Appearance.lockM3colors.darkmode = Functions.ColorUtils.isDark(Appearance.lockM3colors.m3background)
     }
 
     Timer {
         id: delayedFileRead
-        interval: 100
+        interval: Config.options?.hacks?.arbitraryRaceConditionDelay ?? 100
         repeat: false
         running: false
         onTriggered: {
@@ -71,7 +58,7 @@ Singleton {
         }
     }
 
-    FileView {
+	FileView { 
         id: themeFileView
         path: Qt.resolvedUrl(root.filePath)
         watchChanges: true
@@ -81,15 +68,30 @@ Singleton {
         }
         onLoadedChanged: {
             const fileContent = themeFileView.text()
-            if (fileContent.trim() !== "") {
-                root.applyColors(fileContent)
-            }
+            root.applyColors(fileContent)
         }
-        onLoadFailed: error => {
-            if (error == FileViewError.FileNotFound) {
+        onLoadFailed: root.resetFilePathNextTime();
+    }
 
-                Wallpapers.initializeMatugen()
-            }
+    function toggleLightDark() {
+        const currentlyDark = Appearance.m3colors.darkmode;
+        Quickshell.execDetached([Directories.wallpaperSwitchScriptPath, "--mode", currentlyDark ? "light" : "dark", "--noswitch"]);
+    }
+
+    GlobalShortcut {
+        name: "toggleLightDark"
+        description: "Toggles between dark theme and light theme"
+
+        onPressed: {
+            root.toggleLightDark();
+        }
+    }
+
+    IpcHandler {
+        target: "theme"
+
+        function toggleLightDark(): void {
+            root.toggleLightDark();
         }
     }
 }

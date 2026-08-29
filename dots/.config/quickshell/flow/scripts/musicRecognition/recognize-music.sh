@@ -1,9 +1,6 @@
 #!/bin/bash
-# Ported from 'ii'
-# FLOW Music Recognition Script
-# Optimized to use native songrec recognition
 
-INTERVAL=5
+INTERVAL=10
 TOTAL_DURATION=30
 SOURCE_TYPE="monitor"  # monitor | input
 
@@ -16,36 +13,48 @@ while getopts "i:t:s:" opt; do
   esac
 done
 
-# Try to find the device string for songrec
-if [ "$SOURCE_TYPE" = "monitor" ]; then
-    # Look for the default sink's monitor
-    DEFAULT_SINK=$(pactl get-default-sink)
-    DEVICE_STRING=$(songrec recognize -l | grep "$DEFAULT_SINK.monitor" | head -n 1 | awk '{print $4}')
-    
-    # Fallback: just search for any monitor if specific one fails
-    if [ -z "$DEVICE_STRING" ]; then
-        DEVICE_STRING=$(songrec recognize -l | grep ".monitor" | head -n 1 | awk '{print $4}')
-    fi
-else
-    # Look for default input source
-    DEFAULT_SOURCE=$(pactl get-default-source)
-    DEVICE_STRING=$(songrec recognize -l | grep "$DEFAULT_SOURCE" | head -n 1 | awk '{print $4}')
-    
-    # Fallback: search for any analog-stereo input
-    if [ -z "$DEVICE_STRING" ]; then
-        DEVICE_STRING=$(songrec recognize -l | grep "input" | grep -v ".monitor" | head -n 1 | awk '{print $4}')
-    fi
-fi
-
-if ! command -v songrec >/dev/null 2>&1; then
+if ! command -v songrec >/dev/null 2>&1 || ! command -v parec >/dev/null 2>&1 || ! command -v ffmpeg >/dev/null 2>&1; then
     exit 1
 fi
 
-# Run songrec directly. -j for JSON, -i for interval.
-# We use timeout command to limit the duration.
-if [ -n "$DEVICE_STRING" ]; then
-    timeout "$TOTAL_DURATION" songrec recognize -j -d "$DEVICE_STRING" -i "$INTERVAL"
+if [ "$SOURCE_TYPE" = "monitor" ]; then
+    AUDIO_DEVICE=$(pactl get-default-sink).monitor
+elif [ "$SOURCE_TYPE" = "input" ]; then
+    AUDIO_DEVICE=$(pactl get-default-source)
 else
-    # Last resort: just use default mic
-    timeout "$TOTAL_DURATION" songrec recognize -j -i "$INTERVAL"
+    echo "Invalid source type"
+    exit 1
 fi
+
+if [ -z "$AUDIO_DEVICE" ] || ! pactl list short sources | grep -q "$AUDIO_DEVICE"; then
+    exit 1
+fi
+
+TMPDIR=$(mktemp -d /tmp/songrec_chunks_XXXXXX)
+trap 'rm -rf "$TMPDIR"' EXIT
+
+ELAPSED=0
+while [ "$ELAPSED" -lt "$TOTAL_DURATION" ]; do
+    RAW="$TMPDIR/chunk.raw"
+    WAV="$TMPDIR/chunk.wav"
+    rm -f "$RAW" "$WAV"
+
+    # INTERVAL saniyelik PCM kaydı al
+    timeout "$((INTERVAL + 2))" parec \
+        --device="$AUDIO_DEVICE" \
+        --rate=44100 --channels=2 --format=s16le \
+        --raw "$RAW" 2>/dev/null
+
+    ffmpeg -loglevel quiet -f s16le -ar 44100 -ac 2 -i "$RAW" -y "$WAV" 2>/dev/null
+
+    RESULT=$(songrec recognize --json "$WAV" 2>/dev/null)
+
+    if echo "$RESULT" | grep -q '"matches": \[{' ; then
+        echo "$RESULT"
+        exit 0
+    fi
+
+    ELAPSED=$((ELAPSED + INTERVAL))
+done
+
+exit 0

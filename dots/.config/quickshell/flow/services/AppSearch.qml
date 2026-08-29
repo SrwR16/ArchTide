@@ -1,111 +1,164 @@
 pragma Singleton
-import QtQuick
+
+import qs.modules.common
+import qs.modules.common.functions
 import Quickshell
 
 /**
- * AppSearch.qml
- * Service for matching Hyprland window classes to system icons.
- * Case-insensitive optimized for performance and reliability.
+ * - Eases fuzzy searching for applications by name
+ * - Guesses icon name for window class name
  */
 Singleton {
     id: root
-
-    // Normalized substitutions (all keys must be lowercase)
-    readonly property var substitutions: ({
+    property bool sloppySearch: Config.options?.search.sloppy ?? false
+    property real scoreThreshold: 0.2
+    property var substitutions: ({
         "code-url-handler": "visual-studio-code",
-        "code": "visual-studio-code",
+        "Code": "visual-studio-code",
         "gnome-tweaks": "org.gnome.tweaks",
         "pavucontrol-qt": "pavucontrol",
         "wps": "wps-office2019-kprometheus",
         "wpsoffice": "wps-office2019-kprometheus",
         "footclient": "foot",
-        "brave-browser": "brave-desktop",
-        "brave": "brave-desktop",
-        "com.brave.browser": "brave-desktop",
-        "google-chrome": "google-chrome",
-        "microsoft-edge": "microsoft-edge",
-        "spotify": "spotify",
-        "spotify-client": "spotify",
-        "com.spotify.client": "spotify",
-        "kitty": "kitty",
-        "org.wezfurlong.wezterm": "org.wezfurlong.wezterm",
-        "upscayl": "org.upscayl.Upscayl"
     })
-
-    function iconExists(iconName) {
-        if (!iconName) return false;
-        try {
-            const path = Quickshell.iconPath(iconName, "image-missing");
-            return !!path && path !== "" && !path.includes("image-missing");
-        } catch (e) {
-            return false;
+    property var regexSubstitutions: [
+        {
+            "regex": /^steam_app_(\d+)$/,
+            "replace": "steam_icon_$1"
+        },
+        {
+            "regex": /Minecraft.*/,
+            "replace": "minecraft"
+        },
+        {
+            "regex": /.*polkit.*/,
+            "replace": "system-lock-screen"
+        },
+        {
+            "regex": /gcr.prompter/,
+            "replace": "system-lock-screen"
         }
+    ]
+
+    // Deduped list to fix double icons
+    readonly property list<DesktopEntry> list: Array.from(DesktopEntries.applications.values)
+        .filter((app, index, self) => 
+            index === self.findIndex((t) => (
+                t.id === app.id
+            ))
+    )
+    
+    readonly property var preppedNames: list.map(a => ({
+        name: Fuzzy.prepare(`${a.name} `),
+        entry: a
+    }))
+
+    readonly property var preppedIcons: list.map(a => ({
+        name: Fuzzy.prepare(`${a.icon} `),
+        entry: a
+    }))
+
+    function fuzzyQuery(search: string): var { // Idk why list<DesktopEntry> doesn't work
+        if (root.sloppySearch) {
+            const results = list.map(obj => ({
+                entry: obj,
+                score: Levendist.computeScore(obj.name.toLowerCase(), search.toLowerCase())
+            })).filter(item => item.score > root.scoreThreshold)
+                .sort((a, b) => b.score - a.score)
+            return results
+                .map(item => item.entry)
+        }
+
+        return Fuzzy.go(search, preppedNames, {
+            all: true,
+            key: "name"
+        }).map(r => {
+            return r.obj.entry
+        });
     }
 
-    readonly property int _entryCount: DesktopEntries.applications.values.length
+    function iconExists(iconName) {
+        if (!iconName || iconName.length == 0) return false;
+        return (Quickshell.iconPath(iconName, true).length > 0) 
+            && !iconName.includes("image-missing");
+    }
 
-    function guessIcon(clientClass, initialClass, title) {
-        let dummy = root._entryCount; 
-        
-        if (!clientClass && !initialClass && !title) return "application-x-executable";
-        
-        // 1. Normalize all inputs to lowercase once (Better performance)
-        const lowClass = (clientClass || "").toLowerCase();
-        const lowInitial = (initialClass || "").toLowerCase();
-        const lowTitle = (title || "").toLowerCase();
+    function getReverseDomainNameAppName(str) {
+        return str.split('.').slice(-1)[0]
+    }
 
-        // 1b. NAnDoroid's own windows (Settings, System Monitor) all share the global
-        // quickshell appId; show the shell's own logo for them instead.
-        // An absolute path is returned because Quickshell.iconPath()/Image.source
-        // both resolve it to the file directly (QIcon::fromTheme handles absolute paths).
-        if (lowClass === "org.quickshell" || lowInitial === "org.quickshell" ||
-            lowClass === "quickshell" || lowInitial === "quickshell") {
-            return Quickshell.shellPath("assets/icons/NAnDoroid.svg");
+    function getKebabNormalizedAppName(str) {
+        return str.toLowerCase().replace(/\s+/g, "-");
+    }
+
+    function getUndescoreToKebabAppName(str) {
+        return str.toLowerCase().replace(/_/g, "-");
+    }
+
+    function guessIcon(str) {
+        if (!str || str.length == 0) return "image-missing";
+
+        // Quickshell's desktop entry lookup
+        const entry = DesktopEntries.byId(str);
+        if (entry) return entry.icon;
+
+        // Normal substitutions
+        if (substitutions[str]) return substitutions[str];
+        if (substitutions[str.toLowerCase()]) return substitutions[str.toLowerCase()];
+
+        // Regex substitutions
+        for (let i = 0; i < regexSubstitutions.length; i++) {
+            const substitution = regexSubstitutions[i];
+            const replacedName = str.replace(
+                substitution.regex,
+                substitution.replace,
+            );
+            if (replacedName != str) return replacedName;
         }
 
-        // 2. Precise Desktop Entry Lookup (Using normalized ID)
-        // Some systems store desktop IDs in mixed case, so we try raw first then lower
-        const entry = DesktopEntries.byId(clientClass) || 
-                      DesktopEntries.byId(initialClass) ||
-                      DesktopEntries.byId(lowClass) ||
-                      DesktopEntries.byId(lowInitial);
-        
-        if (entry && entry.icon) return entry.icon;
+        // Icon exists -> return as is
+        if (iconExists(str)) return str;
 
-        // 3. Manual Substitutions (Now lightning fast with single lookup)
-        if (substitutions[lowClass]) return substitutions[lowClass];
-        if (substitutions[lowInitial]) return substitutions[lowInitial];
 
-        // 4. Reverse domain parts (e.g., "org.upscayl.Upscayl" -> "upscayl")
-        const parts = lowClass.split('.');
-        if (parts.length > 1) {
-            const lastPart = parts[parts.length - 1];
-            if (iconExists(lastPart)) return lastPart;
+        // Simple guesses
+        const lowercased = str.toLowerCase();
+        if (iconExists(lowercased)) return lowercased;
+
+        const reverseDomainNameAppName = getReverseDomainNameAppName(str);
+        if (iconExists(reverseDomainNameAppName)) return reverseDomainNameAppName;
+
+        const lowercasedDomainNameAppName = reverseDomainNameAppName.toLowerCase();
+        if (iconExists(lowercasedDomainNameAppName)) return lowercasedDomainNameAppName;
+
+        const kebabNormalizedGuess = getKebabNormalizedAppName(str);
+        if (iconExists(kebabNormalizedGuess)) return kebabNormalizedGuess;
+
+        const undescoreToKebabGuess = getUndescoreToKebabAppName(str);
+        if (iconExists(undescoreToKebabGuess)) return undescoreToKebabGuess;
+
+        // Search in desktop entries
+        const iconSearchResults = Fuzzy.go(str, preppedIcons, {
+            all: true,
+            key: "name"
+        }).map(r => {
+            return r.obj.entry
+        });
+        if (iconSearchResults.length > 0) {
+            const guess = iconSearchResults[0].icon
+            if (iconExists(guess)) return guess;
         }
 
-        // 5. Common Keywords (Already normalized)
-        if (lowClass.includes("brave") || lowTitle.includes("brave")) {
-            if (iconExists("brave-desktop")) return "brave-desktop";
-            if (iconExists("brave")) return "brave";
-            if (iconExists("brave-browser")) return "brave-browser";
-            return "brave-desktop"; // Fallback to a common name
+        const nameSearchResults = root.fuzzyQuery(str);
+        if (nameSearchResults.length > 0) {
+            const guess = nameSearchResults[0].icon
+            if (iconExists(guess)) return guess;
         }
-        if (lowClass.includes("chrome") || lowTitle.includes("chrome")) return "google-chrome";
-        if (lowClass.includes("edge") || lowTitle.includes("edge")) return "microsoft-edge";
-        if (lowClass.includes("kitty")) return "kitty";
-        if (lowClass.includes("code") || lowClass.includes("vsc")) return "visual-studio-code";
-        if (lowClass.includes("discord")) return "discord";
-        if (lowClass.includes("terminal")) return "utilities-terminal";
-        if (lowClass.includes("thunar") || lowClass.includes("dolphin")) return "system-file-manager";
 
-        // 6. Direct Icon System Check
-        if (iconExists(lowClass)) return lowClass;
-        if (iconExists(lowInitial)) return lowInitial;
+        // Quickshell's desktop entry lookup
+        const heuristicEntry = DesktopEntries.heuristicLookup(str);
+        if (heuristicEntry) return heuristicEntry.icon;
 
-        // 7. Last resort: Heuristic lookup (Expensive but thorough)
-        const entryAlt = DesktopEntries.heuristicLookup(clientClass || initialClass || title || "");
-        if (entryAlt && entryAlt.icon) return entryAlt.icon;
-
+        // Give up
         return "application-x-executable";
     }
 }

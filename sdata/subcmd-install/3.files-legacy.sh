@@ -48,12 +48,18 @@ case "${SKIP_HYPRLAND}" in
   true) sleep 0;;
   *)
     install_dir__sync dots/.config/hypr/hyprland "$XDG_CONFIG_HOME"/hypr/hyprland
-    for name in hyprland hyprlock monitors workspaces ; do
-      if [ -f "dots/.config/hypr/$name.lua" ]; then
-        install_file__auto_backup "dots/.config/hypr/$name.lua" "${XDG_CONFIG_HOME}/hypr/$name.lua"
-      elif [ -f "dots/.config/hypr/$name.conf" ]; then
-        install_file__auto_backup "dots/.config/hypr/$name.conf" "${XDG_CONFIG_HOME}/hypr/$name.conf"
-      fi
+    if [ -f "${XDG_CONFIG_HOME}/hypr/hyprland.conf" ]; then
+      mv "${XDG_CONFIG_HOME}/hypr/hyprland.conf" "${XDG_CONFIG_HOME}/hypr/hyprland.conf.old" # disable old config
+      echo 'hyprland.conf has been renamed to hyprland.conf.old. This is to allow the new lua config to load.'
+    fi
+    for i in hyprlock.conf ; do
+      install_file__auto_backup "dots/.config/hypr/$i" "${XDG_CONFIG_HOME}/hypr/$i"
+    done
+    for i in hyprland.lua ; do
+      case "${SKIP_HYPRLAND_ENTRY}" in
+        true) sleep 0;;
+        *) install_file "dots/.config/hypr/$i" "${XDG_CONFIG_HOME}/hypr/$i" ;;
+      esac
     done
     for i in hypridle.conf ; do
       if [[ "${INSTALL_VIA_NIX}" == true ]]; then
@@ -66,8 +72,8 @@ case "${SKIP_HYPRLAND}" in
       v bash -c "printf \"# For fedora to setup polkit\nexec-once = /usr/libexec/kf6/polkit-kde-authentication-agent-1\n\" >> ${XDG_CONFIG_HOME}/hypr/hyprland/execs.conf"
     fi
 
-    install_dir__skip_existed "dots/.config/hypr/custom" "${XDG_CONFIG_HOME}/hypr/custom"
+    install_dir__ignore_existing "dots/.config/hypr/custom" "${XDG_CONFIG_HOME}/hypr/custom"
     ;;
 esac
 
-install_file "dots/.local/share/icons/flow.svg" "${XDG_DATA_HOME}"/icons/flow.svg
+install_file "dots/.local/share/icons/illogical-impulse.svg" "${XDG_DATA_HOME}"/icons/illogical-impulse.svg

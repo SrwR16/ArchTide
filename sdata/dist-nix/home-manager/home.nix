@@ -55,9 +55,8 @@ quickshell, home_attrs, ... }:
       
 
       # NOTE: below are migrated from dist-arch. For each package, must know why it's needed and how it's used specifically, cuz things may be need tweak to properly use the package installed by Nix, for example those have hardcoded path /usr/* . See sdata/deps-info.md
-      ### flow-audio
+      ### illogical-impulse-audio
       libcava #cava
-      easyeffects #easyeffects (EasyEffects service panel)
       lxqt.pavucontrol-qt #pavucontrol-qt
       wireplumber #wireplumber
       pipewire #pipewire-pulse
@@ -65,13 +64,13 @@ quickshell, home_attrs, ... }:
       playerctl #playerctl
 
 
-      ### flow-backlight
+      ### illogical-impulse-backlight
       (geoclue2.override { withDemoAgent = true; }) #geoclue
       brightnessctl #brightnessctl
       ddcutil #ddcutil
 
 
-      ### flow-basic
+      ### illogical-impulse-basic
       bc #bc
       uutils-coreutils-noprefix #coreutils
       cliphist #cliphist
@@ -81,20 +80,15 @@ quickshell, home_attrs, ... }:
       ripgrep #ripgrep
       jq #jq
       xdg-user-dirs #xdg-user-dirs
-      zenity #zenity (shell dialogs)
-      libnotify #libnotify (notify-send, shell notifications)
       rsync #rsync
       yq-go #go-yq
-      yt-dlp #yt-dlp
-      ffmpeg #ffmpeg
-      aria2 #aria2
 
 
-      ### flow-bibata-modern-classic-bin
+      ### illogical-impulse-bibata-modern-classic-bin
       bibata-cursors
 
 
-      ### flow-fonts-themes
+      ### illogical-impulse-fonts-themes
       adw-gtk3 #adw-gtk-theme-git
       kdePackages.breeze kdePackages.breeze-icons #breeze
       #breeze-plus (TODO: Not available as nixpkg)
@@ -111,18 +105,15 @@ quickshell, home_attrs, ... }:
       #ttf-readex-pro (TODO: seems not available as nixpkg)
       rubik #ttf-rubik-vf
       twemoji-color-font #ttf-twemoji
-      noto-fonts-emoji #noto-fonts-emoji (emoji fallback expected by the shell)
-      noto-fonts-cjk #noto-fonts-cjk (CJK fallback)
 
 
-      ### flow-hyprland
+      ### illogical-impulse-hyprland
       #hyprland
       hyprsunset #hyprsunset
-      hyprmon #hyprmon
       wl-clipboard #wl-clipboard
 
 
-      ### flow-kde
+      ### illogical-impulse-kde
       kdePackages.bluedevil #bluedevil
       #gnome-keyring #gnome-keyring (TODO: Install via system PM instead; should install via nix in future when authentication problem fixed)
       networkmanager #networkmanager
@@ -132,20 +123,19 @@ quickshell, home_attrs, ... }:
       kdePackages.systemsettings #systemsettings
 
       
-      ### flow-microtex-git
+      ### illogical-impulse-microtex-git
       # TODO: Not available as nixpkg
 
 
-      ### flow-portal
+      ### illogical-impulse-portal
       #xdg-desktop-portal (Included elsewhere)
       #xdg-desktop-portal-kde (Included elsewhere)
       #xdg-desktop-portal-gtk (Included elsewhere)
       #xdg-desktop-portal-hyprland (Included elsewhere)
 
 
-      ### flow-python
+      ### illogical-impulse-python
       #clang (Not needed for Nix. However, when cmake is installed by Nix, then pkg-config, cairo etc will be used but they can only be accessible in Nix development environment for example nix-shell, nix develop, etc. See `sdata/uv/shell.nix`. )
-      python3 #python (bare interpreter used by the shell theme scripts; uv alone does not provide python3)
       uv #uv
       gtk4 #gtk4
       libadwaita #libadwaita
@@ -154,9 +144,8 @@ quickshell, home_attrs, ... }:
       gobject-introspection #gobject-introspection
 
 
-      ### flow-screencapture
+      ### illogical-impulse-screencapture
       hyprshot #hyprshot
-      grim #grim (QuickActions + RegionSelector screenshots)
       slurp #slurp
       swappy #swappy
       tesseract #tesseract
@@ -164,15 +153,14 @@ quickshell, home_attrs, ... }:
       wf-recorder #wf-recorder
 
 
-      ### flow-toolkit
+      ### illogical-impulse-toolkit
       upower #upower
       wtype #wtype
       ydotool #ydotool
 
 
-      ### flow-widgets
+      ### illogical-impulse-widgets
       fuzzel #fuzzel
-      gjs #gjs
       glib #glib2
       imagemagick #imagemagick
       hypridle #hypridle
@@ -187,7 +175,7 @@ quickshell, home_attrs, ... }:
     ++ [
     #(config.lib.nixGL.wrap pkgs.hyprland)
 
-    ### flow-quickshell-git
+    ### illogical-impulse-quickshell-git
     #(config.lib.nixGL.wrap quickshell.packages.x86_64-linux.default)
     (import ./quickshell.nix { inherit pkgs quickshell; 
     #nixGLWrap = config.lib.nixGL.wrap;

@@ -1,179 +1,148 @@
 pragma Singleton
-pragma ComponentBehavior: Bound
 
+import qs.modules.common
+import qs.modules.common.models
+import qs.modules.common.widgets
+import qs.modules.common.utils
+import qs.services
+import qs.modules.common.functions
+import Qt5Compat.GraphicalEffects
 import QtQuick
+import QtQuick.Effects
+import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Mpris
-import "../core"
 
 Singleton {
     id: root
 
+    readonly property bool lyricsEnabled: Config.options.lyricsService.enable
+    readonly property bool geniusEnabled: Config.options.lyricsService.enableGenius
+    readonly property bool lrclibEnabled: Config.options.lyricsService.enableLrclib
+    
+    property bool isInitialized: false
     readonly property MprisPlayer activePlayer: MprisController.activePlayer
+    readonly property string currentTrackId: root.activePlayer?.trackTitle ?? ""
 
-    property var lyricsLines: []
-    property int activeIndex: -1
-    property string status: "loading"
+    readonly property bool effectiveLrclibEnabled: lyricsEnabled && lrclibEnabled && isInitialized && (root.activePlayer?.trackTitle?.length > 0) && (root.activePlayer?.trackArtist?.length > 0)
+    readonly property bool effectiveGeniusEnabled: lyricsEnabled && geniusEnabled && isInitialized
 
-    property bool desktopWidgetLyricsActive: false
+    readonly property alias syncedLines: lrclib.lines
+    readonly property alias currentIndex: lrclib.currentIndex
+    readonly property string statusText: lrclib.displayText
+    readonly property bool hasSyncedLines: lrclib.lines.length > 0
 
-    property var slots: []
+    readonly property alias geniusHasLyrics: genius.hasString
+    readonly property string plainLyrics: genius.lyricsString
 
-    property int contextLines: (Config.ready && Config.options.appearance.lyrics) ? Config.options.appearance.lyrics.contextLines : 3
-    readonly property int before: contextLines
-    readonly property int after: contextLines
-    readonly property int total: before + after + 1
+    property int mediaModeOpenCount: 0 // we increase this number when we enable the media mode and decrease it when we close it, we cant use a boolean because it doesnot work on multiple monitor toggle
 
-    function getEmptySlots(centerText) {
-        let arr = []
-        for (let i = 0; i < root.total; i++) {
-            if (i === root.before && centerText) {
-                arr.push({ originalText: centerText, romajiText: centerText })
-            } else {
-                arr.push({ originalText: "", romajiText: "" })
-            }
-        }
-        return arr
+    // We use this flag to change shell color just once, otherwise it will be called 3-4 times depending on the user's monitor count
+    property bool shellColorChanged: false
+
+    // Function to initialize the lyrics service, to prevent unnecessary API calls when no lyrics UI is being use
+    // Its being called in LyricsStatic, LyricsScroller and LyricsFlickable files
+    function initiliazeLyrics() {
+        root.isInitialized = true
     }
 
-    function buildSlots(idx) {
-        let result = []
-        for (let i = 0; i < root.total; i++) {
-            let lineIdx = idx - root.before + i
-            if (lineIdx >= 0 && lineIdx < root.lyricsLines.length) {
-                let l = root.lyricsLines[lineIdx]
-                result.push({ originalText: l.originalText || "♪", romajiText: l.romajiText || "♪" })
-            } else {
-                result.push({ originalText: "", romajiText: "" })
-            }
-        }
-        return result
+    function filterLyricLines(lyrics) { // for clearing the metadata in genius lyrics
+        return lyrics
+            .split("\n")
+            .filter(line => {
+                const trimmed = line.trim()
+                return !(trimmed.startsWith("[") && trimmed.endsWith("]"))
+            })
+            .slice(1)
+            .join("\n")
     }
 
-    Timer {
-        id: syncTimer
-        interval: 300
-        repeat: true
-        running: root.status === "ok" && root.lyricsLines.length > 0
-        onTriggered: {
-            const pos = root.activePlayer?.position ?? 0
-            let idx = -1
-            for (let i = 0; i < root.lyricsLines.length; i++) {
-                if (root.lyricsLines[i].time <= pos) idx = i
-                else break
-            }
-            if (idx !== root.activeIndex) {
-                root.activeIndex = idx
-                root.slots = root.buildSlots(idx)
-            }
-        }
-    }
-
-    Process {
-        id: lyricsProc
-        running: false
-        stdout: SplitParser {
-            onRead: data => {
-                const trimmed = data.trim()
-                if (trimmed === "not_found") { 
-                    root.status = "not_found"
-                    root.slots = root.getEmptySlots("No lyrics found")
-                    return 
-                }
-                if (trimmed === "no_info")   { 
-                    root.status = "no_info"
-                    root.slots = root.getEmptySlots("No track playing")
-                    return 
-                }
-
-                const parts = trimmed.split("§")
-                if (parts.length < 3) return
-                if (parts[parts.length - 1].trim() !== "ok") return
-
-                let lines = []
-                // parts format: time, original, romaji, time, original, romaji...
-                for (let i = 0; i < parts.length - 1; i += 3) {
-                    const t = parseFloat(parts[i])
-                    const orig = parts[i + 1] || ""
-                    const romaji = parts[i + 2] || ""
-                    if (!isNaN(t)) lines.push({ time: t, originalText: orig, romajiText: romaji })
-                }
-
-                if (lines.length === 0) { root.status = "not_found"; return }
-
-                root.lyricsLines = lines
-                root.activeIndex = -1
-                root.slots = root.buildSlots(-1)
-                root.status = "ok"
-            }
-        }
-    }
-
-    function restartLyrics() {
-        lyricsProc.running = false
-        root.lyricsLines = []
-        root.activeIndex = -1
-        root.status = "loading"
-        root.slots = root.getEmptySlots("Preparing lyrics...")
+    function getLineDuration(index) { // for lrclib of to be used in syllable style
+        if (!lrclib.lines || index < 0 || index >= lrclib.lines.length) 
+            return 0;
         
-        if (!Config.options.appearance.lyrics.showFloatingLyrics && !root.desktopWidgetLyricsActive) {
-            root.status = "disabled"
-            return
+        if (index === lrclib.lines.length - 1) {
+            let total = lrclib.duration > 0 ? lrclib.duration : lrclib.lines[index].time + 5;
+            return Math.max(0, total - lrclib.lines[index].time);
         }
-
-        const title    = root.activePlayer?.trackTitle  ?? ""
-        const artist   = root.activePlayer?.trackArtist ?? ""
-        const duration = (root.activePlayer?.length ?? 0) / 1000000.0
-
-        if (!title || !artist) { 
-            root.status = "no_info"
-            root.slots = root.getEmptySlots("No track playing")
-            return 
-        }
-
-        const pythonExec = Quickshell.env("HOME") + "/.local/share/flow/venv/bin/python3"
-        const scriptPath = Quickshell.env("HOME") + "/.config/quickshell/flow/scripts/lyrics.py"
-
-        lyricsProc.command = [
-            pythonExec,
-            scriptPath,
-            title, artist, String(Math.floor(duration))
-        ]
-        lyricsProc.running = true
+        
+        return lrclib.lines[index + 1].time - lrclib.lines[index].time;
     }
 
-    onActivePlayerChanged: _lyricsTarget = root.activePlayer
-    property var _lyricsTarget: root.activePlayer
-    on_LyricsTargetChanged: lyricsConn.target = _lyricsTarget
-    Connections {
-        id: lyricsConn
-        function onTrackTitleChanged() { root.restartLyrics() }
+    function changeDurationToIndex(index) { // for lrclib, called by LyricsSyllable
+        if (!hasSyncedLines) return;
+        root.activePlayer.position = root.syncedLines[index].time
+    }
+    
+    // https://quickshell.org/docs/master/types/Quickshell.Services.Mpris/MprisPlayer/#position
+    Timer {
+        running: root.activePlayer?.playbackState == MprisPlaybackState.Playing && root.hasSyncedLines && root.isInitialized
+        interval: 250
+        repeat: true
+        onTriggered: root.activePlayer.positionChanged()
     }
 
-    Connections {
-        target: Config.ready && Config.options.appearance.lyrics ? Config.options.appearance.lyrics : null
-        function onShowFloatingLyricsChanged() {
-            if (Config.options.appearance.lyrics.showFloatingLyrics || root.desktopWidgetLyricsActive) {
-                root.restartLyrics()
-            } else {
-                lyricsProc.running = false
-            }
-        }
-        function onContextLinesChanged() {
-            if (root.status === "ok") {
-                root.slots = root.buildSlots(root.activeIndex)
-            } else if (root.status === "loading") {
-                root.slots = root.getEmptySlots("Preparing lyrics...")
-            } else if (root.status === "not_found") {
-                root.slots = root.getEmptySlots("No lyrics found")
-            } else if (root.status === "no_info") {
-                root.slots = root.getEmptySlots("No track playing")
-            } else {
-                root.slots = root.getEmptySlots("")
+    Component.onCompleted: geniusFirstFetchDelay.restart()
+    Timer {
+        id: geniusFirstFetchDelay
+        running: false
+        interval: 1000
+        onTriggered: {
+            if (root.activePlayer && effectiveGeniusEnabled) {
+                genius.fetchLyrics(root.activePlayer.trackArtist, root.activePlayer.trackTitle)
             }
         }
     }
 
-    Component.onCompleted: root.restartLyrics()
+    LrclibLyrics {
+        id: lrclib
+        enabled: effectiveLrclibEnabled
+        title: root.activePlayer?.trackTitle ?? ""
+        artist: root.activePlayer?.trackArtist ?? ""
+        duration: root.activePlayer?.length ?? 0
+        position: root.activePlayer?.position ?? 0
+    }
+
+    GeniusLyrics {
+        id: genius
+        readonly property string trackTitle: root.activePlayer?.trackTitle
+        onTrackTitleChanged: {
+            if (root.activePlayer) {
+                if (!effectiveGeniusEnabled) return;
+                genius.hasString = false
+                genius.fetchLyrics(root.activePlayer.trackArtist, root.activePlayer.trackTitle)
+            }
+        }
+        property string lyricsString: ""
+        property bool hasString: false
+        onLyricsUpdated: (lyrics) => {
+            if (!effectiveGeniusEnabled) return
+            genius.hasString = true
+            genius.lyricsString = filterLyricLines(lyrics)
+        }
+    }
+    
+    onCurrentTrackIdChanged: {
+
+        if (!effectiveGeniusEnabled) return;
+        if (currentTrackId !== "" && root.activePlayer?.trackArtist) {
+            genius.fetchLyrics(root.activePlayer.trackArtist, root.activePlayer.trackTitle)
+        } else {
+            genius.lyricsString = ""
+        }
+
+        shellColorChanged = false // reseting at each track change
+    }
+
+    // I dont know if this is the correct place for this, but we only call this from MediaMode so it should be fine
+    function changeShellColor(color, force = false) {
+        // console.log("[Lyrics Service] Color change requested, is it changed: ", shellColorChanged)
+        // console.log("[Lyrics Service] Is media mode open :  ", mediaModeOpenCount > 0)
+        if (!mediaModeOpenCount > 0 || shellColorChanged && !force) return;
+        // console.log("[Lyrics Service] Changing the shell color with color:   ", color)
+        Quickshell.execDetached([`${Directories.wallpaperSwitchScriptPath}`, "--noswitch", "--color", color])
+        shellColorChanged = true
+    }
 }

@@ -1,294 +1,364 @@
 pragma Singleton
 
-/**
- * ╔════════════ SEARCH INDEX REGISTRY ════════════╗
- * ║                                               ║
- * ║ IMPORTANT: When adding new settings pages or  ║
- * ║ sub-components, you MUST register the .qml    ║
- * ║ file path in the startIndexing() function     ║
- * ║ below to make it searchable.                  ║
- * ║                                               ║
- * ╚═══════════════════════════════════════════════╝
- */
-
+import qs.modules.common
+import qs.modules.common.functions
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import "../core"
-import "."
 
 Item {
     id: root
 
+    property list<var> sections: []
+
     property string currentSearch: ""
-    property var sections: []
-    property bool isIndexing: pageFile.currentIndex < pageFile.files.length && pageFile.files.length > 0
-    // Requested jump from the launcher: { pageIndex, query }.
-    // Settings.qml consumes it to switch pages and trigger the SearchHandler highlight.
-    property var pendingJump: null
+    onCurrentSearchChanged: {
+        console.log("Current found search result string:", currentSearch)
+    }
 
     function startIndexing() {
         sections = []
-        pageFile.startIndex([
-            { file: "panels/Settings/pages/Network/NetworkSettings.qml", pageIndex: 0 },
-            { file: "panels/Settings/pages/Network/NetworkMainView.qml", pageIndex: 0 },
-            { file: "panels/Settings/pages/Network/NetworkSavedView.qml", pageIndex: 0 },
-            { file: "panels/Settings/pages/Network/NetworkWiredView.qml", pageIndex: 0 },
-            { file: "panels/Settings/pages/Bluetooth/BluetoothSettings.qml", pageIndex: 1 },
-            { file: "panels/Settings/pages/Audio/AudioSettings.qml", pageIndex: 2 },
-            { file: "panels/Settings/pages/Display/DisplaySettings.qml", pageIndex: 3 },
-            { file: "panels/Settings/pages/Display/DisplayEyeCare.qml", pageIndex: 3 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsWallpaperCycle.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsWallpaperTransition.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WallpaperStyleSettings.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsThemeColor.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsLauncher.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsDock.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsOverview.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsCava.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsLockscreen.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsOverlay.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsStatusBar.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsScreenDecor.qml", pageIndex: 4 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsTypography.qml", pageIndex: 4 },
-            // Widgets Page components (pageIndex: 5)
-            { file: "panels/Settings/pages/Widgets/WidgetsSettings.qml", pageIndex: 5 },
-            { file: "panels/Settings/pages/WallpaperStyle/WsClock.qml", pageIndex: 5 },
-            { file: "panels/Settings/pages/Widgets/WsAtAGlance.qml", pageIndex: 5 },
-            { file: "panels/Settings/pages/Widgets/WsDesktopMedia.qml", pageIndex: 5 },
-            { file: "panels/Settings/pages/Widgets/WsSystemMonitor.qml", pageIndex: 5 },
-            { file: "panels/Settings/pages/Widgets/WsWeather.qml", pageIndex: 5 },
-            { file: "panels/Settings/pages/Widgets/WsCurrency.qml", pageIndex: 5 },
-            { file: "panels/Settings/pages/Widgets/WsGithub.qml", pageIndex: 5 },
-            // System Page components (pageIndex: 6)
-            { file: "panels/Settings/pages/System/SystemSettings.qml", pageIndex: 6 },
-            { file: "panels/Settings/pages/System/SysDateTime.qml", pageIndex: 6 },
-            { file: "panels/Settings/pages/System/SysLanguage.qml", pageIndex: 6 },
-            { file: "panels/Settings/pages/System/SysScreenshot.qml", pageIndex: 6 },
-            { file: "panels/Settings/pages/System/SysPerformance.qml", pageIndex: 6 },
-            { file: "panels/Settings/pages/System/SysPower.qml", pageIndex: 6 },
-            { file: "panels/Settings/pages/System/SysDisk.qml", pageIndex: 6 },
-            { file: "panels/Settings/pages/System/SysSystemInterface.qml", pageIndex: 6 },
-            // Services Page components (pageIndex: 7)
-            { file: "panels/Settings/pages/Services/ServicesSettings.qml", pageIndex: 7 },
-            { file: "panels/Settings/pages/Services/ServicesWeather.qml", pageIndex: 7 },
-            { file: "panels/Settings/pages/Services/ServicesSearch.qml", pageIndex: 7 },
-            { file: "panels/Settings/pages/Services/ServicesNetwork.qml", pageIndex: 7 },
-            { file: "panels/Settings/pages/Services/ServicesMedia.qml", pageIndex: 7 },
-            { file: "panels/Settings/pages/Services/ServicesLyrics.qml", pageIndex: 7 },
-            // { file: "panels/Settings/pages/Services/ServicesGitHub.qml", pageIndex: 7 },
-            // About Page components (pageIndex: 8)
-            { file: "panels/Settings/pages/About/AboutSettings.qml", pageIndex: 8 },
-            { file: "panels/Settings/pages/About/AboutMainView.qml", pageIndex: 8 },
-            { file: "panels/Settings/pages/About/AboutUpdate.qml", pageIndex: 8 },
-            { file: "panels/Settings/pages/About/AboutDependency.qml", pageIndex: 8 },
-            { file: "panels/Settings/pages/About/AboutCredits.qml", pageIndex: 8 },
-            // Profile Page components (pageIndex: 9)
-            { file: "panels/Settings/pages/Profile/ProfileSettings.qml", pageIndex: 9 },
-            { file: "panels/Settings/pages/Profile/PrAvatar.qml", pageIndex: 9 },
-            { file: "panels/Settings/pages/Profile/PrIdentity.qml", pageIndex: 9 },
-            { file: "panels/Settings/pages/Profile/PrPresets.qml", pageIndex: 9 }
+        pageFile.start([
+            Directories.generalConfigPath,
+            Directories.barConfigPath,
+            Directories.backgroundConfigPath,
+            Directories.interfaceConfigPath,
+            Directories.servicesConfigPath,
+            Directories.advancedConfigPath
         ])
     }
 
     Component.onCompleted: startIndexing()
 
+    Connections {
+        target: Translation
+        function onLanguageCodeChanged() {
+            startIndexing()
+        }
+    }
+
     FileView {
         id: pageFile
+        blockLoading: true
+
         property var files: []
         property int currentIndex: 0
 
-        function startIndex(filesArray) {
+        function start(filesArray) {
             files = filesArray
             currentIndex = 0
             loadNext()
         }
 
         function loadNext() {
-            if (currentIndex >= files.length) return
-            path = Quickshell.shellPath(files[currentIndex].file)
-            reload()
+            if (currentIndex >= files.length)
+                return
+
+            path = files[currentIndex]
         }
 
         onLoaded: {
-            const content = text();
-            if (content) {
-                root.indexQmlFile(content, files[currentIndex].pageIndex);
-            }
+            root.indexQmlFile(text())
+
             currentIndex++
-            if (currentIndex < files.length) {
-                Qt.callLater(() => loadNext())
-            }
-        }
-        
-        onLoadFailed: (error) => {
-            console.error("[SearchRegistry] Failed to load file:", path, "Error:", error);
-            currentIndex++;
-            if (currentIndex < files.length) Qt.callLater(() => loadNext());
+
+            Qt.callLater(() => loadNext())
         }
     }
 
-    function indexQmlFile(qmlText, pageIndex) {
-        if (!qmlText) return
 
-        // 1. First, find all SearchHandlers to identify "Portals"
-        let handlerRegex = /SearchHandler\s*\{[\s\S]*?searchString\s*:\s*["']([^"']+)["'](?:[\s\S]*?aliases\s*:\s*\[([\s\S]*?)\])?/g
-        let handlerMatch
-        let portals = []
-        while ((handlerMatch = handlerRegex.exec(qmlText)) !== null) {
-            let canonical = handlerMatch[1]
-            let aliasStr = handlerMatch[2] || ""
-            let aliases = aliasStr.split(",").map(s => s.replace(/["']/g, "").trim()).filter(s => s !== "")
-            portals.push({ canonical: canonical, aliases: aliases })
-        }
+    // Fetches the needed string like text, title from the qml file
 
-        // 2. If no portals found, use page title as fallback
-        if (portals.length === 0) {
-            portals.push({ canonical: getPageName(pageIndex), aliases: [] })
-        }
+    function indexQmlFile(qmlText) {
+        if (!qmlText)
+            return
 
-        // 3. Find all searchable strings
-        let propRegex = /(?:title|text|buttonText|placeholderText|mainText|label|name|description|hint|headerText)\s*:\s*(?:(?:qsTr|qsTranslate)\s*\(\s*)?["']([^"']+)["']/g
-        let propMatch
-        let allStrings = []
-        while ((propMatch = propRegex.exec(qmlText)) !== null) {
-            let str = propMatch[1]
-            if (str.length >= 2 && !allStrings.includes(str)) allStrings.push(str)
-        }
+        let sections = extractBlocks(qmlText, "ContentSection")
 
-        // Register each portal as a searchable section
-        portals.forEach(portal => {
+        for (let sectionBlock of sections) {
+
+            let title = extractProperty(sectionBlock, "title")
+
+            let searchStrings = []
+            if (title)
+                searchStrings.push(title)
+
+            // subsections
+            let subsections = extractBlocks(sectionBlock, "ContentSubsection")
+            for (let subBlock of subsections) {
+                let subTitle = extractProperty(subBlock, "title")
+                if (subTitle)
+                    searchStrings.push(subTitle)
+            }
+
+            // switches
+            let switches = extractBlocks(sectionBlock, "ConfigSwitch")
+            for (let swBlock of switches) {
+                let text = extractProperty(swBlock, "text")
+                if (text)
+                    searchStrings.push(text)
+            }
+
+            // spinbox
+            let spins = extractBlocks(sectionBlock, "ConfigSpinBox")
+            for (let spBlock of spins) {
+                let text = extractProperty(spBlock, "text")
+                if (text)
+                    searchStrings.push(text)
+            }
+
+            //console.log("[SearchRegistry] Indexed:", title, searchStrings)
+
+            let pageIndex = extractPageIndex(qmlText)
+
             registerSection({
                 pageIndex: pageIndex,
-                title: getPageName(pageIndex),
-                canonical: portal.canonical,
-                aliases: portal.aliases,
-                contentStrings: allStrings // Map all strings in file to these portals for now
+                title: title || "Unknown",
+                searchStrings: searchStrings
             })
-        })
+        }
+
+        console.log("[SearchRegistry] Indexed", sections.length, "sections", "| Language:", Translation.languageCode)
     }
 
-    function getPageName(index) {
-        const names = ["Network", "Bluetooth", "Audio", "Display", "Customize", "Widgets", "System", "Services", "About", "Profile"]
-        return names[index] || "Unknown"
+    // Helper function for indexQmlFile(), extracts blocks from the qml file
+
+    function extractBlocks(text, type) {
+        let results = []
+        let i = 0
+
+        while (i < text.length) {
+            let index = text.indexOf(type, i)
+            if (index === -1)
+                break
+
+            let braceStart = text.indexOf("{", index)
+            if (braceStart === -1)
+                break
+
+            let depth = 1
+            let j = braceStart + 1
+            let inString = false
+            let stringChar = ""
+
+            while (j < text.length && depth > 0) {
+                let ch = text[j]
+
+                if (!inString && (ch === '"' || ch === "'")) {
+                    inString = true
+                    stringChar = ch
+                } else if (inString && ch === stringChar) {
+                    inString = false
+                } else if (!inString) {
+                    if (ch === "{") depth++
+                    else if (ch === "}") depth--
+                }
+
+                j++
+            }
+
+            let block = text.substring(braceStart + 1, j - 1)
+            results.push(block)
+
+            i = j
+        }
+
+        return results
     }
 
-    function registerSection(data) {
-        let tokens = new Set()
-        
-        // Add canonical, aliases, and content to tokens
-        tokenize(data.canonical).forEach(t => tokens.add(t))
-        data.aliases.forEach(a => tokenize(a).forEach(t => tokens.add(t)))
-        
-        // contentStrings help finding the portal even if user doesn't type canonical name
-        data.contentStrings.forEach(s => tokenize(s).forEach(t => tokens.add(t)))
-        
-        data.tokens = Array.from(tokens)
-        data.translatedTitle = qsTr(data.title)
-        
-        let newSections = sections.slice()
-        newSections.push(data)
-        sections = newSections
+    // Helper function for indexQmlFile(), extracts properties from the qml file
+
+    function extractProperty(block, prop) {
+        let m
+
+        // Translation.tr("") or Translation.tr('')
+        m = block.match(new RegExp(prop + "\\s*:\\s*Translation\\.tr\\(\\s*[\"']([^\"']+)[\"']\\s*\\)"))
+        if (m) return m[1]
+
+        // ""
+        m = block.match(new RegExp(prop + "\\s*:\\s*\"([^\"]+)\""))
+        if (m) return m[1]
+
+        // ''
+        m = block.match(new RegExp(prop + "\\s*:\\s*'([^']+)'"))
+        if (m) return m[1]
+
+        return ""
+    }
+
+    // Helper function for indexQmlFile(), extracts the page index
+    
+    function extractPageIndex(qmlText) {
+        let m = qmlText.match(/readonly\s+property\s+int\s+index\s*:\s*(\d+)/)
+        return m ? parseInt(m[1]) : -1
     }
 
     function tokenize(text) {
-        if (!text) return []
-        return text.toLowerCase().split(/[^a-z0-9_]+/).filter(t => t.length >= 2)
+        if (!text || typeof text !== "string")
+            return []
+
+        return text
+            .toLowerCase()
+            .replace(/[^a-z0-9\sğüşöçıİ_\-\.]/g, " ")
+            .split(/[\s_\-\.]+/)
+            .filter(function(t) { return t.length > 1 })
     }
 
-    function levenshtein(a, b) {
-        if (a.length === 0) return b.length;
-        if (b.length === 0) return a.length;
-        let matrix = [];
-        for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-        for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-        for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
-                if (b.charAt(i - 1) === a.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
-                else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+    function fuzzyMatch(word, query) {
+        let wi = 0
+        let qi = 0
+        let score = 0
+
+        word = word.toLowerCase()
+        query = query.toLowerCase()
+
+        while (wi < word.length && qi < query.length) {
+            if (word[wi] === query[qi]) {
+                score += 10
+                qi++
             }
+            wi++
         }
-        return matrix[b.length][a.length];
+
+        if (qi === query.length)
+            return score
+
+        return 0
     }
 
-    function getResultsRanked(query) {
+    function registerSection(data) {
+        const titleKey = data.title
+        const searchStringsKeys = [...data.searchStrings]
+
+        // Apply translations
+        data.title = Translation.tr(titleKey)
+        data.searchStrings = searchStringsKeys.map(s => Translation.tr(s))
+
+        let combined = (titleKey + " " + searchStringsKeys.join(" ") + " " + data.title + " " + data.searchStrings.join(" ")).toLowerCase()
+        
+        data._tokens = tokenize(combined)
+        data._searchText = combined
+        
+        sections.push(data)
+        
+        // console.log("[SearchRegistry] Registered section:", data.title, "with strings:", data.searchStrings)
+    }
+
+    function getBestResult(text) {
+        let results = getSearchResult(text)
+        if (results.length === 0)
+            return null
+
+        results.sort((a, b) => b.score - a.score)
+        return results[0]
+    }
+
+    function getResultsRanked(text) {
+        let results = getSearchResult(text)
+        results.sort((a, b) => b.score - a.score)
+        return results
+    }
+
+    function getSearchResult(query) {
         if (!query || query.trim() === "") return []
+
         query = query.toLowerCase().trim()
         let queryTokens = tokenize(query)
-        
         let results = []
+
         for (let section of sections) {
-            let score = 0
+            let totalScore = 0
+            let bestMatch = "" 
+            let bestMatchScore = 0
+            let bestMatchSource = "" 
             
-            // Priority 1: Canonical match
-            if (section.canonical.toLowerCase() === query) score += 10000
-            else if (section.canonical.toLowerCase().includes(query)) score += 5000
-            
-            // Priority 2: Alias match
-            section.aliases.forEach(a => {
-                if (a.toLowerCase() === query) score += 8000
-                else if (a.toLowerCase().includes(query)) score += 4000
-            })
-            
-            // Priority 3: Token match
-            for (let qToken of queryTokens) {
-                for (let sToken of section.tokens) {
-                    if (sToken === qToken) score += 1000
-                    else if (sToken.includes(qToken)) score += 200
+            // direct match in title
+            if (section.title.toLowerCase().includes(query)) {
+                totalScore += 1000
+                if (bestMatchScore < 1000) {
+                    bestMatch = section.title
+                    bestMatchSource = section.title
+                    bestMatchScore = 1000
                 }
             }
             
-            if (score > 0) {
+            // direct match in searchStrings
+            for (let searchStr of section.searchStrings) {
+                let lowerStr = searchStr.toLowerCase()
+                if (lowerStr.includes(query)) {
+                    let score = lowerStr === query ? 800 : 500
+                    totalScore += score
+                    if (score > bestMatchScore) {
+                        bestMatch = searchStr
+                        bestMatchSource = searchStr
+                        bestMatchScore = score
+                    }
+                }
+            }
+            
+            for (let searchStr of section.searchStrings) {
+                let searchStrLower = searchStr.toLowerCase()
+                let searchTokens = tokenize(searchStrLower)
+                let matchedTokenCount = 0
+                let tokenScore = 0
+                
+                for (let qToken of queryTokens) {
+                    for (let sToken of searchTokens) {
+                        let score = 0
+                        if (sToken.startsWith(qToken)) {
+                            score = 200
+                            matchedTokenCount++
+                        } else if (sToken.includes(qToken)) {
+                            score = 100
+                            matchedTokenCount++
+                        } else {
+                            let fuzzyScore = fuzzyMatch(sToken, qToken)
+                            if (fuzzyScore > 0) {
+                                score = fuzzyScore
+                                matchedTokenCount++
+                            }
+                        }
+                        
+                        if (score > 0) {
+                            tokenScore += score
+                        }
+                    }
+                }
+                
+                if (tokenScore > 0) {
+                    totalScore += tokenScore
+                    if (tokenScore > bestMatchScore && matchedTokenCount > 0) {
+                        bestMatch = searchStr
+                        bestMatchSource = searchStr
+                        bestMatchScore = tokenScore
+                    }
+                }
+            }
+            
+            if (totalScore > 0) {
                 results.push({
                     pageIndex: section.pageIndex,
-                    title: section.translatedTitle,
-                    matchedString: section.canonical, // Always return the canonical portal name
-                    score: score
+                    title: section.title,
+                    keyword: section._searchText,
+                    matchedString: bestMatch || section.title,
+                    yPos: section.yPos,
+                    score: totalScore
                 })
             }
         }
         
-        results.sort((a, b) => b.score - a.score)
-        
-        // --- STRICT DEDUPLICATION ---
-        let uniqueResults = []
-        let seenTargets = new Set()
-        
-        for (let res of results) {
-            // deduplicate by page + canonical target
-            let key = res.pageIndex + "|" + res.matchedString.toLowerCase()
-            if (!seenTargets.has(key)) {
-                uniqueResults.push(res)
-                seenTargets.add(key)
-            }
-        }
-        
-        return uniqueResults
+        return results
     }
 
-    function getBestResult(query) {
-        let results = getResultsRanked(query)
-        return results.length > 0 ? results[0] : null
+    function scoreResult(result, text) {
+        return result.score
     }
 
-    function getAllResults() {
-        let uniqueResults = []
-        let seenTargets = new Set()
-        for (let section of sections) {
-            let key = section.pageIndex + "|" + section.canonical.toLowerCase()
-            if (!seenTargets.has(key)) {
-                uniqueResults.push({
-                    pageIndex: section.pageIndex,
-                    title: section.translatedTitle,
-                    matchedString: section.canonical
-                })
-                seenTargets.add(key)
-            }
+    // Debug
+    function listAllSections() {
+        console.log("=== Registered Sections ===")
+        for (let i = 0; i < sections.length; i++) {
+            console.log(i + ":", sections[i].title, "tokens:", sections[i]._tokens)
         }
-        uniqueResults.sort((a, b) => {
-            if (a.pageIndex !== b.pageIndex) return a.pageIndex - b.pageIndex
-            return a.title.localeCompare(b.title)
-        })
-        return uniqueResults
     }
 }

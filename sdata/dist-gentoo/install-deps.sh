@@ -33,20 +33,20 @@ fi
 arch=$(portageq envvar ACCEPT_KEYWORDS)
 
 # Exclude hyprland, will deal with that separately
-metapkgs=(flow-{audio,backlight,basic,bibata-modern-classic-bin,fonts-themes,hyprland,kde,microtex-git,oneui4-icons-git,portal,python,quickshell-git,screencapture,toolkit,widgets})
+metapkgs=(illogical-impulse-{audio,backlight,basic,bibata-modern-classic-bin,fonts-themes,hyprland,kde,microtex-git,portal,python,quickshell-git,screencapture,toolkit,widgets})
 
 ebuild_dir="/var/db/repos/ii-dots"
 
 
 ########## IMPORT KEYWORDS (START)
-# Flow
+# Illogical-Impulse
 x sudo cp ./sdata/dist-gentoo/keywords ./sdata/dist-gentoo/keywords-user
 x sed -i "s/$/ ~${arch}/" ./sdata/dist-gentoo/keywords-user
-v sudo cp ./sdata/dist-gentoo/keywords-user /etc/portage/package.accept_keywords/flow
+v sudo cp ./sdata/dist-gentoo/keywords-user /etc/portage/package.accept_keywords/illogical-impulse
 
 ########## IMPORT USEFLAGS
-v sudo cp ./sdata/dist-gentoo/useflags /etc/portage/package.use/flow
-v sudo sh -c 'cat ./sdata/dist-gentoo/additional-useflags >> /etc/portage/package.use/flow'
+v sudo cp ./sdata/dist-gentoo/useflags /etc/portage/package.use/illogical-impulse
+v sudo sh -c 'cat ./sdata/dist-gentoo/additional-useflags >> /etc/portage/package.use/illogical-impulse'
 
 ########## UPDATE SYSTEM
 v sudo emerge --sync
@@ -54,11 +54,11 @@ v sudo emerge --quiet --newuse --update --deep @world
 v sudo emerge --quiet @smart-live-rebuild
 
 # Remove old ebuilds (if this isn't done the wildcard will fuck upon a version change)
-x sudo rm -fr ${ebuild_dir}/app-misc/flow-*
+x sudo rm -fr ${ebuild_dir}/app-misc/illogical-impulse-*
 
 source ./sdata/dist-gentoo/import-local-pkgs.sh
 
-########## INSTALL FLOW EBUILDS
+########## INSTALL ILLOGICAL-IMPUSEL EBUILDS
 for i in "${metapkgs[@]}"; do
 	x sudo mkdir -p ${ebuild_dir}/app-misc/${i}
 	v sudo cp ./sdata/dist-gentoo/${i}/${i}*.ebuild ${ebuild_dir}/app-misc/${i}/

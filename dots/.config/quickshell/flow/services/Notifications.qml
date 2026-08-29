@@ -1,173 +1,158 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
-import "../core"
-import "../services"
+import qs.modules.common
+import qs
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import Quickshell.Services.Notifications
 
 /**
- * Notification service — wraps NotificationServer for real D-Bus notifications.
- * Persistent storage, unread counter, popup management.
- *
- * IMPORTANT: No other notification daemon (Dunst/Mako/Swaync) should be running.
+ * Provides extra features not in Quickshell.Services.Notifications:
+ *  - Persistent storage
+ *  - Popup notifications, with timeout
+ *  - Notification groups by app
  */
 Singleton {
-    id: root
-
-    property int unread: 0
-    property var filePath: Directories.notificationsPath
-    property list<QtObject> list: []
-    property var activePopup: null
-    property var popupList: list.filter(n => n.popup) // Still used for sidebar/history logic
-    property int mode: 0 // 0=Normal, 1=Silent, 2=DND
-    property bool silent: false
-    property int idOffset: 0
-
-    onModeChanged: {
-        if (mode === 2 && !silent) silent = true;
-        if (mode !== 2 && silent) silent = false;
-    }
-    onSilentChanged: {
-        if (silent && mode !== 2) mode = 2;
-        if (!silent && mode === 2) mode = 0;
-    }
-
-    onListChanged: if (list.length === 0) activePopup = null;
-
-    // ── Grouping Logic ──
-    property var groupsByAppName: {
-        const groups = {};
-        for (let i = 0; i < list.length; i++) {
-            const n = list[i];
-            const name = n.isRestartRequired ? "System" : (n.appName || "Unknown");
-            if (!groups[name]) {
-                groups[name] = {
-                    appName: name,
-                    appIcon: n.isRestartRequired ? "restart_alt" : n.appIcon, 
-                    time: n.time,
-                    notifications: []
-                };
-            }
-            groups[name].notifications.push(n);
-            if (n.time > groups[name].time) groups[name].time = n.time;
-        }
-        return groups;
-    }
-
-    property var popupGroupsByAppName: {
-        const groups = {};
-        const popupList = list.filter(n => n.popup);
-        for (let i = 0; i < popupList.length; i++) {
-            const n = popupList[i];
-            const name = n.isRestartRequired ? "System" : (n.appName || "Unknown");
-            if (!groups[name]) {
-                groups[name] = {
-                    appName: name,
-                    appIcon: n.isRestartRequired ? "restart_alt" : n.appIcon, 
-                    time: n.time,
-                    notifications: []
-                };
-            }
-            groups[name].notifications.push(n);
-            if (n.time > groups[name].time) groups[name].time = n.time;
-        }
-        return groups;
-    }
-
-    property var priorityApps: ["Telegram", "WhatsApp", "Discord", "Signal", "Messenger", "Instagram", "Messages"]
-    
-    function sortApps(apps, groups) {
-        return apps.sort((a, b) => {
-            const anyRestartA = groups[a]?.notifications.some(n => n.isRestartRequired) || false;
-            const anyRestartB = groups[b]?.notifications.some(n => n.isRestartRequired) || false;
-            
-            if (anyRestartA && !anyRestartB) return -1;
-            if (!anyRestartA && anyRestartB) return 1;
-
-            const timeA = groups[a]?.time || 0;
-            const timeB = groups[b]?.time || 0;
-            return timeB - timeA; // Newest first
-        });
-    }
-
-    property var appNameList: sortApps(Object.keys(groupsByAppName), groupsByAppName)
-    property var popupAppNameList: sortApps(Object.keys(popupGroupsByAppName), popupGroupsByAppName)
-
-    function getCountForApp(appId) {
-        if (!appId) return 0;
-        let count = 0;
-        const lowerId = appId.toLowerCase();
-        
-        for (let i = 0; i < list.length; i++) {
-            const n = list[i];
-            const name = (n.appName || "").toLowerCase();
-            // Fuzzy match: check if appName is in appId or vice versa
-            if (name !== "" && (lowerId.includes(name) || name.includes(lowerId))) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    // ── Notification wrapper component ──
-    // ── Notification wrapper component ──
+	id: root
     component Notif: QtObject {
-        required property int notificationId
+        id: wrapper
+        required property int notificationId // Could just be `id` but it conflicts with the default prop in QtObject
         property Notification notification
+        property list<var> actions: notification?.actions.map((action) => ({
+            "identifier": action.identifier,
+            "text": action.text,
+        })) ?? []
         property bool popup: false
-        property bool isTransient: notification?.hints?.transient ?? false
-        
-        // Stored fields - bindings allow auto-update from live notification. 
-        // When loaded from file, these will be overwritten by direct assignment.
+        property bool isTransient: notification?.hints.transient ?? false
         property string appIcon: notification?.appIcon ?? ""
         property string appName: notification?.appName ?? ""
         property string body: notification?.body ?? ""
         property string image: notification?.image ?? ""
         property string summary: notification?.summary ?? ""
-        property string urgency: notification?.urgency?.toString() ?? "normal"
         property double time
+        property string urgency: notification?.urgency.toString() ?? "normal"
         property Timer timer
-        property bool expanded: false
-        property bool isRestartRequired: false
 
-        property list<var> actions: []
-
-        // Sync from live notification when it arrives/changes
         onNotificationChanged: {
             if (notification === null) {
-                // Live notification closed — remove from list
                 root.discardNotification(notificationId);
             }
         }
     }
 
+    function notifToJSON(notif) {
+        return {
+            "notificationId": notif.notificationId,
+            "actions": notif.actions,
+            "appIcon": notif.appIcon,
+            "appName": notif.appName,
+            "body": notif.body,
+            "image": notif.image,
+            "summary": notif.summary,
+            "time": notif.time,
+            "urgency": notif.urgency,
+        }
+    }
+    function notifToString(notif) {
+        return JSON.stringify(notifToJSON(notif), null, 2);
+    }
 
-
-    // ── Popup timeout timer component ──
     component NotifTimer: Timer {
         required property int notificationId
-        interval: Config.options.notifications.timeout_ms
+        interval: 7000
         running: true
-        onTriggered: {
-            const index = root.list.findIndex(n => n.notificationId === notificationId);
-            const notif = root.list[index];
-            if (notif?.isTransient) root.discardNotification(notificationId);
+        onTriggered: () => {
+            const index = root.list.findIndex((notif) => notif.notificationId === notificationId);
+            const notifObject = root.list[index];
+            print("[Notifications] Notification timer triggered for ID: " + notificationId + ", transient: " + notifObject?.isTransient);
+            if (notifObject.isTransient) root.discardNotification(notificationId);
             else root.timeoutNotification(notificationId);
-            Qt.callLater(() => destroy());
+            destroy()
         }
     }
 
-    Component { id: notifComponent; Notif {} }
-    Component { id: notifTimerComponent; NotifTimer {} }
+    property bool silent: false
+    property int unread: 0
+    property var filePath: Directories.notificationsPath
+    property list<Notif> list: []
+    property var popupList: list.filter((notif) => notif.popup);
+    property bool popupInhibited: (GlobalStates?.sidebarRightOpen ?? false) || silent
+    property var latestTimeForApp: ({})
+    Component {
+        id: notifComponent
+        Notif {}
+    }
+    Component {
+        id: notifTimerComponent
+        NotifTimer {}
+    }
 
-    // ── D-Bus Notification Server ──
-    NotificationServer {
+    function stringifyList(list) {
+        return JSON.stringify(list.map((notif) => notifToJSON(notif)), null, 2);
+    }
+    
+    onListChanged: {
+        // Update latest time for each app
+        root.list.forEach((notif) => {
+            if (!root.latestTimeForApp[notif.appName] || notif.time > root.latestTimeForApp[notif.appName]) {
+                root.latestTimeForApp[notif.appName] = Math.max(root.latestTimeForApp[notif.appName] || 0, notif.time);
+            }
+        });
+        // Remove apps that no longer have notifications
+        Object.keys(root.latestTimeForApp).forEach((appName) => {
+            if (!root.list.some((notif) => notif.appName === appName)) {
+                delete root.latestTimeForApp[appName];
+            }
+        });
+    }
+
+    function appNameListForGroups(groups) {
+        return Object.keys(groups).sort((a, b) => {
+            // Sort by time, descending
+            return groups[b].time - groups[a].time;
+        });
+    }
+
+    function groupsForList(list) {
+        const groups = {};
+        list.forEach((notif) => {
+            if (!groups[notif.appName]) {
+                groups[notif.appName] = {
+                    appName: notif.appName,
+                    appIcon: notif.appIcon,
+                    notifications: [],
+                    time: 0
+                };
+            }
+            groups[notif.appName].notifications.push(notif);
+            // Always set to the latest time in the group
+            groups[notif.appName].time = latestTimeForApp[notif.appName] || notif.time;
+        });
+        return groups;
+    }
+
+    property var groupsByAppName: groupsForList(root.list)
+    property var popupGroupsByAppName: groupsForList(root.popupList)
+    property list<string> appNameList: appNameListForGroups(root.groupsByAppName)
+    property list<string> popupAppNameList: appNameListForGroups(root.popupGroupsByAppName)
+
+    // Quickshell's notification IDs starts at 1 on each run, while saved notifications
+    // can already contain higher IDs. This is for avoiding id collisions
+    property int idOffset
+    signal initDone();
+    signal notify(notification: var);
+    signal discard(id: int);
+    signal discardAll();
+    signal timeout(id: var);
+
+	NotificationServer {
         id: notifServer
+        // actionIconsSupported: true
         actionsSupported: true
+        bodyHyperlinksSupported: true
+        bodyImagesSupported: true
         bodyMarkupSupported: true
         bodySupported: true
         imageSupported: true
@@ -175,301 +160,145 @@ Singleton {
         persistenceSupported: true
 
         onNotification: (notification) => {
-            notification.tracked = true;
-            
-            // Strictly clear existing popup state before adding a new one
-            if (root.activePopup) {
-                root.activePopup.popup = false;
-                root.activePopup = null;
-            }
-
-            const summaryLower = (notification.summary || "").toLowerCase();
-            const bodyLower = (notification.body || "").toLowerCase();
-            const appNameLower = (notification.appName || "").toLowerCase();
-            
-            // Check if this is a system/PC/device restart requirement
-            let isRestart = false;
-
-            // 1. Explicit system restart/reboot triggers
-            const systemRestartPhrases = [
-                "restart pc", "restart system", "restart computer", "restart device",
-                "reboot pc", "reboot system", "reboot computer", "reboot device",
-                "system restart", "system reboot", "kernel update",
-                "system needs to be restarted", "computer needs to be restarted",
-                "device needs to be restarted"
-            ];
-            const hasExplicitSystemRestart = systemRestartPhrases.some(phrase => 
-                summaryLower.includes(phrase) || bodyLower.includes(phrase)
-            );
-
-            // 2. Generic restart/reboot keywords that might indicate system restart
-            const genericRestartKeywords = ["restart", "reboot", "kernel update", "needs to be restarted"];
-            const hasGenericRestart = genericRestartKeywords.some(kw => 
-                summaryLower.includes(kw) || bodyLower.includes(kw)
-            );
-
-            // 3. Exclude indicators that point to an application restart
-            const appPattern = /\b(app|apps|application|applications|vesktop|discord|spotify|steam|firefox|chrome|chromium|brave|slack|signal|telegram|service|quickshell|hyprland|cava|extension)\b/i;
-            const isAppRelated = appPattern.test(summaryLower) || appPattern.test(bodyLower) || appPattern.test(appNameLower);
-
-            if (hasExplicitSystemRestart) {
-                isRestart = true;
-            } else if (hasGenericRestart && !isAppRelated) {
-                // If it's not app-related and has a restart keyword, check if it's sent by a system app/empty app name
-                const systemApps = ["", "system", "systemd", "update", "package", "software", "discover", "pkcon", "pacman", "dnf", "yay", "flow", "notify-send", "bash", "sh"];
-                const isSystemApp = systemApps.some(app => appNameLower.includes(app));
-                if (isSystemApp) {
-                    isRestart = true;
-                }
-            }
-
-            const mappedActions = notification.actions
-                ? notification.actions.map(a => ({identifier: a.identifier, text: a.text}))
-                : [];
-
-            const newNotif = notifComponent.createObject(root, {
+            notification.tracked = true
+            const newNotifObject = notifComponent.createObject(root, {
                 "notificationId": notification.id + root.idOffset,
                 "notification": notification,
-                "appIcon":  notification.appIcon  ?? "",
-                "appName":  notification.appName  ?? "",
-                "body":     notification.body     ?? "",
-                "image":    notification.image    ?? "",
-                "summary":  notification.summary  ?? "",
-                "urgency":  notification.urgency?.toString() ?? "normal",
-                "time":     Date.now(),
-                "isRestartRequired": isRestart,
-                "actions":  mappedActions
+                "time": Date.now(),
             });
-            
-            // Add to list and handle popup state
-            root.list = [...root.list, newNotif];
+			root.list = [...root.list, newNotifObject];
 
-            if (root.mode !== 2) {
-                newNotif.popup = true;
-                root.activePopup = newNotif;
-                if (notification.expireTimeout !== 0) {
-                    newNotif.timer = notifTimerComponent.createObject(root, {
-                        "notificationId": newNotif.notificationId,
-                        "interval": notification.expireTimeout < 0
-                            ? Config.options.notifications.timeout_ms
-                            : notification.expireTimeout,
+            // Popup
+            if (!root.popupInhibited) {
+                newNotifObject.popup = true;
+                if (notification.expireTimeout != 0) {
+                    newNotifObject.timer = notifTimerComponent.createObject(root, {
+                        "notificationId": newNotifObject.notificationId,
+                        "interval": notification.expireTimeout < 0 ? (Config?.options.notifications.timeout ?? 7000) : notification.expireTimeout,
                     });
                 }
                 root.unread++;
             }
-
-            if (root.mode === 0) {
-                Audio.playSystemSound("message");
-            }
-
-
+            root.notify(newNotifObject);
+            // console.log(notifToString(newNotifObject));
             notifFileView.setText(stringifyList(root.list));
         }
     }
 
-    // ── Public API ──
-    function markAllRead() { root.unread = 0; }
-
-    function discardNotification(id) {
-        const index = root.list.findIndex(n => n.notificationId === id);
-        if (index === -1) return;
-
-        if (root.unread > 0) root.unread--;
-        const notif = root.list[index];
-        if (notif.timer) { 
-            notif.timer.stop(); 
-            let t = notif.timer; 
-            Qt.callLater(() => { if(t) t.destroy(); }); 
-        }
-
-        // Dismiss from D-Bus server
-        const serverId = notif.notificationId - root.idOffset;
-        const serverNotif = notifServer.trackedNotifications.values.find(n => n.id === serverId);
-        if (serverNotif) serverNotif.dismiss();
-
-        notif.popup = false; 
-        if (root.activePopup && root.activePopup.notificationId === id) {
-            root.activePopup = null;
-        }
-        
-        root.list.splice(index, 1);
-        root.list = [...root.list]; // Direct trigger
-        notifFileView.setText(stringifyList(root.list));
-    }
-
-    function discardAllNotifications() {
-        root.activePopup = null;
-        root.list.forEach(n => { if (n.timer) n.timer.stop(); });
-        root.list = [];
-        notifFileView.setText(stringifyList(root.list));
-        notifServer.trackedNotifications.values.forEach(n => n.dismiss());
+    function markAllRead() {
         root.unread = 0;
     }
 
-    function timeoutNotification(id) {
-        const index = root.list.findIndex(n => n.notificationId === id);
-        if (root.list[index] != null) {
-            root.list[index].popup = false;
-            if (root.activePopup && root.activePopup.notificationId === id) {
-                root.activePopup = null;
-            }
+    function discardNotification(id) {
+        console.log("[Notifications] Discarding notification with ID: " + id);
+        const index = root.list.findIndex((notif) => notif.notificationId === id);
+        const notifServerIndex = notifServer.trackedNotifications.values.findIndex((notif) => notif.id + root.idOffset === id);
+        if (index !== -1) {
+            root.list.splice(index, 1);
+            notifFileView.setText(stringifyList(root.list));
+            triggerListChange()
         }
+        if (notifServerIndex !== -1) {
+            notifServer.trackedNotifications.values[notifServerIndex].dismiss()
+        }
+        root.discard(id); // Emit signal
     }
 
-    function attemptInvokeAction(id, actionIdentifier) {
-        const serverIndex = notifServer.trackedNotifications.values.findIndex(
-            n => n.id + root.idOffset === id
-        );
-        
-        if (serverIndex !== -1) {
-            const notif = notifServer.trackedNotifications.values[serverIndex];
-            
-            if (actionIdentifier === "default") {
-                // --- Smart Focus Logic (Enhanced with Overview-style Fuzzy Matching) ---
-                const appName = (notif.appName || "").toLowerCase();
-                const summary = (notif.summary || "").toLowerCase();
-                const body = (notif.body || "").toLowerCase();
-                
-                // ── FLOW INTERNAL ROUTING ──
-                if (appName === "flow") {
-                    if (summary.includes("update") || body.includes("update")) {
-                        GlobalStates.settingsPageIndex = 8; // About page
-                        GlobalStates.settingsAboutView = "update"; // Directly to Update sub-page
-                        GlobalStates.settingsOpen = true;
-                    } else if (summary.includes("schedule") || summary.includes("event") || body.includes("schedule") || body.includes("event")) {
-                        GlobalStates.dashboardOpen = true;
-                    } else if (summary.includes("wallpaper") || summary.includes("theming") || body.includes("wallpaper") || body.includes("theming")) {
-                        GlobalStates.settingsPageIndex = 4; // Customize
-                        GlobalStates.settingsOpen = true;
-                    } else if (summary.includes("audio") || summary.includes("sound") || body.includes("audio") || body.includes("sound")) {
-                        GlobalStates.settingsPageIndex = 2; // Audio
-                        GlobalStates.settingsOpen = true;
-                    } else if (summary.includes("settings") || body.includes("settings") || summary.includes("system") || body.includes("system")) {
-                        GlobalStates.settingsOpen = true;
-                    }
-                    
-                    GlobalStates.notificationCenterOpen = false;
-                    root.discardNotification(id);
-                    return;
-                }
+    function discardAllNotifications() {
+        root.list = []
+        triggerListChange()
+        notifFileView.setText(stringifyList(root.list));
+        notifServer.trackedNotifications.values.forEach((notif) => {
+            notif.dismiss()
+        })
+        root.discardAll();
+    }
 
-                if (appName !== "" || summary !== "") {
-                    let bestMatch = null;
-                    let highestScore = -1;
+    function cancelTimeout(id) {
+        const index = root.list.findIndex((notif) => notif.notificationId === id);
+        if (root.list[index] != null)
+            root.list[index].timer.stop();
+    }
 
-                    const fuzzyScore = (query, target) => {
-                        if (!query || !target) return -1;
-                        const lowQuery = query.toLowerCase();
-                        const lowTarget = target.toLowerCase();
-                        
-                        if (lowTarget === lowQuery) return 2000; // Perfect match
-                        if (lowTarget.includes(lowQuery)) return 1000 + (100 - lowTarget.length); // Substring match
-                        
-                        let queryIndex = 0, consecutiveMatches = 0, maxConsecutive = 0, score = 0;
-                        for (let i = 0; i < lowTarget.length && queryIndex < lowQuery.length; i++) {
-                            if (lowTarget[i] === lowQuery[queryIndex]) {
-                                queryIndex++; consecutiveMatches++;
-                                maxConsecutive = Math.max(maxConsecutive, consecutiveMatches);
-                                if (i === 0 || lowTarget[i - 1] === ' ' || lowTarget[i - 1] === '-' || lowTarget[i - 1] === '_') score += 50;
-                            } else { consecutiveMatches = 0; }
-                        }
-                        return queryIndex === lowQuery.length ? score + maxConsecutive * 5 : -1;
-                    };
+    function timeoutNotification(id) {
+        const index = root.list.findIndex((notif) => notif.notificationId === id);
+        if (root.list[index] != null)
+            root.list[index].popup = false;
+        root.timeout(id);
+    }
 
-                    for (let i = 0; i < Hyprland.toplevels.values.length; i++) {
-                        const tl = Hyprland.toplevels.values[i];
-                        const cClass = tl.class || "";
-                        const cTitle = tl.title || "";
-                        const cInitial = tl.initialClass || "";
+    function timeoutAll() {
+        root.popupList.forEach((notif) => {
+            root.timeout(notif.notificationId);
+        })
+        root.popupList.forEach((notif) => {
+            notif.popup = false;
+        });
+    }
 
-                        // Calculate scores for various properties
-                        const classScore = fuzzyScore(appName, cClass);
-                        const initialScore = fuzzyScore(appName, cInitial);
-                        const titleScore = Math.max(fuzzyScore(appName, cTitle), fuzzyScore(summary, cTitle) * 0.8);
-                        
-                        const currentMax = Math.max(classScore, initialScore, titleScore);
-
-                        if (currentMax > highestScore) {
-                            highestScore = currentMax;
-                            bestMatch = tl;
-                        }
-                    }
-
-                    if (bestMatch && highestScore > 0) {
-                        Hyprland.dispatch(HyprlandCompat.dspFocusWindow(`address:0x${bestMatch.address}`));
-                        GlobalStates.notificationCenterOpen = false;
-                        GlobalStates.dashboardOpen = false;
-                    }
-                }
-
-                if (typeof notif.invokeDefaultAction === "function") {
-                    notif.invokeDefaultAction();
-                } else {
-                    const action = notif.actions.find(a => a.identifier === "default" || a.identifier === "");
-                    if (action) action.invoke();
-                }
-            } else {
-                const action = notif.actions.find(a => a.identifier === actionIdentifier);
-                if (action) action.invoke();
-            }
+    function attemptInvokeAction(id, notifIdentifier) {
+        console.log("[Notifications] Attempting to invoke action with identifier: " + notifIdentifier + " for notification ID: " + id);
+        const notifServerIndex = notifServer.trackedNotifications.values.findIndex((notif) => notif.id + root.idOffset === id);
+        console.log("Notification server index: " + notifServerIndex);
+        if (notifServerIndex !== -1) {
+            const notifServerNotif = notifServer.trackedNotifications.values[notifServerIndex];
+            const action = notifServerNotif.actions.find((action) => action.identifier === notifIdentifier);
+            // console.log("Action found: " + JSON.stringify(action));
+            action.invoke()
+        } 
+        else {
+            console.log("Notification not found in server: " + id)
         }
         root.discardNotification(id);
     }
 
-    // ── Serialization ──
-    function stringifyList(list) {
-        return JSON.stringify(list.map(n => ({
-            notificationId: n.notificationId,
-            appIcon: n.appIcon,
-            appName: n.appName,
-            body: n.body,
-            image: n.image,
-            summary: n.summary,
-            time: n.time,
-            urgency: n.urgency,
-            isRestartRequired: n.isRestartRequired,
-            actions: n.actions ? n.actions.map(a => ({identifier: a.identifier, text: a.text})) : []
-        })), null, 2);
+    function triggerListChange() {
+        root.list = root.list.slice(0)
     }
 
-    // ── Persistent storage ──
-    Component.onCompleted: notifFileView.reload()
+    function refresh() {
+        notifFileView.reload()
+    }
+
+    Component.onCompleted: {
+        refresh()
+    }
 
     FileView {
         id: notifFileView
-        path: Qt.resolvedUrl(root.filePath)
+        path: Qt.resolvedUrl(filePath)
         onLoaded: {
-            try {
-                const fileContents = notifFileView.text();
-                const parsed = JSON.parse(fileContents);
-                root.list = parsed.map(n => notifComponent.createObject(root, {
-                    "notificationId": n.notificationId,
-                    "appIcon": n.appIcon ?? "",
-                    "appName": n.appName ?? "",
-                    "body": n.body ?? "",
-                    "image": n.image ?? "",
-                    "summary": n.summary ?? "",
-                    "time": n.time ?? 0,
-                    "urgency": n.urgency ?? "normal",
-                    "isRestartRequired": n.isRestartRequired ?? false,
-                    "actions": n.actions ? n.actions.map(a => ({identifier: a.identifier, text: a.text})) : []
-                }));
-                // Find max ID to avoid collisions
-                let maxId = 0;
-                root.list.forEach(n => { maxId = Math.max(maxId, n.notificationId); });
-                root.idOffset = maxId;
-            } catch (e) {
+            const fileContents = notifFileView.text()
+            root.list = JSON.parse(fileContents).map((notif) => {
+                return notifComponent.createObject(root, {
+                    "notificationId": notif.notificationId,
+                    "actions": [], // Notification actions are meaningless if they're not tracked by the server or the sender is dead
+                    "appIcon": notif.appIcon,
+                    "appName": notif.appName,
+                    "body": notif.body,
+                    "image": notif.image,
+                    "summary": notif.summary,
+                    "time": notif.time,
+                    "urgency": notif.urgency,
+                });
+            });
+            // Find largest notificationId
+            let maxId = 0
+            root.list.forEach((notif) => {
+                maxId = Math.max(maxId, notif.notificationId)
+            })
 
-                root.list = [];
-            }
+            console.log("[Notifications] File loaded")
+            root.idOffset = maxId
+            root.initDone()
         }
         onLoadFailed: (error) => {
-            if (error == FileViewError.FileNotFound) {
-
-                root.list = [];
-                notifFileView.setText("[]");
+            if(error == FileViewError.FileNotFound) {
+                console.log("[Notifications] File not found, creating new file.")
+                root.list = []
+                notifFileView.setText(stringifyList(root.list));
             } else {
-
+                console.log("[Notifications] Error loading file: " + error)
             }
         }
     }

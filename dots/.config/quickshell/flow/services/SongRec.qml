@@ -1,7 +1,7 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 
-import "../core"
+import qs.modules.common
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -12,18 +12,18 @@ Singleton {
     enum MonitorSource { Monitor, Input }
 
     property var monitorSource: SongRec.MonitorSource.Monitor
-    property int timeoutInterval: (Config.ready && Config.options.musicRecognition) ? Config.options.musicRecognition.interval : 2
-    property int timeoutDuration: (Config.ready && Config.options.musicRecognition) ? Config.options.musicRecognition.timeout : 30
+    property int timeoutInterval: Config.options.musicRecognition.interval
+    property int timeoutDuration: Config.options.musicRecognition.timeout
     readonly property bool running: recognizeMusicProc.running
 
-    function toggleRunning(runningState) {
-        if (recognizeMusicProc.running && runningState === false) root.manuallyStopped = true;
-        if (runningState !== undefined) {
-            recognizeMusicProc.running = runningState
+    function toggleRunning(running) {
+        if (recognizeMusicProc.running && !running === true) root.manuallyStopped = true;
+        if (running != undefined) {
+            recognizeMusicProc.running = running
         } else {
-            recognizeMusicProc.running = !recognizeMusicProc.running
+            recognizeMusicProc.running = !root.running
         }
-        musicRecognizedProc.running = false
+        musicReconizedProc.running = false
     }
 
     function toggleMonitorSource(source) {
@@ -33,76 +33,69 @@ Singleton {
         }
         root.monitorSource = (root.monitorSource === SongRec.MonitorSource.Monitor) ? SongRec.MonitorSource.Input : SongRec.MonitorSource.Monitor
     }
-
-    function monitorSourceToString(src) {
-        return src === SongRec.MonitorSource.Monitor ? "monitor" : "input"
+    function monitorSourceToString(source) {
+        if (source === SongRec.MonitorSource.Monitor) {
+            return "monitor"
+        } else {
+            return "input"
+        }
     }
-
     readonly property string monitorSourceString: monitorSourceToString(monitorSource)
-    readonly property string flowIcon: Directories.home.replace("file://", "") + "/.config/quickshell/flow/assets/icons/NAnDoroid.svg"
     property var recognizedTrack: ({ title:"", subtitle:"", url:""})
     property bool manuallyStopped: false
 
     function handleRecognition(jsonText) {
         try {
-            var obj = JSON.parse(jsonText);
-            if (obj.track) {
-                root.recognizedTrack = {
-                    title: obj.track.title,
-                    subtitle: obj.track.subtitle,
-                    url: obj.track.url
-                }
-                musicRecognizedProc.running = true
+            var obj = JSON.parse(jsonText)
+            root.recognizedTrack = {
+                title: obj.track.title,
+                subtitle: obj.track.subtitle,
+                url: obj.track.url
             }
+            musicReconizedProc.running = true
         } catch(e) {
-            Quickshell.execDetached(["notify-send", "-a", "NAnDoroid", "-i", root.flowIcon, "--", "Couldn't recognize music", "Perhaps what you're listening to is too niche"])
+            Quickshell.execDetached(["notify-send", Translation.tr("Couldn't recognize music"), Translation.tr("Perhaps what you're listening to is too niche"), "-a", "Shell"])
         }
     }
 
     Process {
         id: recognizeMusicProc
         running: false
-        command: [Quickshell.shellPath("scripts/musicRecognition/recognize-music.sh"), "-i", root.timeoutInterval, "-t", root.timeoutDuration, "-s", root.monitorSourceString]
+        command: [`${Directories.scriptPath}/musicRecognition/recognize-music.sh`, "-i", root.timeoutInterval, "-t", root.timeoutDuration, "-s", root.monitorSourceString]
         stdout: StdioCollector {
             onStreamFinished: {
                 if (root.manuallyStopped) {
                     root.manuallyStopped = false
                     return
                 }
-                if (this.text.trim() !== "") {
-                    handleRecognition(this.text)
-                }
+                handleRecognition(this.text)
             }
         }
         onExited: (exitCode, exitStatus) => {
             if (exitCode === 1) {
-                Quickshell.execDetached(["notify-send", "-a", "NAnDoroid", "-i", root.flowIcon, "--", "Couldn't recognize music", "Make sure you have songrec installed"])
+                Quickshell.execDetached(["notify-send", Translation.tr("Couldn't recognize music"), Translation.tr("Make sure you have songrec installed"), "-a", "Shell"])
             }
         }
     }
 
     Process {
-        id: musicRecognizedProc
+        id: musicReconizedProc
         running: false
         command: [
             "notify-send",
+            Translation.tr("Music Recognized"), 
+            root.recognizedTrack.title + " - " + root.recognizedTrack.subtitle, 
             "-A", "Shazam",
             "-A", "YouTube",
-            "-a", "NAnDoroid",
-            "-i", root.flowIcon,
-            "-t", "10000",
-            "-e", // Transient
-            "--",
-            "Music Recognized", 
-            root.recognizedTrack.title + " - " + root.recognizedTrack.subtitle
+            "-a", "Shell"
         ]
         stdout: StdioCollector {
             onStreamFinished: {
                 if (this.text === "") return
-                if (this.text.trim() == "0") {
+                if (this.text == 0) {
                     Qt.openUrlExternally(root.recognizedTrack.url);
                 } else {
-                    Qt.openUrlExternally("https://www.youtube.com/results?search_query=" + encodeURIComponent(root.recognizedTrack.title + " - " + root.recognizedTrack.subtitle));
+                    Qt.openUrlExternally("https://www.youtube.com/results?search_query=" + root.recognizedTrack.title + " - " + root.recognizedTrack.subtitle);
                 }
             }
         }

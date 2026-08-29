@@ -101,13 +101,8 @@ should_process_pattern() {
     fi
 
     # Extract the preference type and value from condition
-    local type=$(echo "$condition" | yq -r '.type')
-    local value=$(echo "$condition" | yq -r '.value')
-
-    if [[ "$type" == "file_exists" ]]; then
-      [[ -e "$value" ]]
-      return $?
-    fi
+    local type=$(echo "$condition" | yq '.type')
+    local value=$(echo "$condition" | yq '.value')
 
     [[ "$(get_pref "$type")" == "$value" ]]
 

@@ -42,7 +42,6 @@ function gen_firstrun(){
   x touch "${FIRSTRUN_FILE}"
   x mkdir -p "$(dirname ${INSTALLED_LISTFILE})"
   realpath -se "${FIRSTRUN_FILE}" >> "${INSTALLED_LISTFILE}"
-  rm -f "${XDG_STATE_HOME:-$HOME/.local/state}/flow/user/first_run.txt"
 }
 cp_file(){
   # NOTE: This function is only for using in other functions
@@ -57,6 +56,13 @@ rsync_dir(){
   local dest="$(realpath -se $2)"
   x mkdir -p "$(dirname ${INSTALLED_LISTFILE})"
   rsync -a --out-format='%i %n' "$1"/ "$2"/ | awk -v d="$dest" '$1 ~ /^>/{ sub(/^[^ ]+ /,""); printf d "/" $0 "\n" }' >> "${INSTALLED_LISTFILE}"
+}
+rsync_dir__ignore_existing(){
+  # NOTE: This function is only for using in other functions
+  x mkdir -p "$2"
+  local dest="$(realpath -se $2)"
+  x mkdir -p "$(dirname ${INSTALLED_LISTFILE})"
+  rsync -a --ignore-existing --out-format='%i %n' "$1"/ "$2"/ | awk -v d="$dest" '$1 ~ /^>/{ sub(/^[^ ]+ /,""); printf d "/" $0 "\n" }' >> "${INSTALLED_LISTFILE}"
 }
 rsync_dir__sync(){
   # NOTE: This function is only for using in other functions
@@ -130,7 +136,7 @@ function install_dir__sync(){
   fi
   v rsync_dir__sync $s $t
 }
-function install_dir__skip_existed(){
+function install_dir__skip_ifexist(){
   # NOTE: Do not add prefix `v` or `x` when using this function
   local s=$1
   local t=$2
@@ -139,6 +145,17 @@ function install_dir__skip_existed(){
   else
     echo -e "${STY_YELLOW}[$0]: \"$t\" does not exist yet.${STY_RST}"
     v rsync_dir $s $t
+  fi
+}
+function install_dir__ignore_existing(){
+  # NOTE: Do not add prefix `v` or `x` when using this function
+  local s=$1
+  local t=$2
+  if [ -d $t ];then
+    echo -e "${STY_BLUE}[$0]: \"$t\" already exists, will not do anything.${STY_RST}"
+  else
+    echo -e "${STY_YELLOW}[$0]: \"$t\" does not exist yet.${STY_RST}"
+    v rsync_dir__ignore_existing $s $t
   fi
 }
 function install_dir__sync_exclude(){
@@ -158,7 +175,7 @@ function install_google_sans_flex(){
   local src_name="google-sans-flex"
   local src_url="https://github.com/end-4/google-sans-flex"
   local src_dir="$REPO_ROOT/cache/$src_name"
-  local target_dir="${XDG_DATA_HOME}/fonts/flow-$src_name"
+  local target_dir="${XDG_DATA_HOME}/fonts/illogical-impulse-$src_name"
   if fc-list | grep -qi "$font_name"; then return; fi
   x mkdir -p $src_dir
   x cd $src_dir
