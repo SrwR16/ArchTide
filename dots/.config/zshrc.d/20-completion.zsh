@@ -67,6 +67,21 @@ _flow_source_cached_completion kubectl "$_flow_comp_cache_dir/kubectl.zsh" kubec
 _flow_source_cached_completion helm "$_flow_comp_cache_dir/helm.zsh" helm completion zsh
 _flow_source_cached_completion gh "$_flow_comp_cache_dir/gh.zsh" gh completion -s zsh
 _flow_source_cached_completion mise "$_flow_comp_cache_dir/mise.zsh" mise completion zsh
+_flow_source_cached_completion docker "$_flow_comp_cache_dir/docker.zsh" docker completion zsh
+_flow_source_cached_completion docker-compose "$_flow_comp_cache_dir/docker-compose.zsh" docker-compose completion zsh
+_flow_source_cached_completion terraform "$_flow_comp_cache_dir/terraform.zsh" terraform -install-autocomplete 2>/dev/null || terraform completion zsh 2>/dev/null
+_flow_source_cached_completion kubectx "$_flow_comp_cache_dir/kubectx.zsh" kubectx completion zsh 2>/dev/null
+_flow_source_cached_completion kubens "$_flow_comp_cache_dir/kubens.zsh" kubens completion zsh 2>/dev/null
+_flow_source_cached_completion k9s "$_flow_comp_cache_dir/k9s.zsh" k9s completion zsh 2>/dev/null
+_flow_source_cached_completion stern "$_flow_comp_cache_dir/stern.zsh" stern completion zsh 2>/dev/null
+_flow_source_cached_completion flux "$_flow_comp_cache_dir/flux.zsh" flux completion zsh 2>/dev/null
+_flow_source_cached_completion argocd "$_flow_comp_cache_dir/argocd.zsh" argocd completion zsh 2>/dev/null
+_flow_source_cached_completion kustomize "$_flow_comp_cache_dir/kustomize.zsh" kustomize completion zsh 2>/dev/null
+_flow_source_cached_completion helmfile "$_flow_comp_cache_dir/helmfile.zsh" helmfile completion zsh 2>/dev/null
+_flow_source_cached_completion aws "$_flow_comp_cache_dir/aws.zsh" aws_completer 2>/dev/null
+_flow_source_cached_completion gcloud "$_flow_comp_cache_dir/gcloud.zsh" gcloud completion zsh 2>/dev/null
+_flow_source_cached_completion az "$_flow_comp_cache_dir/az.zsh" az completion zsh 2>/dev/null
+_flow_source_cached_completion talosctl "$_flow_comp_cache_dir/talosctl.zsh" talosctl completion zsh 2>/dev/null
 
 # Rebuild completion cache once per day
 if [[ ! -f "$zcompdump" ]] || [[ "$zcompdump" -ot "${ZDOTDIR:-$HOME}/.zshrc" ]]; then
