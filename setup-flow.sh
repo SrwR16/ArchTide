@@ -51,7 +51,7 @@
 #       --no-color            Strip ANSI colour
 #       --json                Emit JSON (currently used by: project detect)
 #
-# --local takes either a fork checkout (with dots/.config/quickshell/flow*) or a
+# --local takes either a fork checkout (with dots/.config/quickshell/ii*) or a
 # flow config dir directly. `update` will not guess a local path back: it refuses
 # and prints the --local line to re-run, so a stale checkout is never silently
 # redeployed.
@@ -127,7 +127,7 @@ SETUP_STATE_DIR="$XDG_STATE_HOME/flow" # logs and backups
 BACKUP_BASE_DIR="$SETUP_STATE_DIR/backups"
 DEFAULT_LOG_FILE="$SETUP_STATE_DIR/setup.log"
 QS_DIR="$XDG_CONFIG_HOME/quickshell"
-TARGET_DIR="$QS_DIR/flow"
+TARGET_DIR="$QS_DIR/ii"
 FLOW_CONFIG_DIR="$TARGET_DIR"
 FLOW_CONFIG_FILE="$XDG_CONFIG_HOME/flow/config.json"
 BIN_DIR="$HOME/.local/bin"
@@ -2218,9 +2218,9 @@ apply_config() {
 
     if [[ -n "$LOCAL_SRC" ]]; then
         if [[ "$LOCAL_KIND" == "repo" ]]; then
-            source_dir="$LOCAL_SRC/dots/.config/quickshell/flow"
+            source_dir="$LOCAL_SRC/dots/.config/quickshell/ii"
             [[ -d "$source_dir" ]] || {
-                ui_fail "Not a Flow checkout" "dots/.config/quickshell/flow not found in $(tilde "$LOCAL_SRC")"
+                ui_fail "Not a Flow checkout" "dots/.config/quickshell/ii not found in $(tilde "$LOCAL_SRC")"
                 return 1
             }
         else
@@ -2238,9 +2238,9 @@ apply_config() {
         fi
         head="$(git -C "$CLONE_DIR" rev-parse HEAD 2>/dev/null || true)"
 
-        source_dir="$CLONE_DIR/dots/.config/quickshell/flow"
+        source_dir="$CLONE_DIR/dots/.config/quickshell/ii"
         [[ -d "$source_dir" ]] || {
-            ui_fail "Not a Flow checkout" "dots/.config/quickshell/flow not found in cloned repo"
+            ui_fail "Not a Flow checkout" "dots/.config/quickshell/ii not found in cloned repo"
             return 1
         }
         ui_verbose "source: ${source_dir#"$CLONE_DIR"/}"
