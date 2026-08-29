@@ -344,6 +344,7 @@ switch() {
 
             categorize_wallpaper "$imgpath"
         fi
+        matugen_args+=(--prefer darkness --contrast 0.3)
     fi
 
     # Determine mode if not set
@@ -543,7 +544,7 @@ main() {
                 type_flag="$detected_type"
             else
                 echo "[switchwall] Warning: Could not auto-detect a valid scheme, defaulting to 'scheme-tonal-spot'" >&2
-                type_flag="scheme-tonal-spot"
+                type_flag="scheme-fruit-salad"
             fi
         else
             echo "[switchwall] Warning: No image to auto-detect scheme from, defaulting to 'scheme-tonal-spot'" >&2
