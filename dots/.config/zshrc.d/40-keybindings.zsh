@@ -4,10 +4,9 @@
 # Use emacs keybindings (standard)
 bindkey -e
 
-# History search
+# History search (Ctrl+R/S for incremental, Up/Down handled by zsh-history-substring-search)
 bindkey '^R' history-incremental-search-backward
 bindkey '^S' history-incremental-search-forward
-# Ctrl+P/N handled by predictor (Alt+Up/Down for HUD, normal history otherwise)
 
 # Beginning/end of line
 # Ctrl+A: select-all (handled by zsh-edit-select)
