@@ -82,7 +82,9 @@ Item {
                     if (!configQuickSliders.showMic && !configQuickSliders.showVolume && !configQuickSliders.showBrightness) return false;
                     return true;
                 }
-                sourceComponent: QuickSliders {}
+                sourceComponent: QuickSliders {
+                    editMode: root.editMode
+                }
             }
 
             LoaderedQuickPanelImplementation {
@@ -269,11 +271,11 @@ Item {
 
             QuickToggleButton {
                 toggled: root.editMode
-                visible: Config.options.sidebar.quickToggles.style === "android"
+                visible: Config.options.sidebar.quickToggles.style === "android" || Config.options.sidebar.quickSliders.enable
                 buttonIcon: "edit"
                 onClicked: root.editMode = !root.editMode
                 StyledToolTip {
-                    text: Translation.tr("Edit quick toggles") + (root.editMode ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : "")
+                    text: Translation.tr("Edit toggles & sliders") + (root.editMode ? Translation.tr("\nLMB to enable/disable\nRMB to toggle size\nScroll to swap position") : "")
                 }
             }
             QuickToggleButton {

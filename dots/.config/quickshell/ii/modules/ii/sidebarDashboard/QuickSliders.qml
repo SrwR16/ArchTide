@@ -14,6 +14,7 @@ Rectangle {
 
     property var screen: root.QsWindow.window?.screen
     property var brightnessMonitor: Brightness.getMonitorForScreen(screen)
+    property bool editMode: false
 
     implicitWidth: contentItem.implicitWidth + root.horizontalPadding * 2
     implicitHeight: contentItem.implicitHeight + root.verticalPadding * 2
@@ -22,84 +23,214 @@ Rectangle {
     property real verticalPadding: 4
     property real horizontalPadding: 12
 
-    property bool showBrightness: Config.options.sidebar.quickSliders.showBrightness 
-    property bool showVolume: Config.options.sidebar.quickSliders.showVolume 
-    property bool showGamma: Config.options.sidebar.quickSliders.showGamma
-    property bool showMic: Config.options.sidebar.quickSliders.showMic 
+    // Layout / sizing
+    readonly property int columns: Config.options.sidebar.quickSliders.columns
+    property real spacing: 8
+    property real padding: 6
+    readonly property real baseCellWidth: {
+        const availableWidth = root.width - (root.padding * 2) - (root.spacing * (root.columns))
+        return availableWidth / root.columns
+    }
+    readonly property real baseCellHeight: 56
 
-    RowLayout {
+    // Slider definitions (fixed order, index 0-3 mirrors config keys)
+    readonly property list<var> sliders: [
+        {
+            index: 0,
+            icon: "brightness_6",
+            getVal: () => root.brightnessMonitor.brightness,
+            setVal: (v) => root.brightnessMonitor.setBrightness(v)
+        },
+        {
+            index: 1,
+            icon: "volume_up",
+            getVal: () => Audio.sink.audio.volume,
+            setVal: (v) => { Audio.sink.audio.volume = v }
+        },
+        {
+            index: 2,
+            icon: "mic",
+            getVal: () => Audio.source.audio.volume,
+            setVal: (v) => { Audio.source.audio.volume = v }
+        },
+        {
+            index: 3,
+            icon: "light_mode",
+            secondaryIcon: "wb_twilight",
+            getVal: () => Hyprsunset.gamma === 100 ? 0.3 + root.brightnessMonitor?.brightness * 0.7 : (Hyprsunset.gamma - Hyprsunset.gammaLowerLimit) / (100 - Hyprsunset.gammaLowerLimit) * 0.3,
+            setVal: (v) => {
+                if (v >= 0.3) {
+                    root.brightnessMonitor.setBrightness((v - 0.3) / 0.7);
+                    if (Hyprsunset.gamma !== 100) {
+                        Hyprsunset.setGamma(100);
+                    }
+                } else {
+                    if (root.brightnessMonitor.brightness !== 0) {
+                        root.brightnessMonitor.setBrightness(0);
+                    }
+                    Hyprsunset.setGamma((v / 0.3 * (100 - Hyprsunset.gammaLowerLimit) + Hyprsunset.gammaLowerLimit));
+                }
+            }
+        }
+    ]
+
+    function sliderList(enabledOnly) {
+        const out = [];
+        for (const s of root.sliders) {
+            if (enabledOnly && !root.sliderShown(s.index)) continue;
+            out.push(s);
+        }
+        return out;
+    }
+
+    readonly property list<var> sliderRows: sliderRowsForList(root.editMode ? root.sliderList(false) : root.sliderList(true))
+
+    function sliderRowsForList(list) {
+        const rows = [];
+        let row = [];
+        let totalSize = 0;
+        for (const s of list) {
+            const size = root.sliderSize(s.index);
+            if (totalSize + size > root.columns) {
+                rows.push(row);
+                row = [];
+                totalSize = 0;
+            }
+            row.push(s);
+            totalSize += size;
+        }
+        if (row.length > 0) {
+            rows.push(row);
+        }
+        return rows;
+    }
+
+    // Edit-mode helpers (access config by fixed slider index)
+    function sliderShown(index) {
+        const qs = Config.options.sidebar.quickSliders;
+        if (index === 0) return qs.showBrightness;
+        if (index === 1) return qs.showVolume;
+        if (index === 2) return qs.showMic;
+        return qs.showGamma;
+    }
+    function setSliderShown(index, shown) {
+        const qs = Config.options.sidebar.quickSliders;
+        if (index === 0) qs.showBrightness = shown;
+        else if (index === 1) qs.showVolume = shown;
+        else if (index === 2) qs.showMic = shown;
+        else qs.showGamma = shown;
+    }
+    function sliderSize(index) {
+        const qs = Config.options.sidebar.quickSliders;
+        if (index === 0) return qs.brightnessSize;
+        if (index === 1) return qs.volumeSize;
+        if (index === 2) return qs.micSize;
+        return qs.gammaSize;
+    }
+    function setSliderSize(index, size) {
+        const qs = Config.options.sidebar.quickSliders;
+        if (index === 0) qs.brightnessSize = size;
+        else if (index === 1) qs.volumeSize = size;
+        else if (index === 2) qs.micSize = size;
+        else qs.gammaSize = size;
+    }
+    function toggleSliderEnabled(index) {
+        root.setSliderShown(index, !root.sliderShown(index));
+    }
+    function toggleSliderSize(index) {
+        root.setSliderSize(index, 3 - root.sliderSize(index));
+    }
+
+    Column {
         id: contentItem
         anchors {
             fill: parent
-            leftMargin: root.horizontalPadding
-            rightMargin: root.horizontalPadding
-            topMargin: root.verticalPadding
-            bottomMargin: root.verticalPadding
+            margins: root.padding
         }
-
-        spacing: 8
-
-
-        property int activeCount: {
-            let count = 0;
-            for (let i = 0; i < repeater.count; i++) {
-                if (repeater.itemAt(i) && repeater.itemAt(i).visible) count++;
-            }
-            return count;
-        }
-
+        spacing: root.spacing
 
         Repeater {
-            id: repeater
-            model: [
-                { show: showBrightness, icon: "brightness_6", 
-                getVal: () => root.brightnessMonitor.brightness, 
-                setVal: (v) => root.brightnessMonitor.setBrightness(v) },
-                { show: showVolume, icon: "volume_up", 
-                getVal: () => Audio.sink.audio.volume, 
-                setVal: (v) => { Audio.sink.audio.volume = v } },
-                { show: showMic, icon: "mic", 
-                getVal: () => Audio.source.audio.volume, 
-                setVal: (v) => { Audio.source.audio.volume = v } },
-                { show: showGamma, icon: "light_mode",  secondaryIcon: "wb_twilight",
-                getVal: () => Hyprsunset.gamma === 100 ? 0.3 + root.brightnessMonitor?.brightness * 0.7 : (Hyprsunset.gamma - Hyprsunset.gammaLowerLimit) / (100 - Hyprsunset.gammaLowerLimit) * 0.3,
-                setVal: (v) => {
-                    if (v >= 0.3) {
-                        // 0.3 - 1.0 brightness
-                        root.brightnessMonitor.setBrightness((v - 0.3) / 0.7);
-                        if (Hyprsunset.gamma !== 100) {
-                            Hyprsunset.setGamma(100);
-                        }
-                    } else {
-                        // 0 - 0.3 gamma
-                        if (root.brightnessMonitor.brightness !== 0) {
-                            root.brightnessMonitor.setBrightness(0);
-                        }
-                        Hyprsunset.setGamma((v / 0.3 * (100 - Hyprsunset.gammaLowerLimit) + Hyprsunset.gammaLowerLimit));
-                    }
-                } }
-            ]
+            id: rowsRepeater
+            model: ScriptModel {
+                values: Array(root.sliderRows.length)
+            }
+            delegate: RowLayout {
+                id: sliderRow
+                required property int index
+                spacing: root.spacing
+                property list<var> rowData: root.sliderRows[index]
 
-            QuickSlider {
-                required property var modelData
-                Layout.fillWidth: true
-                visible: modelData.show
-                materialSymbol: modelData.icon
-                secondaryMaterialSymbol: modelData?.secondaryIcon ?? "" 
-                value: modelData.getVal()
-                onMoved: modelData.setVal(value)
+                Repeater {
+                    model: ScriptModel {
+                        values: sliderRow?.rowData ?? []
+                    }
+                    delegate: QuickSliderTile {
+                        required property int index
+                        required property var modelData
+                        sliderIndex: modelData.index
+                        editMode: root.editMode
+                    }
+                }
             }
         }
     }
 
-    component QuickSlider: StyledSlider { 
+    component QuickSliderTile: Rectangle {
+        id: tile
+        property int sliderIndex: -1
+        property bool editMode: false
+        property var modelData
+
+        readonly property real mySize: root.sliderSize(tile.sliderIndex)
+        width: root.baseCellWidth * tile.mySize + root.spacing * (tile.mySize - 1)
+        height: root.baseCellHeight
+        radius: Appearance.rounding.normal
+        color: Appearance.colors.colLayer2
+
+        Behavior on width {
+            animation: Appearance.animation.elementMove.numberAnimation.createObject(this)
+        }
+
+        QuickSlider {
+            anchors {
+                left: parent.left
+                right: parent.right
+                leftMargin: 8
+                rightMargin: 8
+                verticalCenter: parent.verticalCenter
+            }
+            materialSymbol: tile.modelData.icon
+            secondaryMaterialSymbol: tile.modelData?.secondaryIcon ?? ""
+            value: tile.modelData.getVal()
+            onMoved: tile.modelData.setVal(value)
+        }
+
+        MouseArea { // Blocking MouseArea for edit interactions
+            visible: tile.editMode
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            hoverEnabled: true
+            acceptedButtons: Qt.AllButtons
+
+            onReleased: (event) => {
+                if (event.button === Qt.LeftButton)
+                    root.toggleSliderEnabled(tile.sliderIndex);
+            }
+            onPressed: (event) => {
+                if (event.button === Qt.RightButton) root.toggleSliderSize(tile.sliderIndex);
+            }
+            onPressAndHold: root.toggleSliderSize(tile.sliderIndex)
+        }
+    }
+
+    component QuickSlider: StyledSlider {
         id: quickSlider
         required property string materialSymbol
         property string secondaryMaterialSymbol
         configuration: StyledSlider.Configuration.M
         stopIndicatorValues: []
         dividerValues: secondaryMaterialSymbol.length > 0 ? [secondaryIcon.iconLocation] : []
-        
+
         MaterialSymbol {
             id: icon
             property bool nearFull: quickSlider.value >= 0.82

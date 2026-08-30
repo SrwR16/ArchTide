@@ -790,6 +790,11 @@ Singleton {
                     property bool showGamma: true
                     property bool showVolume: true
                     property bool showBrightness: false // gamma setting also works for brightness
+                    property int columns: 2
+                    property int brightnessSize: 2 // 1 = half width, 2 = full width
+                    property int volumeSize: 2
+                    property int micSize: 2
+                    property int gammaSize: 2
                 }
             }
 
