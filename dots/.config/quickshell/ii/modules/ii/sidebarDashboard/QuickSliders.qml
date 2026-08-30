@@ -163,8 +163,6 @@ Rectangle {
                 Repeater {
                     model: sliderRow.rowData
                     delegate: QuickSliderTile {
-                        required property int index
-                        required property var modelData
                         sliderIndex: modelData.index
                         editMode: root.editMode
                     }
@@ -175,9 +173,9 @@ Rectangle {
 
     component QuickSliderTile: Rectangle {
         id: tile
-        property int sliderIndex: -1
-        property bool editMode: false
-        property var modelData
+        required property int sliderIndex
+        required property bool editMode
+        required property var modelData
 
         readonly property real mySize: root.sliderSize(tile.sliderIndex)
         width: root.baseCellWidth * tile.mySize + root.spacing * (tile.mySize - 1)
@@ -197,10 +195,9 @@ Rectangle {
                 rightMargin: 8
                 verticalCenter: parent.verticalCenter
             }
-            materialSymbol: tile.modelData.icon
-            secondaryMaterialSymbol: tile.modelData?.secondaryIcon ?? ""
-            value: tile.modelData.getVal()
-            onMoved: tile.modelData.setVal(value)
+            sliderData: modelData
+            materialSymbol: modelData.icon
+            secondaryMaterialSymbol: modelData?.secondaryIcon ?? ""
         }
 
         MouseArea { // Blocking MouseArea for edit interactions
@@ -225,9 +222,12 @@ Rectangle {
         id: quickSlider
         required property string materialSymbol
         property string secondaryMaterialSymbol
+        property var sliderData
         configuration: StyledSlider.Configuration.M
         stopIndicatorValues: []
         dividerValues: secondaryMaterialSymbol.length > 0 ? [secondaryIcon.iconLocation] : []
+        value: sliderData ? sliderData.getVal() : 0
+        onMoved: sliderData && sliderData.setVal(value)
 
         MaterialSymbol {
             id: icon
