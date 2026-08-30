@@ -158,12 +158,10 @@ Rectangle {
                 id: sliderRow
                 required property int index
                 spacing: root.spacing
-                property list<var> rowData: root.sliderRows[index]
+                property var rowData: root.sliderRows[index]
 
                 Repeater {
-                    model: ScriptModel {
-                        values: sliderRow?.rowData ?? []
-                    }
+                    model: sliderRow.rowData
                     delegate: QuickSliderTile {
                         required property int index
                         required property var modelData
