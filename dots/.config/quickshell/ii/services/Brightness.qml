@@ -28,12 +28,6 @@ Singleton {
     }
 
     function increaseBrightness(): void {
-        // if gamma is not yet 100, first increase gamma
-        if (Hyprsunset.gamma !== 100) {
-            Hyprsunset.setGamma(Hyprsunset.gamma + 5);
-            return;
-        }
-
         const focusedName = Hyprland.focusedMonitor.name;
         const monitor = monitors.find(m => focusedName === m.screen.name);
         if (monitor)
@@ -43,12 +37,8 @@ Singleton {
     function decreaseBrightness(): void {
         const focusedName = Hyprland.focusedMonitor.name;
         const monitor = monitors.find(m => focusedName === m.screen.name);
-        if (monitor && monitor.brightness > 0) 
+        if (monitor)
             monitor.setBrightness(monitor.brightness - 0.05);
-        // if brightness is 0, then decrease gamma
-        else {
-            Hyprsunset.setGamma(Hyprsunset.gamma - 5);
-        }
     }
 
     reloadableId: "brightness"

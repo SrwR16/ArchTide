@@ -226,8 +226,8 @@ Rectangle {
         configuration: StyledSlider.Configuration.M
         stopIndicatorValues: []
         dividerValues: secondaryMaterialSymbol.length > 0 ? [secondaryIcon.iconLocation] : []
-        value: sliderData ? sliderData.getVal() : 0
-        onMoved: sliderData && sliderData.setVal(value)
+        value: sliderData ? Math.max(0, Math.min(1, sliderData.getVal())) : 0
+        onMoved: sliderData && sliderData.setVal(Math.max(0, Math.min(1, value)))
 
         MaterialSymbol {
             id: icon
